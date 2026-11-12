@@ -1,3 +1,5 @@
+import { LESSON_FILE } from '../domain/lessonFormat';
+
 /** Text for the lesson page, its editor and the import dialog. */
 export const lesson = {
   emptyLesson: 'هذا الدرس لا يحتوي على شرائح بعد.',
@@ -42,7 +44,7 @@ export const lesson = {
     step2Help: 'حين يكتب المساعد ملف الدرس في النهاية، انسخي ردّه كاملاً والصقيه في الخانة، أو اختاري الملف إن حفظتِه.',
     pasteLabel: 'ردّ المساعد',
     fileReadError: 'تعذّرت قراءة الملف. جرّبي ملفًا آخر أو الصقي النص.',
-    orFile: 'أو من ملف (.json أو .txt):',
+    orFile: `أو من ملف (${LESSON_FILE.accept.split(',').join(' أو ')}):`,
     step3Title: '٣. استوردي الدرس',
     step3Help: 'سيُفحص الملف ثم يُفتح الدرس لتراجعيه.',
     verseNotice: 'راجعي نصّ الآية في المصحف قبل نشر الدرس. تُفتح الدروس المستوردة غير منشورة ليتسنّى لك مراجعتها.',

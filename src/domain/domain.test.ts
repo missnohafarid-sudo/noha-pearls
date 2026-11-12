@@ -7,7 +7,7 @@ import { CardReadStabilizer, choiceFromCorners, presenceReadings, type Point } f
 import { toAsciiDigits } from './digits';
 import { removeOption } from './choices';
 import { isMoveKey, listKeyEffect, movedIndex, typeaheadIndex } from './listNavigation';
-import { exportLesson, importLesson } from './lessonFormat';
+import { exportLesson, importLesson, lessonFileText } from './lessonFormat';
 import { addSlide, createLesson, indexAfterRemoval, moveSlide, removeSlide, slideHasProblem, updateSlide } from './lessonOps';
 import { isHttpsUrl, MEDIA_CHOICES, MEDIA_TYPES, mediaLink, mediaView, steppedZoom } from './media';
 import type { Answer, AttendedRoster, ClassRecord, ClassRoster, Reward, ChoiceSlide, Group, Lesson, MediaSlide, Participant, SchoolClass, Session, Student, Teacher, TextSlide } from './models';
@@ -105,6 +105,18 @@ describe('lesson file', () => {
     if (!result.ok) return;
     expect(result.lesson.slides.map(({ id: _id, ...rest }) => rest)).toEqual(lesson.slides.map(({ id: _id, ...rest }) => rest));
     expect(result.lesson.published).toBe(false);
+  });
+
+  it('keeps a lesson as a fenced block and nothing else, and reads it back whole, braces in its title included', () => {
+    const braced = { ...lesson, title: 'مجموعة {أ} و{ب}' };
+    const text = lessonFileText(braced);
+    expect(text.startsWith('```json\n{')).toBe(true);
+    expect(text.endsWith('}\n```\n')).toBe(true);
+    const result = importLesson(text);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.lesson.title).toBe(braced.title);
+    expect(result.lesson.slides.map(({ id: _id, ...rest }) => rest)).toEqual(lesson.slides.map(({ id: _id, ...rest }) => rest));
   });
 
   it('reads a file wrapped in chat prose and a code fence', () => {

@@ -1,4 +1,5 @@
 import type { Lesson, Slide } from '../../domain/models';
+import { LESSON_FILE } from '../../domain/lessonFormat';
 import { addSlide, indexAfterRemoval, moveSlide, normalizeSlide, removeSlide, slideHasProblem, updateSlide } from '../../domain/lessonOps';
 import { SLIDE_KIND_NAMES } from '../../domain/slideKinds';
 import { t } from '../../i18n';
@@ -48,7 +49,7 @@ function LessonMetaPanel({ lesson, save, attempt }: { lesson: Lesson; save: Save
         <SchemaForm fields={META_FIELDS} value={meta} resetKey={lesson.id} onChange={(next) => void save({ ...lesson, ...next })} />
         {live && live.length > 0 && <p className="notice">{tl.runningClasses(live.length)}</p>}
         <StartForm lessonId={lesson.id} />
-        <button type="button" className="btn" onClick={() => downloadText(`${lesson.title || tl.untitledFile}.json`, lessons.exportToText(lesson), 'application/json')}>
+        <button type="button" className="btn" onClick={() => downloadText(`${lesson.title || tl.untitledFile}.${LESSON_FILE.extension}`, lessons.exportToText(lesson), LESSON_FILE.mimeType)}>
           {tl.export}
         </button>
         <ConfirmButton onConfirm={() => void remove()}>{tl.delete}</ConfirmButton>

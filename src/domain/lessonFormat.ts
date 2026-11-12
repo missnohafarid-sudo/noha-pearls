@@ -21,6 +21,17 @@ export interface ImportIssue {
 
 export type ImportResult = { ok: true; lesson: Lesson } | { ok: false; issues: ImportIssue[] };
 
+/** The file a lesson is kept in, and the kinds of file the import offers to read. */
+export const LESSON_FILE = { extension: 'md', mimeType: 'text/markdown', accept: '.md,.json,.txt' } as const;
+
+/**
+ * The lesson as a file to keep or hand to an assistant: the lesson object in a fenced block and nothing else.
+ * No free text sits beside it, because the reader takes the outermost braces and a brace in a title line would mislead it.
+ */
+export function lessonFileText(lesson: Lesson): string {
+  return `\`\`\`json\n${exportLesson(lesson)}\n\`\`\`\n`;
+}
+
 export function exportLesson(lesson: Lesson): string {
   const file = {
     format: LESSON_FORMAT,

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Id } from '../../domain/models';
-import type { ImportIssue } from '../../domain/lessonFormat';
+import { LESSON_FILE, type ImportIssue } from '../../domain/lessonFormat';
 import { t } from '../../i18n';
 import { copyText } from '../common/clipboard';
 import { useAttempt } from '../common/useAttempt';
@@ -89,7 +89,7 @@ export function LessonImportDialog({ folderId, onClose }: { folderId: Id | null;
           />
           <div className="row">
             <span className="muted">{tl.orFile}</span>
-            <FilePicker accept=".json,.txt" onFile={readFile} />
+            <FilePicker accept={LESSON_FILE.accept} onFile={readFile} />
           </div>
           {fileError && <p className="notice notice--bad">{tl.fileReadError}</p>}
         </section>

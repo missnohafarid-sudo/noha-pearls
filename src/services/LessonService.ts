@@ -1,4 +1,4 @@
-import { exportLesson, importLesson, type ImportResult } from '../domain/lessonFormat';
+import { importLesson, lessonFileText, type ImportResult } from '../domain/lessonFormat';
 import { createLesson } from '../domain/lessonOps';
 import type { Id, Lesson } from '../domain/models';
 import { canRemoveLesson } from '../domain/sessions';
@@ -77,6 +77,6 @@ export class LessonService implements LessonMover {
   }
 
   exportToText(lesson: Lesson): string {
-    return exportLesson(lesson);
+    return lessonFileText(lesson);
   }
 }

@@ -37,6 +37,13 @@ export const common = {
   interactionsOf: ofTotal,
   /** "subject · grade", skipping whichever is empty. */
   subjectGrade: (subject: string, grade: string) => [subject, grade].filter(Boolean).join(' · '),
+  date: {
+    day: 'اليوم',
+    month: 'الشهر',
+    year: 'السنة',
+    /** What a screen reader says for one part of a date: whose date, then which part. */
+    part: (group: string, part: string) => `${group}: ${part}`,
+  },
   fullscreen: 'ملء الشاشة',
   exitFullscreen: 'إنهاء ملء الشاشة',
   scope: {

@@ -10,6 +10,7 @@ import { lessonEditingSteps } from './steps/lessonEditing';
 import { liveClassSteps } from './steps/liveClass';
 import { mediaSlidesSteps } from './steps/mediaSlides';
 import { regroupingSteps } from './steps/regrouping';
+import { retentionSteps } from './steps/retention';
 import { rosterImportSteps } from './steps/rosterImport';
 import { scanningSteps } from './steps/scanning';
 import { scoringSteps } from './steps/scoring';
@@ -53,6 +54,7 @@ describe('walkthrough', () => {
   rosterImportSteps(world);
   endOfClassSteps(world);
   standingsSteps(world);
+  retentionSteps(world);
 
   it('no page raised an error', () => {
     expect(world.errors).toEqual([]);

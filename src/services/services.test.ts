@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { seatAnswerer } from '../domain/admission';
 import { newId } from '../domain/ids';
-import { inPeriod, periodAt } from '../domain/periods';
-import type { ChoiceSlide, Id, Lesson, Student, TextSlide } from '../domain/models';
+import { dateOf, inPeriod, periodAt, SCHOOL_UTC_OFFSET_MS } from '../domain/periods';
+import type { Answer, ChoiceSlide, Id, Lesson, Reward, Student, TextSlide } from '../domain/models';
 import { MAX_MESSAGE_LENGTH } from '../domain/text';
 import type { Caller } from '../ports/caller';
-import type { DocumentStore } from '../ports/store';
+import { SCHOOL_YEAR_CLEARED_COLLECTIONS, type CollectionName, type Collections, type DocumentStore, type Unsubscribe, type Where } from '../ports/store';
 import { LocalChangeBus, LocalDocumentStore } from '../infrastructure/LocalDocumentStore';
 import { PrototypeAuthGateway, sha256Hex } from '../infrastructure/PrototypeAuthGateway';
 import { totpCode } from '../infrastructure/totp';
@@ -18,6 +18,7 @@ import { FolderError } from './requireFolder';
 import { LessonError, LessonService } from './LessonService';
 import { ParticipantService } from './ParticipantService';
 import { RecordService } from './RecordService';
+import { RetentionError, RetentionService } from './RetentionService';
 import { RewardService } from './RewardService';
 import { NameError } from './requireName';
 import { RosterError, RosterService } from './RosterService';
@@ -63,8 +64,12 @@ async function setup() {
   const teacherDevice = new ParticipantService(store, callerOf(auth), sessionRoster);
   const records = new RecordService(store, caller, sessionRoster, roster, teacherDevice);
   const lessons = new LessonService(store, caller);
+  const clock = { now: NOW };
   return {
     store,
+    caller,
+    clock,
+    retention: new RetentionService(store, caller, () => clock.now),
     auth,
     admission: new AdmissionService(store, caller, sessionRoster, sessionRoster),
     sessions: new SessionService(store, caller, roster, sessionRoster, records),
@@ -1457,5 +1462,362 @@ describe('lesson folders', () => {
     await folders.rename(child.id, 'renamed');
     await folders.remove(a.id);
     expect(await store.get('folders', child.id)).toMatchObject({ name: 'renamed', parentId: null });
+  });
+});
+
+describe('keeping and clearing class data', () => {
+  let ctx: Awaited<ReturnType<typeof setup>>;
+  const DAY = 24 * 60 * 60 * 1000;
+  const noon = (year: number, month: number, day: number) => Date.UTC(year, month - 1, day, 12) - SCHOOL_UTC_OFFSET_MS;
+
+  beforeEach(async () => {
+    ctx = await setup();
+    await ctx.auth.signIn({ password: 'secret', code: await validCode() });
+    await ctx.store.put('lessons', lesson);
+    await ctx.store.put('folders', { id: 'f1', name: 'مجلد', parentId: null, order: 1 });
+    await ctx.store.put('classes', { id: 'c1', name: '11-3', order: 1 });
+    await ctx.store.put('teachers', { id: 't1', name: 'أ. هدى', order: 1 });
+    await ctx.store.put('site', { id: 'site', schoolName: 'م', title: 'ع', tagline: 'ت', intro: 'م' });
+    await ctx.store.put('groups', { id: 'g1', classId: 'c1', name: 'أ', color: '#000', order: 1 });
+    await ctx.store.put('students', { id: 's1', name: 'سلمى أحمد', cardNumber: 1, groupId: 'g1' });
+  });
+
+  /** An ended class with an answer, a heart, a seat, a kept record and its roster copy, started at `startedAt`. */
+  const endedClass = async (startedAt: number) => {
+    const session = (await ctx.sessions.start('l1', 'c1', 't1'))!;
+    const device = ctx.device(`d-${session.id}`);
+    const seat = (await device.participants.join(session.id, 'g1', 's1'))!;
+    await ctx.admission.admit(seat.id, 's1');
+    await ctx.answers.submitForStudent(session.id, 'q1', 's1', 0, 'manual');
+    await ctx.sessions.end(session.id);
+    await ctx.rewards.giveAsTeacher(session.id, { kind: 'student', id: 's1' });
+    await ctx.store.update('sessions', session.id, (current) => ({ ...current, startedAt }));
+    await ctx.store.update('records', session.id, (current) => ({ ...current, startedAt }));
+    return session.id;
+  };
+  const childrenOf = async (sessionId: string) => [
+    await ctx.store.get('sessions', sessionId),
+    await ctx.store.get('records', sessionId),
+    await ctx.store.get('rosters', sessionId),
+    ...(await ctx.store.list('participants', { sessionId })),
+    ...(await ctx.store.list('answers', { sessionId })),
+    ...(await ctx.store.list('rewards', { sessionId })),
+  ].filter((doc) => doc !== null);
+  const day = (at: number) => dateOf(at);
+  const kept = async () => ({
+    lessons: await ctx.store.list('lessons'),
+    folders: await ctx.store.list('folders'),
+    teachers: await ctx.store.list('teachers'),
+    site: await ctx.store.list('site'),
+  });
+
+  /** A store that tells each removal before it happens, so a test can interrupt a clearing midway. */
+  class ObservedStore implements DocumentStore {
+    removes = 0;
+
+    constructor(
+      private readonly inner: DocumentStore,
+      private readonly onRemove: (nth: number) => Promise<void> | void = () => undefined,
+    ) {}
+
+    get<C extends CollectionName>(collection: C, id: Id) {
+      return this.inner.get(collection, id);
+    }
+
+    list<C extends CollectionName>(collection: C, where?: Where<Collections[C]>) {
+      return this.inner.list(collection, where);
+    }
+
+    put<C extends CollectionName>(collection: C, doc: Collections[C]) {
+      return this.inner.put(collection, doc);
+    }
+
+    update<C extends CollectionName>(collection: C, id: Id, change: (current: Collections[C]) => Collections[C]) {
+      return this.inner.update(collection, id, change);
+    }
+
+    async remove(collection: CollectionName, id: Id) {
+      this.removes += 1;
+      await this.onRemove(this.removes);
+      await this.inner.remove(collection, id);
+    }
+
+    watch<C extends CollectionName>(collection: C, where: Where<Collections[C]>, listener: (docs: Collections[C][]) => void): Unsubscribe {
+      return this.inner.watch(collection, where, listener);
+    }
+  }
+  const retentionOver = (store: DocumentStore) => new RetentionService(store, ctx.caller, () => ctx.clock.now);
+  const range = { from: { year: 2026, month: 5, day: 10 }, to: { year: 2026, month: 5, day: 12 } };
+
+  it('refuses a signed-out caller every method', async () => {
+    await ctx.auth.signOut();
+    const today = day(NOW);
+    await expect(ctx.retention.setYearEnd({ month: 6, day: 30 })).rejects.toBeInstanceOf(NotAuthorizedError);
+    await expect(ctx.retention.classesToRemove('c1', { from: today, to: today })).rejects.toBeInstanceOf(NotAuthorizedError);
+    await expect(ctx.retention.removeClasses('c1', { from: today, to: today }, [])).rejects.toBeInstanceOf(NotAuthorizedError);
+    await expect(ctx.retention.clearIfDue()).rejects.toBeInstanceOf(NotAuthorizedError);
+    await expect(ctx.retention.rangeLimits()).rejects.toBeInstanceOf(NotAuthorizedError);
+    expect(() => ctx.retention.watchSettings(() => undefined)).toThrow(NotAuthorizedError);
+    expect(() => ctx.retention.watchNotices(() => undefined)).toThrow(NotAuthorizedError);
+  });
+
+  it('refuses an impossible range and an impossible day', async () => {
+    const bad = { from: { year: 2026, month: 5, day: 3 }, to: { year: 2026, month: 5, day: 2 } };
+    await expect(ctx.retention.classesToRemove('c1', bad)).rejects.toMatchObject({ code: 'bad-range' });
+    await expect(ctx.retention.removeClasses('c1', { from: { year: 2026, month: 2, day: 30 }, to: bad.from }, [])).rejects.toBeInstanceOf(RetentionError);
+    await expect(ctx.retention.setYearEnd({ month: 4, day: 31 })).rejects.toMatchObject({ code: 'bad-year-end' });
+    expect(await ctx.store.list('retention')).toEqual([]);
+  });
+
+  it('removes only the ended classes of the class list inside the range, with everything they kept', async () => {
+    const inside = await endedClass(noon(2026, 5, 11));
+    const before = await endedClass(noon(2026, 5, 9));
+    const after = await endedClass(noon(2026, 5, 13));
+    const otherList = await endedClass(noon(2026, 5, 11));
+    await ctx.store.put('classes', { id: 'c2', name: 'أخرى', order: 2 });
+    await ctx.store.update('sessions', otherList, (current) => ({ ...current, classId: 'c2' }));
+    const running = (await ctx.sessions.start('l1', 'c1', 't1'))!;
+    await ctx.store.update('sessions', running.id, (current) => ({ ...current, startedAt: noon(2026, 5, 11) }));
+    const outsideBefore = [before, after, otherList, running.id].map((id) => childrenOf(id));
+
+    const ids = await ctx.retention.classesToRemove('c1', range);
+    expect(ids).toEqual([inside]);
+    expect(await ctx.retention.removeClasses('c1', range, ids)).toBe(1);
+
+    expect(await childrenOf(inside)).toEqual([]);
+    expect(await Promise.all([before, after, otherList, running.id].map((id) => childrenOf(id)))).toEqual(await Promise.all(outsideBefore));
+    expect(await ctx.retention.classesToRemove('c1', range)).toEqual([]);
+    expect(await ctx.retention.classesToRemove('c2', range)).toEqual([otherList]);
+    expect(await kept()).toMatchObject({ lessons: [lesson], folders: [expect.anything()], teachers: [expect.anything()] });
+    expect(await ctx.store.list('classes')).toHaveLength(2);
+    expect(await ctx.store.list('students')).toHaveLength(1);
+  });
+
+  it('removes exactly the classes that were counted, and skips any id that no longer matches', async () => {
+    const counted = await endedClass(noon(2026, 5, 11));
+    const [mine] = await ctx.retention.classesToRemove('c1', range);
+    expect(mine).toBe(counted);
+    const late = await endedClass(noon(2026, 5, 12));
+    const otherList = await endedClass(noon(2026, 5, 11));
+    await ctx.store.put('classes', { id: 'c2', name: 'أخرى', order: 2 });
+    await ctx.store.update('sessions', otherList, (current) => ({ ...current, classId: 'c2' }));
+    const outside = await endedClass(noon(2026, 6, 1));
+    const restarted = await endedClass(noon(2026, 5, 10));
+    await ctx.store.update('sessions', restarted, (current) => ({ ...current, status: 'live' }));
+    const keptBefore = await Promise.all([late, otherList, outside, restarted].map((id) => childrenOf(id)));
+
+    expect(await ctx.retention.removeClasses('c1', range, [counted, 'nobody', otherList, outside, restarted, counted])).toBe(1);
+
+    expect(await childrenOf(counted)).toEqual([]);
+    expect(await Promise.all([late, otherList, outside, restarted].map((id) => childrenOf(id)))).toEqual(keptBefore);
+    expect(await ctx.retention.removeClasses('c1', range, [counted])).toBe(0);
+  });
+
+  it('removes nothing when the range holds no class', async () => {
+    const id = await endedClass(noon(2026, 5, 11));
+    const before = await childrenOf(id);
+    const other = { from: { year: 2025, month: 1, day: 1 }, to: { year: 2025, month: 1, day: 2 } };
+    expect(await ctx.retention.classesToRemove('c1', other)).toEqual([]);
+    expect(await ctx.retention.removeClasses('c1', other, [id])).toBe(0);
+    expect(await childrenOf(id)).toEqual(before);
+  });
+
+  it('no longer counts a removed class in the cumulative results', async () => {
+    const gone = await endedClass(noon(2026, 5, 11));
+    await endedClass(noon(2026, 5, 20));
+    const month = periodAt('month', noon(2026, 5, 11));
+    expect((await ctx.records.standingsOf('c1', month)).classes).toBe(2);
+    const that = { from: day(noon(2026, 5, 11)), to: day(noon(2026, 5, 11)) };
+    await ctx.retention.removeClasses('c1', that, await ctx.retention.classesToRemove('c1', that));
+    expect(await ctx.store.get('sessions', gone)).toBeNull();
+    const result = await ctx.records.standingsOf('c1', month);
+    expect(result.classes).toBe(1);
+    expect(result.students[0]).toMatchObject({ classes: 1, points: 1, hearts: 1 });
+  });
+
+  it('knows today, the limit of the dates to choose', async () => {
+    expect(await ctx.retention.rangeLimits()).toEqual({ today: day(NOW) });
+  });
+
+  it('keeps the date of the end of the school year, and tells when it comes close', async () => {
+    const seen: unknown[] = [];
+    const early: unknown[] = [];
+    const late: unknown[] = [];
+    const stop = ctx.retention.watchSettings((settings) => seen.push(settings?.yearEnd));
+    const stopEarly = ctx.retention.watchNotices((notices) => early.push(notices));
+    const end = dateOf(NOW + 8 * DAY);
+    await ctx.retention.setYearEnd({ month: end.month, day: end.day });
+    ctx.clock.now = NOW + 3 * DAY;
+    const stopLate = ctx.retention.watchNotices((notices) => late.push(notices));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    stop();
+    stopEarly();
+    stopLate();
+    expect(seen.at(-1)).toEqual({ month: end.month, day: end.day });
+    expect(early.at(-1)).toEqual({ coming: null, done: null });
+    expect(late.at(-1)).toEqual({ coming: end, done: null });
+  });
+
+  describe('at the end of the school year', () => {
+    const june30 = { month: 6, day: 30 };
+    const setOn = async (year: number, month: number, dayOfMonth: number) => {
+      ctx.clock.now = noon(year, month, dayOfMonth);
+      await ctx.retention.setYearEnd(june30);
+    };
+    const clearedCollections = SCHOOL_YEAR_CLEARED_COLLECTIONS;
+    const settings = () => ctx.store.get('retention', 'retention');
+
+    it('does nothing before the date, nor when it is switched off', async () => {
+      await setOn(2026, 1, 10);
+      const id = await endedClass(noon(2026, 2, 1));
+      ctx.clock.now = noon(2026, 6, 30);
+      expect(await ctx.retention.clearIfDue()).toBe(false);
+      expect(await childrenOf(id)).not.toEqual([]);
+      await ctx.retention.setYearEnd(null);
+      ctx.clock.now = noon(2027, 8, 1);
+      expect(await ctx.retention.clearIfDue()).toBe(false);
+      expect(await ctx.store.list('classes')).toHaveLength(1);
+    });
+
+    it('does nothing at all without any settings', async () => {
+      expect(await ctx.retention.clearIfDue()).toBe(false);
+    });
+
+    it('removes every class, running ones too, and every class list, and keeps the rest', async () => {
+      await setOn(2026, 1, 10);
+      const ended = await endedClass(noon(2026, 2, 1));
+      const running = (await ctx.sessions.start('l1', 'c1', 't1'))!;
+      const before = await kept();
+      ctx.clock.now = noon(2026, 7, 1);
+      expect(await ctx.retention.clearIfDue()).toBe(true);
+
+      expect(await childrenOf(ended)).toEqual([]);
+      expect(await childrenOf(running.id)).toEqual([]);
+      for (const collection of clearedCollections) expect(await ctx.store.list(collection)).toEqual([]);
+      expect(await kept()).toEqual(before);
+      expect(await settings()).toEqual({ id: 'retention', yearEnd: june30, yearEndSetAt: noon(2026, 1, 10), lastClearedAt: noon(2026, 7, 1) });
+    });
+
+    it('empties the collections whole, so no stray row survives', async () => {
+      await setOn(2026, 1, 10);
+      const stray: Answer = { id: 'a-stray', sessionId: 'ghost', slideId: 'q1', subject: { kind: 'student', id: 's1' }, value: 0, source: 'manual', at: 1 };
+      const heart: Reward = { id: 'r-stray', sessionId: 'ghost', target: { kind: 'student', id: 's1' }, source: 'teacher', at: 1 };
+      await ctx.store.put('answers', stray);
+      await ctx.store.put('rewards', heart);
+      await ctx.store.put('students', { id: 's-stray', name: 'بلا مجموعة', cardNumber: 9, groupId: 'no-group' });
+      await ctx.store.put('groups', { id: 'g-stray', classId: 'no-class', name: 'ب', color: '#111', order: 2 });
+      const running = (await ctx.sessions.start('l1', 'c1', 't1'))!;
+      ctx.clock.now = noon(2026, 7, 1);
+
+      expect(await ctx.retention.clearIfDue()).toBe(true);
+
+      for (const collection of clearedCollections) expect(await ctx.store.list(collection)).toEqual([]);
+      expect(await ctx.store.get('sessions', running.id)).toBeNull();
+      expect(await ctx.store.list('lessons')).toHaveLength(1);
+      expect(await ctx.store.list('folders')).toHaveLength(1);
+      expect(await ctx.store.list('teachers')).toHaveLength(1);
+      expect(await ctx.store.list('site')).toHaveLength(1);
+    });
+
+    it('leaves the clearing unwritten when it fails midway, and the next call finishes it', async () => {
+      await setOn(2026, 1, 10);
+      await endedClass(noon(2026, 2, 1));
+      await endedClass(noon(2026, 2, 2));
+      ctx.clock.now = noon(2026, 7, 1);
+      const failing = new ObservedStore(ctx.store, (nth) => {
+        if (nth === 7) throw new Error('storage went away');
+      });
+      await expect(retentionOver(failing).clearIfDue()).rejects.toThrow('storage went away');
+      expect((await settings())!.lastClearedAt).toBeNull();
+      expect((await ctx.store.list('sessions')).length + (await ctx.store.list('answers')).length).toBeGreaterThan(0);
+
+      expect(await ctx.retention.clearIfDue()).toBe(true);
+      for (const collection of clearedCollections) expect(await ctx.store.list(collection)).toEqual([]);
+      expect((await settings())!.lastClearedAt).toBe(noon(2026, 7, 1));
+    });
+
+    it('keeps a date set while a clearing is under way, and still records the clearing', async () => {
+      await setOn(2026, 1, 10);
+      await endedClass(noon(2026, 2, 1));
+      ctx.clock.now = noon(2026, 7, 1);
+      const interleaving = new ObservedStore(ctx.store, async (nth) => {
+        if (nth !== 2) return;
+        ctx.clock.now = noon(2026, 7, 1) + 1;
+        await ctx.retention.setYearEnd({ month: 9, day: 1 });
+      });
+      expect(await retentionOver(interleaving).clearIfDue()).toBe(true);
+      expect(await settings()).toEqual({ id: 'retention', yearEnd: { month: 9, day: 1 }, yearEndSetAt: noon(2026, 7, 1) + 1, lastClearedAt: noon(2026, 7, 1) });
+    });
+
+    it('runs once when asked twice at the same time', async () => {
+      await setOn(2026, 1, 10);
+      await endedClass(noon(2026, 2, 1));
+      let total = 0;
+      for (const collection of clearedCollections) total += (await ctx.store.list(collection)).length;
+      ctx.clock.now = noon(2026, 7, 1);
+      const counting = new ObservedStore(ctx.store);
+      const service = retentionOver(counting);
+      expect(await Promise.all([service.clearIfDue(), service.clearIfDue()])).toEqual([true, true]);
+      expect(counting.removes).toBe(total);
+      expect(await service.clearIfDue()).toBe(false);
+    });
+
+    it('creates the settings by choosing a date, and keeps the last clearing when it changes', async () => {
+      await setOn(2026, 1, 10);
+      ctx.clock.now = noon(2026, 7, 1);
+      await ctx.retention.clearIfDue();
+      ctx.clock.now = noon(2026, 8, 1);
+      await ctx.retention.setYearEnd({ month: 8, day: 31 });
+      expect(await settings()).toEqual({ id: 'retention', yearEnd: { month: 8, day: 31 }, yearEndSetAt: noon(2026, 8, 1), lastClearedAt: noon(2026, 7, 1) });
+    });
+
+    it('says when it ran, for the notice period', async () => {
+      await setOn(2026, 1, 10);
+      ctx.clock.now = noon(2026, 7, 1);
+      await ctx.retention.clearIfDue();
+      const notices: unknown[] = [];
+      const stop = ctx.retention.watchNotices((notice) => notices.push(notice));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      ctx.clock.now = noon(2026, 7, 20);
+      await ctx.retention.setYearEnd(june30);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      stop();
+      expect(notices[0]).toEqual({ coming: null, done: day(noon(2026, 7, 1)) });
+      expect(notices.at(-1)).toEqual({ coming: null, done: null });
+    });
+
+    it('does not run again until a year later', async () => {
+      await setOn(2026, 1, 10);
+      ctx.clock.now = noon(2026, 7, 1);
+      expect(await ctx.retention.clearIfDue()).toBe(true);
+      await ctx.store.put('classes', { id: 'c2', name: 'جديدة', order: 1 });
+      ctx.clock.now = noon(2026, 12, 1);
+      expect(await ctx.retention.clearIfDue()).toBe(false);
+      ctx.clock.now = noon(2027, 6, 30);
+      expect(await ctx.retention.clearIfDue()).toBe(false);
+      expect(await ctx.store.list('classes')).toHaveLength(1);
+      ctx.clock.now = noon(2027, 7, 1);
+      expect(await ctx.retention.clearIfDue()).toBe(true);
+      expect(await ctx.store.list('classes')).toEqual([]);
+    });
+
+    it('clears nothing now when the day set has already passed this year', async () => {
+      await endedClass(noon(2026, 2, 1));
+      await setOn(2026, 11, 13);
+      expect(await ctx.retention.clearIfDue()).toBe(false);
+      expect(await ctx.store.list('classes')).toHaveLength(1);
+      ctx.clock.now = noon(2027, 7, 1);
+      expect(await ctx.retention.clearIfDue()).toBe(true);
+    });
+
+    it('waits for next year when the date is set within a week of the day', async () => {
+      await endedClass(noon(2026, 2, 1));
+      await setOn(2026, 6, 28);
+      ctx.clock.now = noon(2026, 7, 1);
+      expect(await ctx.retention.clearIfDue()).toBe(false);
+      expect(await ctx.store.list('classes')).toHaveLength(1);
+      ctx.clock.now = noon(2027, 7, 1);
+      expect(await ctx.retention.clearIfDue()).toBe(true);
+    });
   });
 });

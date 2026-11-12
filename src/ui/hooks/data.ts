@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState, useSyncExternalStore, type DependencyList } from 'react';
 import type { CardCodec } from '../../services/Services';
 import { FolderTree } from '../../domain/folders';
-import type { Answer, ClassRoster, Id, Lesson, LessonFolder, Participant, Reward, SchoolClass, Session, SessionRoster, SiteContent, Teacher } from '../../domain/models';
+import type { Answer, ClassRoster, Id, Lesson, LessonFolder, Participant, Reward, RetentionSettings, SchoolClass, Session, SessionRoster, SiteContent, Teacher } from '../../domain/models';
 import { liveSessions } from '../../domain/sessions';
+import type { ClearingNotices } from '../../services/RetentionService';
 import { useServices } from '../ServicesContext';
 import { useLive } from './useLive';
 
@@ -117,6 +118,20 @@ export function useMyParticipant(sessionId: MaybeId): Participant | null | undef
 export function useKeptRecordCount(classId: MaybeId): number | undefined {
   const { records } = useServices();
   return useLive(classId ? (listener) => records.watchKeptCount(classId, listener) : null, [records, classId]);
+}
+
+/** When students' data is cleared; null when none were ever saved. Admin only: nothing is asked of anyone else. */
+export function useRetentionSettings(): RetentionSettings | null | undefined {
+  const { retention } = useServices();
+  const admin = useAdmin();
+  return useLive(admin ? (listener) => retention.watchSettings(listener) : null, [retention, admin]);
+}
+
+/** The clearing of students' data that is coming within a week, and the one that ran within the last week. Admin only. */
+export function useClearingNotices(): ClearingNotices | undefined {
+  const { retention } = useServices();
+  const admin = useAdmin();
+  return useLive(admin ? (listener) => retention.watchNotices(listener) : null, [retention, admin]);
 }
 
 /**

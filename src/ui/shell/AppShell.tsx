@@ -6,6 +6,7 @@ import { RouteLink } from '../routing/useRoute';
 import { useServices } from '../ServicesContext';
 import { PanelHostContext } from './AdminPanel';
 import { AdminUnlock } from './AdminUnlock';
+import { useClearWhenDue } from './useClearWhenDue';
 import './shell.css';
 
 type NavName = keyof typeof t.shell.nav;
@@ -24,6 +25,7 @@ export function AppShell({ route, children }: { route: Route; children: ReactNod
   const admin = useAdmin();
   const site = useSite();
   const { auth } = useServices();
+  useClearWhenDue();
   const [signingIn, setSigningIn] = useState(false);
   const [panelHost, setPanelHost] = useState<HTMLElement | null>(null);
   const nav = useRef<HTMLElement>(null);

@@ -7,6 +7,7 @@ import { FolderService } from './FolderService';
 import { LessonService } from './LessonService';
 import { ParticipantService } from './ParticipantService';
 import { RecordService } from './RecordService';
+import { RetentionService } from './RetentionService';
 import { RewardService } from './RewardService';
 import { RosterService } from './RosterService';
 import type { DataServices } from './Services';
@@ -34,5 +35,6 @@ export function createDataServices(store: DocumentStore, caller: Caller): DataSe
     answers: new AnswerService(store, caller, participants, sessionRoster, sessionRoster),
     rewards: new RewardService(store, caller, participants, sessionRoster),
     records,
+    retention: new RetentionService(store, caller),
   };
 }

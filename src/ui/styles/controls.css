@@ -53,6 +53,7 @@
 }
 
 .confirm-note {
+  display: block;
   flex-basis: 100%;
 }
 

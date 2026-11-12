@@ -3,11 +3,12 @@ import type { Id, SchoolClass } from '../../domain/models';
 import { shiftPeriod, type PeriodKind } from '../../domain/periods';
 import { t } from '../../i18n';
 import { Loading } from '../common/PageState';
-import { useAsked } from '../hooks/data';
+import { useAsked, useKeptRecordCount } from '../hooks/data';
 import { classRoute } from '../routing/routes';
 import { RouteLink } from '../routing/useRoute';
 import { ClassSwitcher } from '../roster/ClassSwitcher';
 import { useShownClass } from '../roster/useShownClass';
+import { SchoolYearSection } from '../retention/SchoolYearSection';
 import { PeriodKindButtons } from '../standings/PeriodKindButtons';
 import { StandingsTables } from '../standings/StandingsTables';
 import { useServices } from '../ServicesContext';
@@ -38,7 +39,7 @@ export function StandingsPage({ classId }: { classId: Id | undefined }) {
           }}
           onBack={setBack}
         />
-      ) : classId === undefined ? (
+      ) : classId === undefined || classes.length === 0 ? (
         <div className="stack stack--tight">
           <p className="muted">{ts.noClass}</p>
           <div className="row">
@@ -50,6 +51,7 @@ export function StandingsPage({ classId }: { classId: Id | undefined }) {
       ) : (
         <p className="muted">{t.roster.classNotFound}</p>
       )}
+      <SchoolYearSection schoolClass={shown} />
     </div>
   );
 }
@@ -67,7 +69,8 @@ function ClassStandings({ schoolClass, kind, back, onKind, onBack }: PeriodProps
   const { records } = useServices();
   const current = useMemo(() => records.currentPeriod(kind), [records, kind]);
   const period = shiftPeriod(current, -back);
-  const found = useAsked(() => records.standingsOf(schoolClass.id, period), [records, schoolClass.id, period.kind, period.start]);
+  const kept = useKeptRecordCount(schoolClass.id);
+  const found = useAsked(() => records.standingsOf(schoolClass.id, period), [records, schoolClass.id, period.kind, period.start, kept]);
 
   return (
     <>

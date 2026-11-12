@@ -31,3 +31,14 @@
   align-items: center;
   margin-block-end: 6px;
 }
+
+.date-field {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.date-field > .select {
+  inline-size: auto;
+  min-inline-size: 5.5rem;
+}

@@ -175,3 +175,14 @@ export interface ClassRecord {
   students: StudentRecord[];
   groups: GroupRecord[];
 }
+
+/** When students' data is cleared at the end of the school year. One document, id 'retention'. */
+export interface RetentionSettings {
+  id: 'retention';
+  /** The last day of the school year, every year; null switches the yearly clearing off. */
+  yearEnd: { month: number; day: number } | null;
+  /** When `yearEnd` was last set: a clearing only happens at an end of year that comes well after this. */
+  yearEndSetAt: number;
+  /** When the last yearly clearing ran; null if never. */
+  lastClearedAt: number | null;
+}

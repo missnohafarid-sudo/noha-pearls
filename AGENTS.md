@@ -69,6 +69,7 @@ A teacher. She is not a programmer and cannot judge your code.
 | Class list format | `domain/rosterFormat.ts` |
 | The kept record of an ended class | `domain/records.ts` |
 | Weeks and months on the school's clock | `domain/periods.ts` |
+| What class data is cleared and when: a date range, the end of the school year | `domain/retention.ts` |
 | Cumulative results of a class list over a period, and what anyone may see of them: group totals, one student's own line | `domain/standings.ts` |
 | Who may give a heart (the teacher's, live or ended; a student's, live only) | `domain/rewards.ts` |
 | Who is let into a class, one device per name, and where a returning device lands | `domain/admission.ts` |
@@ -84,6 +85,7 @@ A teacher. She is not a programmer and cannot judge your code.
 | Addresses and links | `ui/routing/routes.ts` |
 | Whether the edit panel shows | `ui/shell/AdminPanel.tsx` |
 | Settings (password hash, authenticator key) | `app/config.ts` |
+| When students' data is cleared at the end of the school year (the setting) | `services/RetentionService.ts`, edited on the results page |
 | Colours, fonts, radii | `ui/styles/tokens.css` |
 | Shared controls | `ui/styles/base.css` |
 | Our own form widgets (drop-down, check box, file picker, number stepper) and floating layers: component and look | `ui/forms/` (`Select`, `Checkbox`, `FilePicker`, `Stepper`), `ui/common/useAnchoredLayer.ts`, `ui/styles/widgets.css` |

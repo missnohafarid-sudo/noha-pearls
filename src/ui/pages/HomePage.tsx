@@ -9,6 +9,7 @@ import { SchemaForm } from '../forms/SchemaForm';
 import { useAdmin, useLiveSessions, useSite, useTeachers } from '../hooks/data';
 import { JoinByCode } from '../join/JoinByCode';
 import { LessonImportDialog } from '../lesson/LessonImportDialog';
+import { ClearingNotice } from '../retention/ClearingNotice';
 import { ManagedLibrary } from '../library/ManagedLibrary';
 import { pathText } from '../library/place';
 import { PublicLibrary } from '../library/PublicLibrary';
@@ -128,6 +129,7 @@ export function HomePage() {
         <img className="hero__poster" src={logoRose} alt={site.title} width={1296} height={830} />
       </header>
       <AdminLiveNotice />
+      <ClearingNotice />
       <section className="stack">
         <h2>{th.lessonsTitle}</h2>
         {view ? <Library view={view} openId={openId} /> : <Loading />}

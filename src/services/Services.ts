@@ -7,6 +7,7 @@ import type { FolderService } from './FolderService';
 import type { LessonService } from './LessonService';
 import type { ParticipantService } from './ParticipantService';
 import type { RecordService } from './RecordService';
+import type { RetentionService } from './RetentionService';
 import type { RewardService } from './RewardService';
 import type { RosterService } from './RosterService';
 import type { SessionRosterService } from './SessionRosterService';
@@ -33,6 +34,7 @@ export interface DataServices {
   answers: Api<AnswerService>;
   rewards: Api<RewardService>;
   records: Api<RecordService>;
+  retention: Api<RetentionService>;
 }
 
 /** Everything the interface may ask of the application. The composition root builds one. */

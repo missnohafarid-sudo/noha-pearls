@@ -1,22 +1,27 @@
 import { useState } from 'react';
 import { onlyOne } from '../../domain/lists';
+import type { Id } from '../../domain/models';
 import { t } from '../../i18n';
-import { useLessons } from '../hooks/data';
+import { LessonPicker } from '../library/LessonPicker';
+import { useLibraryView } from '../library/useLibraryView';
 import { Loading } from '../common/PageState';
 import { RouteLink } from '../routing/useRoute';
 import { StartForm } from './StartForm';
 
 /** Pick a lesson, then a class and a teacher, and start a class. */
 export function StartSession() {
-  const lessons = useLessons();
+  const view = useLibraryView('pick');
   const [pickedId, setPickedId] = useState('');
-  if (!lessons) return <Loading />;
-  const chosen = onlyOne(lessons) ?? lessons.find((lesson) => lesson.id === pickedId) ?? null;
+  const [openedId, setOpenedId] = useState<Id | null | undefined>(undefined);
+  if (!view) return <Loading />;
+  const only = onlyOne(view.lessons);
+  const chosen = only ?? view.lessons.find((lesson) => lesson.id === pickedId) ?? null;
+  const openId = view.folderToShow(openedId === undefined ? (only ? view.tree.folderOf(only) : null) : openedId);
 
   return (
     <section className="stack">
       <h2 className="card__title">{t.session.startTitle}</h2>
-      {lessons.length === 0 ? (
+      {view.lessons.length === 0 ? (
         <div className="stack">
           <p className="muted">{t.session.noLessons}</p>
           <RouteLink to={{ name: 'home' }} className="btn btn--primary">
@@ -25,17 +30,7 @@ export function StartSession() {
         </div>
       ) : (
         <>
-          <div className="grid">
-            {lessons.map((lesson) => (
-              <div key={lesson.id} className="card stack">
-                <h2 className="card__title">{lesson.title}</h2>
-                <p className="muted">{[t.common.subjectGrade(lesson.subject, lesson.grade), t.common.slideCount(lesson.slides.length)].filter(Boolean).join(' · ')}</p>
-                <button type="button" className="btn" aria-pressed={chosen?.id === lesson.id} onClick={() => setPickedId(lesson.id)}>
-                  {t.session.pickLesson}
-                </button>
-              </div>
-            ))}
-          </div>
+          <LessonPicker view={view} openId={openId} onOpen={setOpenedId} chosenId={chosen?.id} onPick={setPickedId} />
           {chosen && <StartForm lessonId={chosen.id} />}
         </>
       )}

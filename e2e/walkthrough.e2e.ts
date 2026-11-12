@@ -5,6 +5,7 @@ import { attendanceSteps } from './steps/attendance';
 import { classesSteps } from './steps/classes';
 import { endOfClassSteps } from './steps/endOfClass';
 import { engagementSteps } from './steps/engagement';
+import { foldersSteps } from './steps/folders';
 import { lessonEditingSteps } from './steps/lessonEditing';
 import { liveClassSteps } from './steps/liveClass';
 import { mediaSlidesSteps } from './steps/mediaSlides';
@@ -38,6 +39,7 @@ describe('walkthrough', () => {
   signInSteps(world);
   classesSteps(world);
   lessonEditingSteps(world);
+  foldersSteps(world);
   mediaSlidesSteps(world);
   liveClassSteps(world);
   twoDevicesSteps(world);

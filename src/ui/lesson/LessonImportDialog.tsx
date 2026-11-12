@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
+import type { Id } from '../../domain/models';
 import type { ImportIssue } from '../../domain/lessonFormat';
 import { t } from '../../i18n';
 import { copyText } from '../common/clipboard';
+import { useAttempt } from '../common/useAttempt';
 import { FilePicker } from '../forms/FilePicker';
 import { navigate } from '../routing/routes';
 import { useServices } from '../ServicesContext';
@@ -21,8 +23,9 @@ function useCopy(): [boolean, (text: string) => void] {
 }
 
 /** Three-step dialog that turns an AI assistant's reply into a lesson. Mount it to open it. */
-export function LessonImportDialog({ onClose }: { onClose: () => void }) {
+export function LessonImportDialog({ folderId, onClose }: { folderId: Id | null; onClose: () => void }) {
   const { lessons } = useServices();
+  const { error, attemptWith } = useAttempt();
   const dialog = useRef<HTMLDialogElement>(null);
   const [text, setText] = useState('');
   const [issues, setIssues] = useState<string[]>([]);
@@ -46,7 +49,9 @@ export function LessonImportDialog({ onClose }: { onClose: () => void }) {
   };
 
   const submit = async () => {
-    const result = await lessons.importFromText(text, null);
+    const attempted = await attemptWith(() => lessons.importFromText(text, folderId));
+    if (!attempted) return;
+    const result = attempted.value;
     if (result.ok) {
       onClose();
       navigate({ name: 'lesson', lessonId: result.lesson.id, slideIndex: 0 });
@@ -98,6 +103,7 @@ export function LessonImportDialog({ onClose }: { onClose: () => void }) {
               {tl.importButton}
             </button>
           </div>
+          {error && <p className="notice notice--bad">{error}</p>}
           {issues.length > 0 && (
             <div className="notice notice--bad stack stack--tight">
               <strong>{tl.errorsTitle}</strong>

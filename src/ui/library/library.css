@@ -1,0 +1,228 @@
+/* The lesson library: the path line, folder tiles, lesson cards and the places a move can go to. */
+.library {
+  gap: 20px;
+}
+
+.library:focus {
+  outline: none;
+}
+
+.path {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+}
+
+.path__crumb {
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--radius-pill);
+  transition: background var(--motion);
+}
+
+.path__crumb + .path__crumb::before {
+  content: '›';
+  padding-inline: 4px;
+  color: var(--muted);
+}
+
+.path__button {
+  padding: 6px 12px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+}
+
+.path__button:hover,
+.path__button:focus-visible {
+  background: var(--accent-soft);
+}
+
+.path__button[aria-current='page'] {
+  color: var(--ink);
+  font-weight: var(--weight-heading);
+}
+
+.is-drop {
+  background: var(--accent-soft);
+  outline: 2px dashed var(--rose);
+  outline-offset: 2px;
+}
+
+.library__folders,
+.library__lessons {
+  grid-template-columns: repeat(auto-fit, minmax(240px, 320px));
+  gap: 20px;
+}
+
+.folder-tile {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  padding: 16px;
+  border-radius: var(--radius);
+  background: var(--glass-panel);
+  color: var(--accent);
+  transition: background var(--motion), transform var(--motion);
+}
+
+.folder-tile:hover {
+  background: var(--accent-soft);
+}
+
+.folder-tile__open {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  align-items: center;
+  justify-items: start;
+  padding: 0;
+  border: 0;
+  background: none;
+  border-radius: var(--radius);
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.folder-tile__open .chip {
+  grid-column: 2;
+}
+
+.folder-icon {
+  inline-size: 48px;
+  block-size: 40px;
+  grid-row: span 2;
+}
+
+.folder-tile__name {
+  color: var(--ink);
+  font-weight: var(--weight-heading);
+  overflow-wrap: anywhere;
+}
+
+.folder-tile__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.folder-tile--new {
+  align-content: center;
+  justify-items: center;
+  min-block-size: 104px;
+  border: 2px dashed var(--edge-soft);
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+
+.folder-tile--new:hover,
+.folder-tile--new:focus-visible {
+  border-color: var(--rose);
+}
+
+.folder-tile__plus::before {
+  content: '+';
+  margin-inline-end: 6px;
+  font-size: 1.4rem;
+}
+
+.in-place-name {
+  min-inline-size: 0;
+}
+
+.lesson-tile {
+  position: relative;
+  display: grid;
+}
+
+.lesson-tile__move {
+  position: absolute;
+  inset-block-end: 12px;
+  inset-inline-end: 12px;
+}
+
+.lesson-tile:has(.lesson-tile__move) .lesson-card {
+  padding-block-end: 56px;
+}
+
+.move-list {
+  display: grid;
+  gap: 6px;
+}
+
+.move-list .move-list {
+  margin-inline-start: 20px;
+  padding-inline-start: 12px;
+  border-inline-start: 2px solid var(--line);
+}
+
+.move-list li {
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+}
+
+.move-list__button {
+  min-block-size: 36px;
+}
+
+.move-list__button[aria-current='location'] {
+  border-color: var(--rose);
+}
+
+.is-dragging {
+  opacity: 0.45;
+  transform: scale(0.98);
+}
+
+/* A quiet text action: no background, muted, set apart from its neighbours by spacing alone. */
+.quiet-action {
+  min-block-size: 32px;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: var(--radius-tiny);
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.quiet-action:hover {
+  color: var(--accent);
+}
+
+.quiet-action:focus-visible {
+  outline: 2px solid var(--rose);
+  outline-offset: 1px;
+}
+
+.quiet-action--bad {
+  color: var(--bad-ink);
+}
+
+.quiet-action--bad:hover {
+  color: var(--bad);
+}
+
+@media (max-width: 600px), (pointer: coarse) {
+  .quiet-action {
+    min-block-size: 44px;
+    padding-inline: 12px;
+  }
+}
+
+@media (max-width: 600px) {
+  .library__folders,
+  .library__lessons {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

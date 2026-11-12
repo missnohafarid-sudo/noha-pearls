@@ -13,7 +13,8 @@ import { MemoryStorage } from '../infrastructure/storage';
 import { AdmissionService } from './AdmissionService';
 import { AnswerService } from './AnswerService';
 import { AuthService, NotAuthorizedError } from './AuthService';
-import { FolderError, FolderService } from './FolderService';
+import { FolderService } from './FolderService';
+import { FolderError } from './requireFolder';
 import { LessonError, LessonService } from './LessonService';
 import { ParticipantService } from './ParticipantService';
 import { RecordService } from './RecordService';
@@ -1371,8 +1372,8 @@ describe('lesson folders', () => {
     const made = await lessons.create('x', null);
     const text = lessons.exportToText({ ...made, slides: [question] });
     await expect(lessons.create('y', 'gone')).rejects.toMatchObject({ code: 'folder-missing' });
-    await expect(lessons.importFromText(text, 'gone')).rejects.toBeInstanceOf(LessonError);
-    await expect(lessons.moveToFolder(made.id, 'gone')).rejects.toBeInstanceOf(LessonError);
+    await expect(lessons.importFromText(text, 'gone')).rejects.toBeInstanceOf(FolderError);
+    await expect(lessons.moveToFolder(made.id, 'gone')).rejects.toBeInstanceOf(FolderError);
     expect(await store.list('lessons')).toEqual([made]);
   });
 
@@ -1391,5 +1392,70 @@ describe('lesson folders', () => {
     await lessons.moveToFolder(stale.id, a.id);
     await lessons.save({ ...stale, title: 'محرر' });
     expect(await store.get('lessons', stale.id)).toMatchObject({ title: 'محرر', folderId: a.id });
+  });
+
+  it('does not bring a deleted lesson back when an old editor saves it', async () => {
+    const { lessons, store } = await signedIn();
+    const made = await lessons.create('x', null);
+    await lessons.remove(made.id);
+    await expect(lessons.save({ ...made, title: 'محرر' })).rejects.toMatchObject({ code: 'lesson-missing' });
+    expect(await store.list('lessons')).toEqual([]);
+  });
+
+  it('refuses to rename a missing folder or move a missing lesson', async () => {
+    const { folders, lessons, store } = await signedIn();
+    await expect(folders.rename('gone', 'x')).rejects.toMatchObject({ code: 'folder-missing' });
+    await expect(lessons.moveToFolder('gone', null)).rejects.toMatchObject({ code: 'lesson-missing' });
+    expect(await store.list('folders')).toEqual([]);
+    expect(await store.list('lessons')).toEqual([]);
+  });
+
+  it('moves only the lessons of the source folder when its lessons are moved', async () => {
+    const { folders, lessons, store } = await signedIn();
+    const a = await folders.add('a', null);
+    const b = await folders.add('b', null);
+    const inA = await lessons.create('x', a.id);
+    const inB = await lessons.create('y', b.id);
+    const atTop = await lessons.create('z', null);
+    await lessons.moveLessons(a.id, b.id);
+    expect((await store.get('lessons', inA.id))?.folderId).toBe(b.id);
+    expect(await store.get('lessons', inB.id)).toEqual(inB);
+    expect(await store.get('lessons', atTop.id)).toEqual(atTop);
+  });
+
+  it('heals a stored loop at the next change so the folders really move', async () => {
+    const { folders, store } = await signedIn();
+    await store.put('folders', { id: 'a', name: 'a', parentId: 'b', order: 1 });
+    await store.put('folders', { id: 'b', name: 'b', parentId: 'a', order: 2 });
+    await folders.move('b', 'a');
+    expect((await store.get('folders', 'b'))?.parentId).toBe('a');
+    expect((await store.get('folders', 'a'))?.parentId).toBeNull();
+  });
+
+  it('writes the repairs of a stored tree before adding a folder', async () => {
+    const { folders, store } = await signedIn();
+    await store.put('folders', { id: 'a', name: 'a', parentId: 'gone', order: 1 });
+    await folders.add('b', null);
+    expect((await store.get('folders', 'a'))?.parentId).toBeNull();
+  });
+
+  it('removing a folder whose stored parent is dangling moves its contents to the top level', async () => {
+    const { folders, lessons, store } = await signedIn();
+    await store.put('folders', { id: 'a', name: 'a', parentId: 'gone', order: 1 });
+    await store.put('folders', { id: 'child', name: 'c', parentId: 'a', order: 2 });
+    const inside = await lessons.create('x', 'a');
+    await folders.remove('a');
+    expect((await store.get('folders', 'child'))?.parentId).toBeNull();
+    expect((await store.get('lessons', inside.id))?.folderId).toBeNull();
+    expect(await store.get('folders', 'a')).toBeNull();
+  });
+
+  it('keeps a rename made elsewhere while a folder is re-parented', async () => {
+    const { folders, store } = await signedIn();
+    const a = await folders.add('a', null);
+    const child = await folders.add('c', a.id);
+    await folders.rename(child.id, 'renamed');
+    await folders.remove(a.id);
+    expect(await store.get('folders', child.id)).toMatchObject({ name: 'renamed', parentId: null });
   });
 });

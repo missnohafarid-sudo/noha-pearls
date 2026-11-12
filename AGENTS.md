@@ -52,6 +52,10 @@ A teacher. She is not a programmer and cannot judge your code.
 | Lesson file format and checks | `domain/lessonFormat.ts` |
 | Lesson edits (add, move, remove slide) | `domain/lessonOps.ts` |
 | The lesson folder tree: nesting, moving, what a folder holds, removing one without losing anything | `domain/folders.ts` |
+| The lesson library screen: path line, folder tiles, moving by drag or by the move dialog | `ui/library/` (words in `i18n/library.ts`) |
+| Which folders a reader sees, and the folder a page shows for a requested one | `domain/folders.ts` |
+| Where an item may be put (by drag or by the move dialog), and repairing a stored folder tree | `domain/folders.ts` |
+| Drag wiring (what carries a drag, what is dropped on) | `ui/library/useDragMove.tsx` |
 | Who may answer what, text length limit | `domain/answering.ts` |
 | Marking and group scores | `domain/scoring.ts` |
 | Pearls a group has earned | `domain/scoring.ts` |

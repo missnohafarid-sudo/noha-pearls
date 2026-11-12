@@ -24,7 +24,8 @@ export interface DataServices {
   roster: Api<RosterService>;
   teachers: Api<TeacherService>;
   folders: Api<FolderService>;
-  lessons: Api<LessonService>;
+  /** `moveLessons` is the folder service's alone. */
+  lessons: Omit<Api<LessonService>, 'moveLessons'>;
   sessions: Api<SessionService>;
   sessionRoster: Api<SessionRosterService>;
   participants: Api<ParticipantService>;

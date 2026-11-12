@@ -6,9 +6,10 @@ import type { DocumentStore, Unsubscribe } from '../ports/store';
 import type { Caller } from '../ports/caller';
 import { requireAdmin } from './AuthService';
 import type { LessonMover } from './LessonMover';
+import { requireFolder } from './requireFolder';
 
 export class LessonError extends Error {
-  constructor(readonly code: 'lesson-in-use' | 'folder-missing') {
+  constructor(readonly code: 'lesson-in-use' | 'lesson-missing') {
     super(code);
     this.name = 'LessonError';
   }
@@ -30,30 +31,26 @@ export class LessonService implements LessonMover {
     return this.store.watch('lessons', { id: lessonId }, (lessons) => listener(lessons[0] ?? null));
   }
 
-  private async requireFolder(folderId: Id | null): Promise<void> {
-    if (folderId !== null && !(await this.store.get('folders', folderId))) throw new LessonError('folder-missing');
-  }
-
   async create(title: string, folderId: Id | null): Promise<Lesson> {
     requireAdmin(this.caller);
-    await this.requireFolder(folderId);
+    await requireFolder(this.store, folderId);
     const lesson = createLesson(title, folderId);
     await this.store.put('lessons', lesson);
     return lesson;
   }
 
-  /** Saves an edit. The folder is never taken from the edited copy: a stale copy must not undo a move. */
+  /** Saves an edit. The folder is never taken from the edited copy: a stale copy must not undo a move. A lesson that was deleted stays deleted. */
   async save(lesson: Lesson): Promise<void> {
     requireAdmin(this.caller);
     const saved = await this.store.update('lessons', lesson.id, (current) => ({ ...lesson, folderId: current.folderId, updatedAt: Date.now() }));
-    if (!saved) await this.store.put('lessons', { ...lesson, updatedAt: Date.now() });
+    if (!saved) throw new LessonError('lesson-missing');
   }
 
   /** Moving is not editing: the lesson keeps its edit time. */
   async moveToFolder(lessonId: Id, folderId: Id | null): Promise<void> {
     requireAdmin(this.caller);
-    await this.requireFolder(folderId);
-    await this.store.update('lessons', lessonId, (current) => ({ ...current, folderId }));
+    await requireFolder(this.store, folderId);
+    if (!(await this.store.update('lessons', lessonId, (current) => ({ ...current, folderId })))) throw new LessonError('lesson-missing');
   }
 
   async moveLessons(fromFolderId: Id, toFolderId: Id | null): Promise<void> {
@@ -73,7 +70,7 @@ export class LessonService implements LessonMover {
   /** Reads a lesson file (uploaded or pasted). Saves the lesson only when the file is valid. */
   async importFromText(text: string, folderId: Id | null): Promise<ImportResult> {
     requireAdmin(this.caller);
-    await this.requireFolder(folderId);
+    await requireFolder(this.store, folderId);
     const result = importLesson(text);
     if (result.ok) await this.store.put('lessons', { ...result.lesson, folderId });
     return result;

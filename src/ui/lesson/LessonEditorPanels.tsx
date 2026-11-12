@@ -6,7 +6,7 @@ import { ConfirmButton } from '../common/ConfirmButton';
 import { useAttempt } from '../common/useAttempt';
 import { SchemaForm, type FieldSpec } from '../forms/SchemaForm';
 import { useLiveSessions } from '../hooks/data';
-import { navigate } from '../routing/routes';
+import { homeRoute, navigate } from '../routing/routes';
 import { useServices } from '../ServicesContext';
 import { StartForm } from '../session/StartForm';
 import { AdminPanel } from '../shell/AdminPanel';
@@ -28,22 +28,24 @@ function goTo(lessonId: string, slideIndex: number) {
   navigate({ name: 'lesson', lessonId, slideIndex }, { replace: true });
 }
 
-function LessonMetaPanel({ lesson }: { lesson: Lesson }) {
+type Attempt = ReturnType<typeof useAttempt>['attempt'];
+
+/** Saves a lesson; a refusal becomes a notice instead of an uncaught error. */
+type SaveLesson = (lesson: Lesson) => Promise<boolean>;
+
+function LessonMetaPanel({ lesson, save, attempt }: { lesson: Lesson; save: SaveLesson; attempt: Attempt }) {
   const { lessons } = useServices();
   const live = useLiveSessions();
   const meta: LessonMeta = { title: lesson.title, subject: lesson.subject, grade: lesson.grade, published: lesson.published };
 
-  const { error, attempt } = useAttempt();
-
   const remove = async () => {
-    if (await attempt(() => lessons.remove(lesson.id))) navigate({ name: 'home' });
+    if (await attempt(() => lessons.remove(lesson.id))) navigate(homeRoute(lesson.folderId ?? null));
   };
 
   return (
     <AdminPanel title={tl.panel.lesson}>
       <div className="stack">
-        <SchemaForm fields={META_FIELDS} value={meta} resetKey={lesson.id} onChange={(next) => void lessons.save({ ...lesson, ...next })} />
-        {error && <p className="notice notice--bad">{error}</p>}
+        <SchemaForm fields={META_FIELDS} value={meta} resetKey={lesson.id} onChange={(next) => void save({ ...lesson, ...next })} />
         {live && live.length > 0 && <p className="notice">{tl.runningClasses(live.length)}</p>}
         <StartForm lessonId={lesson.id} />
         <button type="button" className="btn" onClick={() => downloadText(`${lesson.title || tl.untitledFile}.json`, lessons.exportToText(lesson), 'application/json')}>
@@ -55,10 +57,9 @@ function LessonMetaPanel({ lesson }: { lesson: Lesson }) {
   );
 }
 
-function SlideRow({ lesson, slide, index, currentIndex }: { lesson: Lesson; slide: Slide; index: number; currentIndex: number }) {
-  const { lessons } = useServices();
+function SlideRow({ lesson, slide, index, currentIndex, save }: { lesson: Lesson; slide: Slide; index: number; currentIndex: number; save: SaveLesson }) {
   const move = (delta: number) => {
-    void lessons.save(moveSlide(lesson, slide.id, delta));
+    void save(moveSlide(lesson, slide.id, delta));
     goTo(lesson.id, index + delta);
   };
   return (
@@ -83,7 +84,7 @@ function SlideRow({ lesson, slide, index, currentIndex }: { lesson: Lesson; slid
         <ConfirmButton
           className="btn btn--small btn--danger"
           onConfirm={() => {
-            void lessons.save(removeSlide(lesson, slide.id));
+            void save(removeSlide(lesson, slide.id));
             goTo(lesson.id, indexAfterRemoval(currentIndex, index, lesson.slides.length));
           }}
         >
@@ -94,12 +95,11 @@ function SlideRow({ lesson, slide, index, currentIndex }: { lesson: Lesson; slid
   );
 }
 
-function SlidesPanel({ lesson, index }: { lesson: Lesson; index: number }) {
-  const { lessons } = useServices();
+function SlidesPanel({ lesson, index, save }: { lesson: Lesson; index: number; save: SaveLesson }) {
   const add = async (kind: Slide['kind']) => {
     const after = lesson.slides.length === 0 ? -1 : index;
     const added = addSlide(lesson, kind, after);
-    await lessons.save(added.lesson);
+    if (!(await save(added.lesson))) return;
     goTo(lesson.id, added.lesson.slides.findIndex((s) => s.id === added.slide.id));
   };
   return (
@@ -107,7 +107,7 @@ function SlidesPanel({ lesson, index }: { lesson: Lesson; index: number }) {
       <div className="stack">
         <ol className="slide-list list-reset">
           {lesson.slides.map((slide, i) => (
-            <SlideRow key={slide.id} lesson={lesson} slide={slide} index={i} currentIndex={index} />
+            <SlideRow key={slide.id} lesson={lesson} slide={slide} index={i} currentIndex={index} save={save} />
           ))}
         </ol>
         <strong>{tl.slides.addTitle}</strong>
@@ -123,8 +123,7 @@ function SlidesPanel({ lesson, index }: { lesson: Lesson; index: number }) {
   );
 }
 
-function SlideEditPanel({ lesson, slide }: { lesson: Lesson; slide: Slide }) {
-  const { lessons } = useServices();
+function SlideEditPanel({ lesson, slide, save }: { lesson: Lesson; slide: Slide; save: SaveLesson }) {
   return (
     <AdminPanel title={tl.panel.editSlide}>
       <SchemaForm
@@ -132,7 +131,7 @@ function SlideEditPanel({ lesson, slide }: { lesson: Lesson; slide: Slide }) {
         value={slide}
         resetKey={slide.id}
         normalize={normalizeSlide}
-        onChange={(next) => void lessons.save(updateSlide(lesson, next))}
+        onChange={(next) => void save(updateSlide(lesson, next))}
       />
     </AdminPanel>
   );
@@ -140,12 +139,16 @@ function SlideEditPanel({ lesson, slide }: { lesson: Lesson; slide: Slide }) {
 
 /** The three admin panels of the lesson page: lesson settings, slide list, slide editor. */
 export function LessonEditorPanels({ lesson, index }: { lesson: Lesson; index: number }) {
+  const { lessons } = useServices();
+  const { error, attempt } = useAttempt();
+  const save: SaveLesson = (next) => attempt(() => lessons.save(next));
   const slide: Slide | undefined = lesson.slides[index];
   return (
     <>
-      <LessonMetaPanel lesson={lesson} />
-      <SlidesPanel lesson={lesson} index={index} />
-      {slide && <SlideEditPanel lesson={lesson} slide={slide} />}
+      {error && <p className="notice notice--bad">{error}</p>}
+      <LessonMetaPanel lesson={lesson} save={save} attempt={attempt} />
+      <SlidesPanel lesson={lesson} index={index} save={save} />
+      {slide && <SlideEditPanel lesson={lesson} slide={slide} save={save} />}
     </>
   );
 }

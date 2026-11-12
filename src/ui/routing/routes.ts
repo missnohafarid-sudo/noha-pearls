@@ -23,7 +23,7 @@ export function isClassPage(name: string): name is ClassPageName {
 }
 
 export type Route =
-  | { name: 'home' }
+  | { name: 'home'; folderId?: Id }
   | { name: 'lesson'; lessonId: Id; slideIndex: number }
   | { name: SessionPageName; code?: string }
   | { name: ClassPageName; classId?: Id }
@@ -54,7 +54,7 @@ export function routeHash(route: Route): string {
   if (isClassRoute(route)) return route.classId === undefined ? `#/${route.name}` : `#/${route.name}/${encodeURIComponent(route.classId)}`;
   switch (route.name) {
     case 'home':
-      return '#/';
+      return route.folderId === undefined ? '#/' : `#/folder/${encodeURIComponent(route.folderId)}`;
     case 'lesson':
       return `#/lesson/${encodeURIComponent(route.lessonId)}/${route.slideIndex + 1}`;
     case 'join':
@@ -62,6 +62,11 @@ export function routeHash(route: Route): string {
     case 'notFound':
       return '#/404';
   }
+}
+
+/** The home page showing a folder, or the top level for null. */
+export function homeRoute(folderId: Id | null): Route {
+  return folderId === null ? { name: 'home' } : { name: 'home', folderId };
 }
 
 export function sessionRoute(name: SessionPageName, code?: string): Route {
@@ -97,6 +102,8 @@ export function parseRoute(hash: string): Route {
   switch (name) {
     case '':
       return { name: 'home' };
+    case 'folder':
+      return a ? { name: 'home', folderId: a } : { name: 'home' };
     case 'lesson':
       return a ? { name: 'lesson', lessonId: a, slideIndex: Math.max(0, (Number(b) || 1) - 1) } : { name: 'notFound' };
     case 'join':

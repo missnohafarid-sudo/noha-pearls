@@ -1,17 +1,21 @@
-import { useState } from 'react';
-import type { SiteContent } from '../../domain/models';
-import { canViewLesson } from '../../domain/lessonOps';
-import { questionSlides } from '../../domain/scoring';
+import { useEffect, useState } from 'react';
+import type { FolderTree } from '../../domain/folders';
+import type { Id, SiteContent } from '../../domain/models';
 import { t } from '../../i18n';
 import logoRose from '../assets/brand/logo-rose.jpg';
 import { Loading } from '../common/PageState';
 import type { FieldSpec } from '../forms/SchemaForm';
 import { SchemaForm } from '../forms/SchemaForm';
-import { useAdmin, useLessons, useLiveSessions, useSite, useTeachers } from '../hooks/data';
+import { useAdmin, useLiveSessions, useSite, useTeachers } from '../hooks/data';
 import { JoinByCode } from '../join/JoinByCode';
 import { LessonImportDialog } from '../lesson/LessonImportDialog';
-import { navigate } from '../routing/routes';
-import { RouteLink } from '../routing/useRoute';
+import { ManagedLibrary } from '../library/ManagedLibrary';
+import { pathText } from '../library/place';
+import { PublicLibrary } from '../library/PublicLibrary';
+import { useLibraryView, type LibraryView } from '../library/useLibraryView';
+import { useAttempt } from '../common/useAttempt';
+import { homeRoute, navigate } from '../routing/routes';
+import { useRoute } from '../routing/useRoute';
 import { LiveSessionList } from '../session/SessionLists';
 import { TeachersPanel } from '../session/TeachersPanel';
 import { useServices } from '../ServicesContext';
@@ -19,6 +23,7 @@ import { AdminPanel } from '../shell/AdminPanel';
 import './home.css';
 
 const th = t.home;
+const tl = t.library;
 
 const SITE_FIELDS: readonly FieldSpec<SiteContent>[] = [
   { kind: 'text', key: 'schoolName', label: th.siteField.schoolName },
@@ -56,36 +61,15 @@ function AdminLiveNotice() {
   );
 }
 
-function LessonsGrid() {
-  const lessons = useLessons();
-  const admin = useAdmin();
-  if (!lessons) return <Loading />;
-  const visible = lessons.filter((lesson) => canViewLesson(lesson, admin));
-  if (visible.length === 0) return <p className="muted">{th.noLessons}</p>;
-  return (
-    <div className="grid">
-      {visible.map((lesson) => (
-        <RouteLink key={lesson.id} to={{ name: 'lesson', lessonId: lesson.id, slideIndex: 0 }} className="card lesson-card">
-          <h3 className="card__title">{lesson.title}</h3>
-          <p className="muted">{t.common.subjectGrade(lesson.subject, lesson.grade)}</p>
-          <div className="row">
-            <span className="chip">{t.common.slideCount(lesson.slides.length)}</span>
-            <span className="chip">{th.questionCount(questionSlides(lesson).length)}</span>
-            {admin && !lesson.published && <span className="chip chip--bad">{th.unpublished}</span>}
-          </div>
-        </RouteLink>
-      ))}
-    </div>
-  );
-}
-
-function HomeAdminPanels({ site }: { site: SiteContent }) {
+function HomeAdminPanels({ site, tree, openId }: { site: SiteContent; tree: FolderTree | undefined; openId: Id | null }) {
   const { content, lessons } = useServices();
   const [importing, setImporting] = useState(false);
 
+  const { error, attemptWith } = useAttempt();
+
   const create = async () => {
-    const lesson = await lessons.create(th.panel.newLessonTitle, null);
-    navigate({ name: 'lesson', lessonId: lesson.id, slideIndex: 0 });
+    const made = await attemptWith(() => lessons.create(th.panel.newLessonTitle, openId));
+    if (made) navigate({ name: 'lesson', lessonId: made.value.id, slideIndex: 0 });
   };
 
   return (
@@ -102,16 +86,33 @@ function HomeAdminPanels({ site }: { site: SiteContent }) {
           <button type="button" className="btn" onClick={() => setImporting(true)}>
             {th.panel.importLesson}
           </button>
+          {error && <p className="notice notice--bad">{error}</p>}
+          {tree && <p className="muted">{tl.keptIn(pathText(tree, openId))}</p>}
         </div>
-        {importing && <LessonImportDialog onClose={() => setImporting(false)} />}
+        {importing && <LessonImportDialog folderId={openId} onClose={() => setImporting(false)} />}
       </AdminPanel>
     </>
   );
 }
 
+function Library({ view, openId }: { view: LibraryView; openId: Id | null }) {
+  const open = (folderId: Id | null) => navigate(homeRoute(folderId));
+  return view.admin ? <ManagedLibrary view={view} openId={openId} onOpen={open} /> : <PublicLibrary view={view} openId={openId} onOpen={open} />;
+}
+
 /** The public front page: a visitor's way into a live class, the school hero and the lessons. */
 export function HomePage() {
   const site = useSite();
+  const route = useRoute();
+  const view = useLibraryView('browse');
+  const requestedId = route.name === 'home' ? route.folderId : undefined;
+  const openId = view?.folderToShow(requestedId) ?? null;
+  const addressIsDead = view !== undefined && requestedId !== undefined && openId === null;
+
+  useEffect(() => {
+    if (addressIsDead) navigate(homeRoute(null), { replace: true });
+  }, [addressIsDead]);
+
   if (!site) return <Loading />;
   return (
     <div className="page">
@@ -129,9 +130,9 @@ export function HomePage() {
       <AdminLiveNotice />
       <section className="stack">
         <h2>{th.lessonsTitle}</h2>
-        <LessonsGrid />
+        {view ? <Library view={view} openId={openId} /> : <Loading />}
       </section>
-      <HomeAdminPanels site={site} />
+      <HomeAdminPanels site={site} tree={view?.tree} openId={openId} />
     </div>
   );
 }

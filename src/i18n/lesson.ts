@@ -20,6 +20,7 @@ export const lesson = {
   untitledFile: 'درس',
   errors: {
     'lesson-in-use': 'لا يمكن حذف درس عنده حصة جارية. أنهي الحصة أولًا.',
+    'lesson-missing': 'هذا الدرس لم يعد موجوداً.',
     'folder-missing': 'هذا المجلد لم يعد موجوداً.',
     'folder-inside-itself': 'لا يمكن وضع المجلد داخل نفسه أو داخل مجلد بداخله.',
   },

@@ -52,6 +52,15 @@
   background: var(--bad-soft);
 }
 
+.confirm-note {
+  flex-basis: 100%;
+}
+
+/* Kept in the page even when empty so a screen reader announces it once filled; out of the flow so it takes no room. */
+.confirm-note:empty {
+  position: absolute;
+}
+
 .btn--heart {
   background: var(--heart-soft);
   color: var(--heart-ink);

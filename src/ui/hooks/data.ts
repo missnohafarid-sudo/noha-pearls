@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, useSyncExternalStore, type DependencyList } from 'react';
 import type { CardCodec } from '../../services/Services';
-import type { Answer, ClassRoster, Id, Lesson, Participant, Reward, SchoolClass, Session, SessionRoster, SiteContent, Teacher } from '../../domain/models';
+import { FolderTree } from '../../domain/folders';
+import type { Answer, ClassRoster, Id, Lesson, LessonFolder, Participant, Reward, SchoolClass, Session, SessionRoster, SiteContent, Teacher } from '../../domain/models';
 import { liveSessions } from '../../domain/sessions';
 import { useServices } from '../ServicesContext';
 import { useLive } from './useLive';
@@ -33,6 +34,17 @@ export function useClasses(): SchoolClass[] | undefined {
 export function useTeachers(): Teacher[] | undefined {
   const { teachers } = useServices();
   return useLive((listener) => teachers.watchTeachers(listener), [teachers]);
+}
+
+export function useFolders(): LessonFolder[] | undefined {
+  const { folders } = useServices();
+  return useLive((listener) => folders.watchFolders(listener), [folders]);
+}
+
+/** The lesson folders read once per change; every question about the tree is asked of it. */
+export function useFolderTree(): FolderTree | undefined {
+  const folders = useFolders();
+  return useMemo(() => folders && new FolderTree(folders), [folders]);
 }
 
 /** The groups and students of one school class: what its list shows and edits. */

@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import { t } from '../../i18n';
-import { FolderError } from '../../services/FolderService';
 import { LessonError } from '../../services/LessonService';
+import { FolderError } from '../../services/requireFolder';
 import { NameError } from '../../services/requireName';
 import { RosterError } from '../../services/RosterService';
 import { TeacherError } from '../../services/TeacherService';
@@ -11,18 +11,22 @@ function serviceErrorMessage(error: unknown): string {
   return error instanceof RosterError || error instanceof TeacherError || error instanceof NameError ? t.roster.errors[error.code] : t.roster.errors.unknown;
 }
 
-/** Runs service commands: a refusal becomes a notice text instead of an uncaught error, and `attempt` reports whether the command went through. */
+/**
+ * Runs service commands: a refusal becomes a notice text instead of an uncaught error.
+ * `attemptWith` hands back what the command returned (null when it was refused); `attempt` only reports whether it went through.
+ */
 export function useAttempt() {
   const [error, setError] = useState<string | null>(null);
-  const attempt = useCallback(async (command: () => Promise<unknown>): Promise<boolean> => {
+  const attemptWith = useCallback(async <T>(command: () => Promise<T>): Promise<{ value: T } | null> => {
     try {
-      await command();
+      const value = await command();
       setError(null);
-      return true;
+      return { value };
     } catch (caught) {
       setError(serviceErrorMessage(caught));
-      return false;
+      return null;
     }
   }, []);
-  return { error, attempt, clearError: () => setError(null) };
+  const attempt = useCallback(async (command: () => Promise<unknown>): Promise<boolean> => (await attemptWith(command)) !== null, [attemptWith]);
+  return { error, attempt, attemptWith, clearError: () => setError(null) };
 }

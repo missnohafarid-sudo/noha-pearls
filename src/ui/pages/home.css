@@ -64,11 +64,11 @@
 }
 
 /* The lessons start at the start edge, under their heading. */
-.stack:has(> .grid > .lesson-card) > h2 {
+.stack:has(> .library) > h2 {
   font-size: 1.5rem;
 }
 
-.grid:has(> .lesson-card) {
+.library__lessons {
   grid-template-columns: repeat(auto-fit, minmax(240px, 320px));
   gap: 24px;
 }

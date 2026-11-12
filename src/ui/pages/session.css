@@ -1,0 +1,85 @@
+.session__stage:fullscreen {
+  background: var(--bg-wash);
+  padding: 32px;
+  overflow: auto;
+}
+
+.session__stage > .session__waiting {
+  display: flex;
+  inline-size: fit-content;
+  margin-inline-start: auto;
+}
+
+.session__controls {
+  justify-content: space-between;
+}
+
+.wall {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+}
+
+.wall__item {
+  display: grid;
+  gap: 4px;
+}
+
+.join-codes .qr {
+  max-inline-size: 220px;
+  margin-inline: auto;
+}
+
+.join-codes__code,
+.join-codes__address {
+  justify-self: start;
+}
+
+.join-codes__code {
+  font-weight: 700;
+  font-size: 3rem;
+  line-height: 1.1;
+  letter-spacing: 0.3em;
+}
+
+.join-codes__address {
+  overflow-wrap: anywhere;
+  font-size: 0.9rem;
+}
+
+.join-codes__link {
+  overflow-wrap: anywhere;
+  font-size: 0.85rem;
+}
+
+/* Pacing buttons of one group sit in an even two-column grid instead of a ragged wrap. */
+.panel-section .stack--tight > .row:has(> [aria-pressed]) {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.admission__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.admission__who {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-inline-size: 0;
+}
+
+.admission__count {
+  border: 0;
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.admission__list {
+  scroll-margin-block-start: calc(var(--pin-head-size) + var(--panel-pad));
+}

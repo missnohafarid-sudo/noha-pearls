@@ -1,0 +1,124 @@
+.slide-media {
+  --media-max-block: 70vh;
+  display: grid;
+  gap: 16px;
+  min-inline-size: 0;
+  font-size: clamp(1rem, 2.4cqi, 1.7rem);
+}
+
+.media {
+  display: grid;
+  gap: 10px;
+  min-inline-size: 0;
+}
+
+.media__zoom {
+  justify-content: center;
+}
+
+.media__zoom-level {
+  min-inline-size: 4ch;
+  text-align: center;
+}
+
+.media__box {
+  inline-size: 100%;
+  max-inline-size: 100%;
+  justify-self: center;
+  overflow: hidden;
+  border-radius: var(--radius-small);
+  background: var(--bg-wash);
+}
+
+.media__box--video {
+  aspect-ratio: 16 / 9;
+  inline-size: min(100%, calc(var(--media-max-block) * 16 / 9));
+}
+
+.media__box--embed {
+  aspect-ratio: 16 / 10;
+  inline-size: min(100%, calc(var(--media-max-block) * 1.6));
+}
+
+.media__box--audio {
+  block-size: 180px;
+}
+
+.media__box--pdf {
+  block-size: clamp(420px, 75vh, 1100px);
+  overflow: auto;
+}
+
+.media__zoomer {
+  inline-size: calc(100% * var(--media-zoom, 1));
+  block-size: calc(100% * var(--media-zoom, 1));
+}
+
+.media__frame {
+  display: block;
+  border: 0;
+  inline-size: 100%;
+  block-size: 100%;
+}
+
+/* The viewer inside lays itself out at the box's size and is magnified, so its page grows too. The zoomer around it takes the magnified size, so the box scrolls to every corner. */
+.media__frame--zoomed {
+  inline-size: calc(100% / var(--media-zoom));
+  block-size: calc(100% / var(--media-zoom));
+  transform: scale(var(--media-zoom));
+  transform-origin: 0 0;
+}
+
+.media__frame--zoomed:dir(rtl) {
+  transform-origin: 100% 0;
+}
+
+.media-zoom-100 {
+  --media-zoom: 1;
+}
+
+.media-zoom-150 {
+  --media-zoom: 1.5;
+}
+
+.media-zoom-200 {
+  --media-zoom: 2;
+}
+
+.media-zoom-300 {
+  --media-zoom: 3;
+}
+
+.media__image {
+  display: block;
+  max-inline-size: 100%;
+  max-block-size: var(--media-max-block);
+  object-fit: contain;
+  justify-self: center;
+  border-radius: var(--radius-small);
+}
+
+.media__audio {
+  inline-size: 100%;
+}
+
+.media__video {
+  display: block;
+  max-inline-size: 100%;
+  max-block-size: var(--media-max-block);
+  justify-self: center;
+  border-radius: var(--radius-small);
+}
+
+.media__open {
+  justify-self: start;
+  font-size: 0.85em;
+}
+
+@media (max-width: 600px), (pointer: coarse) {
+  .media__open {
+    display: inline-flex;
+    align-items: center;
+    min-block-size: 44px;
+  }
+}

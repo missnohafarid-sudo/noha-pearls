@@ -1,0 +1,55 @@
+.board__ranking {
+  display: grid;
+  gap: 14px;
+}
+
+/* A group's colour shows as a tint across the row and a soft glow behind its rank numeral. */
+.card.board__rank {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-block: 18px;
+  background: color-mix(in srgb, var(--tone, var(--accent)) 8%, var(--surface));
+}
+
+.board__position {
+  display: grid;
+  place-items: center;
+  flex: none;
+  inline-size: 56px;
+  block-size: 56px;
+  background: radial-gradient(circle closest-side, color-mix(in srgb, var(--tone, var(--accent)) 38%, transparent), transparent);
+  font-family: var(--font-display);
+  font-size: 1.8rem;
+  font-weight: var(--weight-heading);
+  color: color-mix(in srgb, var(--tone, var(--accent)) 72%, var(--ink));
+  text-align: center;
+}
+
+.board__rank-main {
+  flex: 1;
+  min-inline-size: 0;
+}
+
+.board__banner {
+  display: block;
+  inline-size: 100%;
+  block-size: 110px;
+  object-fit: cover;
+  object-position: center 55%;
+  mask-image: var(--feather);
+  mask-composite: intersect;
+}
+
+@media (max-width: 560px) {
+  .card.board__rank {
+    gap: 8px;
+    padding-inline: var(--gap);
+  }
+
+  .board__position {
+    inline-size: 40px;
+    block-size: 40px;
+    font-size: 1.5rem;
+  }
+}

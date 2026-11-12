@@ -1,0 +1,221 @@
+.shell {
+  min-block-size: 100vh;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  position: relative;
+  isolation: isolate;
+  overflow-x: clip;
+}
+
+.shell__bar {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 12px 24px;
+  margin-block-end: var(--serration);
+  background: var(--glass);
+  backdrop-filter: blur(10px);
+}
+
+/* The serrated edge of Qatar's flag: a fine row of small maroon teeth under the bar. */
+.shell__bar::after {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  inset-block-start: 100%;
+  block-size: var(--serration);
+  background: conic-gradient(from -45deg at 50% 100%, var(--accent) 90deg, transparent 0) 0 0 / calc(2 * var(--serration)) var(--serration);
+  opacity: 0.85;
+  pointer-events: none;
+}
+
+.shell__brand {
+  font-family: var(--font-display);
+  font-weight: var(--weight-heading);
+  font-size: 1.4rem;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.shell__nav {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+  min-inline-size: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.shell__link {
+  flex: none;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  color: var(--muted);
+  text-decoration: none;
+  font-weight: var(--weight-label);
+  transition: background var(--motion), color var(--motion);
+}
+
+.shell__link:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.shell__link--current {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.shell__admin {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.shell__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+}
+
+.shell__body--admin {
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
+}
+
+.shell__main {
+  padding: 32px 24px 64px;
+  inline-size: 100%;
+  max-inline-size: 1100px;
+  margin-inline: auto;
+}
+
+.shell__panel {
+  position: sticky;
+  inset-block-start: 0;
+  max-block-size: 100vh;
+  overflow-y: auto;
+  padding: var(--panel-pad) 16px 48px;
+  background: var(--glass-panel);
+  backdrop-filter: blur(10px);
+  box-shadow: var(--shadow);
+  --panel-pad: 20px;
+  --panel-gap: 28px;
+  --panel-section-gap: 12px;
+  --pin-head-size: 3.5rem;
+  display: grid;
+  gap: var(--panel-gap);
+  align-content: start;
+  min-block-size: calc(100vh - 80px);
+}
+
+.shell__panel:empty {
+  background: none;
+  box-shadow: none;
+  border: 0;
+}
+
+.shell__panel > * {
+  min-inline-size: 0;
+}
+
+.panel-section {
+  display: grid;
+  min-inline-size: 0;
+  gap: var(--panel-section-gap);
+  align-content: start;
+}
+
+.panel-section__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-block-end: 8px;
+  border-block-end: 1px solid var(--gold-soft);
+}
+
+/* The section dissolves into the panel's own grid so its title row can stay pinned over everything below it. The row is opaque: nothing shows through it. */
+.panel-section--pinned {
+  display: contents;
+}
+
+.panel-section--pinned > .panel-section__head {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 1;
+  box-sizing: border-box;
+  min-block-size: var(--pin-head-size);
+  padding-block-start: 8px;
+  margin-block-end: calc(var(--panel-section-gap) - var(--panel-gap));
+  --pin-bg: color-mix(in srgb, var(--surface) 70%, var(--bg));
+  background: var(--pin-bg);
+  box-shadow: 0 calc(-1 * var(--panel-pad)) 0 var(--pin-bg);
+}
+
+.panel-section__title {
+  font-size: 0.95rem;
+  color: var(--gold-ink);
+}
+
+/* Phone: the first row holds the name (start) and the sign-in or admin controls (end); the links drop below. */
+@media (max-width: 600px) {
+  .shell__bar {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 6px 12px;
+  }
+
+  .shell__brand {
+    font-size: 1.2rem;
+  }
+
+  .shell__main {
+    padding-inline: 16px;
+  }
+
+  .shell__admin {
+    flex-direction: column;
+    align-items: end;
+    gap: 4px;
+  }
+
+  .shell__nav {
+    grid-row: 2;
+    grid-column: 1 / -1;
+  }
+
+  .shell__link {
+    padding-block: 8px;
+  }
+}
+
+@media (max-width: 900px) {
+  .shell__body--admin {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .shell__panel {
+    position: static;
+    max-block-size: none;
+    min-block-size: 0;
+  }
+}
+
+@media print {
+  .shell__bar,
+  .shell__panel {
+    display: none;
+  }
+
+  .shell__body--admin {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .shell__main {
+    padding: 0;
+    max-inline-size: none;
+  }
+}

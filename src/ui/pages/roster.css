@@ -1,0 +1,40 @@
+.roster__name {
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: start;
+  font-weight: var(--weight-label);
+  cursor: pointer;
+}
+
+.roster__name[aria-pressed='true'] {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.roster__list {
+  display: grid;
+  gap: 4px;
+}
+
+.roster__student {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  inline-size: 100%;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: var(--radius-small);
+  background: none;
+  text-align: start;
+  cursor: pointer;
+  transition: background var(--motion);
+}
+
+.roster__student:hover {
+  background: var(--surface-2);
+}
+
+.roster__student[aria-pressed='true'] {
+  background: var(--accent-soft);
+}

@@ -1,0 +1,234 @@
+/*
+ * Reset, typography, layout helpers and surfaces every page uses (tokens live in tokens.css, controls in controls.css).
+ * Use logical properties (inline/block) only: the interface is right-to-left.
+ */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+body {
+  margin: 0;
+  background: var(--bg) linear-gradient(160deg, var(--bg) 0%, var(--bg-wash) 100%);
+  min-block-size: 100vh;
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: var(--leading);
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  font-weight: var(--weight-heading);
+}
+
+a {
+  color: var(--accent);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 3px solid var(--rose);
+  outline-offset: 2px;
+}
+
+/* ---- layout helpers ---- */
+/* Hidden from the eye, still in the page for keyboards and screen readers (the real input behind a drawn control). */
+.visually-hidden {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.list-reset {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.stack {
+  display: grid;
+  gap: var(--gap);
+  align-content: start;
+}
+
+.stack--tight {
+  gap: 8px;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.row--nowrap {
+  flex-wrap: nowrap;
+}
+
+.row--between {
+  justify-content: space-between;
+}
+
+.grid {
+  display: grid;
+  gap: var(--gap);
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+}
+
+.muted {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.page {
+  display: grid;
+  gap: var(--section-gap);
+  align-content: start;
+  animation: page-in 250ms ease;
+}
+
+/* A page whose top controls sit close together instead of a section apart. */
+.page--compact {
+  gap: var(--gap);
+}
+
+.page__title {
+  padding-block: 12px 4px;
+  font-size: clamp(1.5rem, 3vw, 2.2rem);
+  line-height: 1.4;
+  color: var(--accent);
+}
+
+@keyframes page-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* One switch for all motion: reduced-motion users get every change instantly. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+.page-state {
+  padding: 48px 16px;
+}
+
+/* ---- surfaces ---- */
+.card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: calc(var(--gap) + 4px);
+  box-shadow: var(--shadow);
+  transition: box-shadow var(--motion), transform var(--motion);
+}
+
+.card--tone {
+  /* Set --tone inline to a group's colour: a faint tint of it across the card and a small pill accent on top. */
+  position: relative;
+  padding-block-start: calc(var(--gap) + var(--tone-band) + 4px);
+  background: linear-gradient(160deg, color-mix(in srgb, var(--tone, var(--accent)) 13%, var(--surface)), color-mix(in srgb, var(--tone, var(--accent)) 4%, var(--surface)) 80%);
+}
+
+.card--tone::before {
+  content: '';
+  position: absolute;
+  inset-block-start: 10px;
+  inset-inline-start: calc(var(--gap) + 4px);
+  inline-size: 40px;
+  block-size: calc(var(--tone-band) / 2 + 2px);
+  border-radius: var(--radius-pill);
+  background: var(--tone, var(--accent));
+  opacity: 0.8;
+}
+
+.card__title {
+  font-size: 1.15rem;
+  line-height: 1.4;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 12px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.chip--accent {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.chip--ok {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+
+.chip--bad {
+  background: var(--bad-soft);
+  color: var(--bad-ink);
+}
+
+.notice {
+  padding: 12px 18px;
+  border-radius: var(--radius-small);
+  background: var(--gold-soft);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+}
+
+.notice--bad {
+  background: var(--bad-soft);
+}
+
+.qr svg {
+  display: block;
+  inline-size: 100%;
+  block-size: auto;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+}

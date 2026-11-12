@@ -1,0 +1,193 @@
+/* A slide scales with its container, so the same markup fits a projector and a phone. */
+.slide {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  container-type: inline-size;
+  display: grid;
+  gap: 24px;
+  align-content: start;
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: clamp(20px, 4.5cqi, 56px);
+  box-shadow: inset 0 2px 0 var(--gold), var(--shadow);
+  min-block-size: 280px;
+}
+
+/* A single very soft pearl sheen: a faint glow centred on the corner at the end side. */
+.slide::before {
+  --sheen: clamp(200px, 40cqi, 440px);
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset-block-start: calc(var(--sheen) / -2);
+  inset-inline-end: calc(var(--sheen) / -2);
+  inline-size: var(--sheen);
+  block-size: var(--sheen);
+  background: radial-gradient(circle closest-side, var(--gold-soft), transparent);
+  opacity: 0.75;
+  pointer-events: none;
+}
+
+.slide__head .chip {
+  background: var(--gold-soft);
+  color: var(--gold-ink);
+  font-weight: var(--weight-label);
+}
+
+.slide__head {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+}
+
+.slide__title {
+  color: var(--accent);
+  font-size: clamp(1.3rem, 4.2cqi, 3rem);
+  line-height: 1.4;
+}
+
+.slide-content {
+  display: grid;
+  gap: 20px;
+  font-size: clamp(1rem, 2.4cqi, 1.7rem);
+}
+
+.slide-content__text {
+  display: grid;
+  gap: 10px;
+}
+
+.slide-content__bullet {
+  padding-inline-start: 1.2em;
+  position: relative;
+}
+
+.slide-content__bullet::before {
+  content: '';
+  position: absolute;
+  inset-inline-start: 0;
+  inset-block-start: 0.7em;
+  inline-size: 0.45em;
+  block-size: 0.45em;
+  border-radius: 50%;
+  background: var(--gold);
+}
+
+.slide-content__image {
+  max-inline-size: 100%;
+  max-block-size: 50vh;
+  border-radius: var(--radius-small);
+  justify-self: center;
+}
+
+.slide-question {
+  display: grid;
+  gap: 16px;
+  font-size: clamp(1rem, 2.2cqi, 1.5rem);
+}
+
+.slide-question__prompt {
+  font-weight: var(--weight-label);
+  font-size: 1.15em;
+  line-height: 1.7;
+}
+
+.slide-options {
+  display: grid;
+  gap: 10px;
+}
+
+.slide-option {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  align-items: center;
+  text-align: start;
+  padding: 14px 18px;
+  border: 1.5px solid var(--edge-soft);
+  border-radius: var(--radius);
+  background: var(--surface);
+  cursor: pointer;
+  transition: border-color var(--motion), background var(--motion), box-shadow var(--motion), transform var(--motion);
+}
+
+.slide-option:disabled {
+  cursor: default;
+  color: inherit;
+}
+
+.slide-option:hover:not(:disabled) {
+  border-color: var(--rose);
+  box-shadow: var(--shadow-button);
+  transform: translateY(-1px);
+}
+
+.slide-option__letter {
+  display: grid;
+  place-items: center;
+  inline-size: 2em;
+  block-size: 2em;
+  border-radius: 50%;
+  background: var(--gold-soft);
+  color: var(--gold-ink);
+  font-weight: var(--weight-label);
+  transition: background var(--motion), color var(--motion);
+}
+
+.slide-option__tally {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.slide-option--selected {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.slide-option--selected .slide-option__letter {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.slide-option--correct {
+  border-color: var(--ok);
+  background: var(--ok-soft);
+}
+
+.slide-option--correct .slide-option__letter {
+  background: var(--ok);
+  color: var(--on-accent);
+}
+
+.slide-option--wrong {
+  border-color: var(--bad);
+  background: var(--bad-soft);
+}
+
+.slide-option--wrong .slide-option__letter {
+  background: var(--bad);
+  color: var(--on-accent);
+}
+
+.slide-verdict {
+  font-weight: var(--weight-label);
+}
+
+.slide-verdict--correct {
+  color: var(--ok);
+}
+
+.slide-verdict--wrong {
+  color: var(--bad-ink);
+}
+
+.slide-explanation,
+.slide-answer {
+  padding: 12px 16px;
+  border-radius: var(--radius-small);
+  background: var(--gold-soft);
+}

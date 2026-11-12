@@ -1,0 +1,26 @@
+.board__results {
+  display: grid;
+  gap: 8px;
+}
+
+.board__result {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.board__answer {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 560px) {
+  .board__result {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .board__answer {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}

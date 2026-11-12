@@ -1,0 +1,240 @@
+/* Our own form widgets and floating layers, drawn from the tokens so nothing on screen is the browser's own look. */
+
+/* Scrollbars of every panel and list: thin and rose instead of the browser's grey. */
+:root {
+  scrollbar-width: thin;
+  scrollbar-color: var(--rose) transparent;
+}
+
+/* The small arrow of a drop-down and of an opened section: one shape, turned over when open. */
+.chevron,
+.summary-row::after {
+  flex: none;
+  inline-size: 12px;
+  block-size: 8px;
+  background: currentColor;
+  clip-path: polygon(0 19%, 12.5% 0, 50% 56%, 87.5% 0, 100% 19%, 50% 94%);
+  transition: transform var(--motion);
+}
+
+/* ---- opened sections (details) ---- */
+.summary-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-block-size: 40px;
+  font-weight: var(--weight-label);
+  list-style: none;
+  cursor: pointer;
+}
+
+.summary-row::-webkit-details-marker {
+  display: none;
+}
+
+.summary-row::after {
+  content: '';
+  margin-inline-start: auto;
+  color: var(--accent);
+}
+
+details[open] > .summary-row::after,
+.select[aria-expanded='true'] > .chevron {
+  transform: rotate(180deg);
+}
+
+/* ---- drop-down ---- */
+.select {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-inline-end: 18px;
+  text-align: start;
+  cursor: pointer;
+}
+
+.select[aria-expanded='true'] {
+  border-color: var(--rose);
+  box-shadow: var(--shadow-button);
+}
+
+.select > .chevron {
+  color: var(--accent);
+}
+
+.select__value {
+  flex: 1;
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A layer floats over the page, placed by useAnchoredLayer (the --layer-* properties). */
+.layer {
+  position: fixed;
+  inset-block-start: var(--layer-top, 0);
+  inset-inline-start: var(--layer-start, 0);
+  inline-size: var(--layer-width, max-content);
+  max-inline-size: calc(100vw - 16px);
+  z-index: 1100;
+  padding: 6px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-small);
+  background: var(--surface);
+  box-shadow: var(--shadow-lift);
+}
+
+.select__list {
+  display: grid;
+  gap: 2px;
+  max-block-size: min(18rem, var(--layer-room, 18rem));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.select__option {
+  display: flex;
+  align-items: center;
+  min-block-size: 38px;
+  padding: 6px 12px;
+  border-radius: var(--radius-tiny);
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.select__option--active {
+  background: var(--accent-soft);
+}
+
+.select__option[aria-selected='true'] {
+  color: var(--accent);
+  font-weight: var(--weight-label);
+}
+
+/* ---- tip ---- */
+.tip {
+  display: inline-block;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: none;
+  cursor: default;
+}
+
+.tip__bubble {
+  inline-size: max-content;
+  max-inline-size: min(20rem, calc(100vw - 16px));
+  padding: 8px 14px;
+  overflow-wrap: anywhere;
+  pointer-events: none;
+}
+
+/* ---- check box ---- */
+.checkbox {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-block-size: 32px;
+  cursor: pointer;
+}
+
+.checkbox__box {
+  display: grid;
+  flex: none;
+  place-items: center;
+  inline-size: 22px;
+  block-size: 22px;
+  border: 2px solid var(--edge-soft);
+  border-radius: var(--radius-tiny);
+  background: var(--surface);
+  color: var(--on-accent);
+  transition: background var(--motion), border-color var(--motion), box-shadow var(--motion);
+}
+
+.checkbox__box::after {
+  content: '';
+  inline-size: 12px;
+  block-size: 10px;
+  background: currentColor;
+  clip-path: polygon(0 55%, 14% 40%, 38% 64%, 86% 6%, 100% 20%, 38% 94%);
+  opacity: 0;
+  transform: scale(0.6);
+  transition: opacity var(--motion), transform var(--motion);
+}
+
+.checkbox:hover .checkbox__box {
+  border-color: var(--rose);
+}
+
+.checkbox__input:checked + .checkbox__box {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.checkbox__input:checked + .checkbox__box::after {
+  opacity: 1;
+  transform: none;
+}
+
+.checkbox__input:focus-visible + .checkbox__box {
+  outline: 3px solid var(--rose);
+  outline-offset: 2px;
+}
+
+/* ---- file picker ---- */
+.file-picker {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  min-inline-size: 0;
+}
+
+.file-picker__button:focus-within {
+  outline: 3px solid var(--rose);
+  outline-offset: 2px;
+}
+
+.file-picker__name {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+/* ---- number stepper ---- */
+.stepper {
+  --stepper-size: 36px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.stepper__button {
+  min-inline-size: var(--stepper-size);
+  min-block-size: var(--stepper-size);
+  padding: 0;
+}
+
+.stepper__input {
+  inline-size: 4.5rem;
+  min-block-size: var(--stepper-size);
+  padding-inline: 6px;
+  text-align: center;
+}
+
+@media (max-width: 600px), (pointer: coarse) {
+  .stepper {
+    --stepper-size: 44px;
+  }
+
+  .select,
+  .checkbox {
+    min-block-size: 44px;
+  }
+
+  .select__option {
+    min-block-size: 44px;
+  }
+}

@@ -1,0 +1,41 @@
+.session-groups {
+  display: grid;
+  align-content: start;
+  gap: var(--gap);
+  padding: var(--gap);
+  overflow-y: auto;
+  min-block-size: 0;
+}
+
+.session-groups__list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  gap: var(--gap);
+  align-items: start;
+}
+
+.session-groups__name {
+  font-weight: var(--weight-label);
+}
+
+.session-groups__student {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.session-groups__student > :first-child {
+  display: grid;
+  flex: 1;
+  min-inline-size: 0;
+}
+
+.session-groups__move {
+  flex: 0 1 11rem;
+}
+
+.session-groups__add > .input {
+  flex: 1;
+  min-inline-size: 0;
+}

@@ -1,0 +1,174 @@
+/* Buttons, fields, bars, tables and dialogs (colours and sizes come from tokens.css). */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-block-size: 42px;
+  padding: 6px 22px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: var(--weight-label);
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background var(--motion), box-shadow var(--motion), transform var(--motion), color var(--motion);
+}
+
+.btn:hover:not(:disabled) {
+  background: var(--blush-deep);
+  box-shadow: var(--shadow-button);
+  transform: translateY(-1px);
+}
+
+.btn:active:not(:disabled) {
+  transform: none;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn--primary {
+  background: linear-gradient(135deg, var(--accent), var(--rose-ink));
+  color: var(--on-accent);
+  box-shadow: var(--shadow-button);
+}
+
+.btn--primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, var(--accent), var(--rose-ink));
+  box-shadow: var(--glow);
+}
+
+.btn--danger {
+  background: var(--bad-soft);
+  color: var(--bad-ink);
+}
+
+.btn--danger:hover:not(:disabled) {
+  background: var(--bad-soft);
+}
+
+.btn--heart {
+  background: var(--heart-soft);
+  color: var(--heart-ink);
+}
+
+.btn--heart:hover:not(:disabled) {
+  background: var(--heart-soft);
+}
+
+.btn--small {
+  min-block-size: 32px;
+  padding: 2px 16px;
+  font-size: 0.85rem;
+}
+
+@media (max-width: 600px), (pointer: coarse) {
+  .btn--small {
+    min-block-size: 40px;
+  }
+}
+
+/* A toggle that is on: a solid maroon pill, so the chosen mode is clear at a glance. */
+.btn[aria-pressed='true'],
+.btn--on {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.btn[aria-pressed='true']:hover:not(:disabled),
+.btn--on:hover:not(:disabled) {
+  background: var(--accent);
+}
+
+.input {
+  inline-size: 100%;
+  min-block-size: 42px;
+  padding: 6px 14px;
+  border: 1px solid var(--edge-soft);
+  border-radius: var(--radius-small);
+  background: var(--surface);
+  transition: border-color var(--motion), box-shadow var(--motion);
+}
+
+.input:hover {
+  border-color: var(--rose);
+}
+
+.input:focus-visible {
+  border-color: var(--rose);
+  box-shadow: var(--shadow-button);
+}
+
+textarea.input {
+  resize: vertical;
+  line-height: 1.7;
+}
+
+/* ---- data display ---- */
+.bar {
+  display: block;
+  block-size: 10px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.bar__fill {
+  display: block;
+  block-size: 100%;
+  border-radius: inherit;
+  background: var(--tone, var(--accent));
+  transition: inline-size 0.3s ease;
+}
+
+.table {
+  inline-size: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.table th,
+.table td {
+  padding: 8px 10px;
+  border-block-end: 1px solid var(--line-soft);
+  text-align: start;
+}
+
+.table--nowrap td {
+  white-space: nowrap;
+}
+
+.table th {
+  color: var(--muted);
+  font-weight: var(--weight-label);
+}
+
+/* ---- dialog ---- */
+.dialog {
+  inline-size: min(92vw, 420px);
+  border: 0;
+  border-block-start: 3px solid var(--gold);
+  border-radius: var(--radius);
+  padding: 24px;
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+}
+
+.dialog--wide {
+  inline-size: min(94vw, 720px);
+}
+
+.dialog::backdrop {
+  background: var(--scrim);
+}
+
+.dialog__title {
+  font-size: 1.25rem;
+  color: var(--accent);
+}

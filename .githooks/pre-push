@@ -1,0 +1,7 @@
+#!/bin/sh
+# Blocks any push (plain `git push` included) unless the whole check passes.
+if ! npm run check; then
+  echo ""
+  echo "PUSH BLOCKED: the check failed, so nothing was sent. Fix what it says, then push again."
+  exit 1
+fi

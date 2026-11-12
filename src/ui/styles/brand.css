@@ -1,0 +1,95 @@
+/* The brand: rose-gold lettering, the pearl and its string, the pearl-silk veil. Colours come from tokens.css. */
+.rose-gold {
+  background: linear-gradient(175deg, var(--rose-gold-light) 0%, var(--rose-gold) 14%, var(--rose-gold-deep) 50%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 1px 0 color-mix(in srgb, var(--rose-gold-deep) 45%, transparent));
+}
+
+/* How a pearl is drawn, once: a small highlight over a soft body that darkens at the edge. Every pearl in the
+   site (the score row, the title divider, the decorative fields in pearl-field.css) layers --pearl-glint over a
+   --pearl-body-*, so a field can give each of its pearls its own tone and place. */
+:root {
+  --pearl-glint: radial-gradient(circle at 34% 30%, var(--pearl-shine) 0 7%, transparent 26%);
+  --pearl-body-rose: radial-gradient(circle closest-side, color-mix(in srgb, var(--rose-gold-light) 60%, var(--pearl-shine)) 0, var(--rose-gold-light) 50%, color-mix(in srgb, var(--rose-gold-light) 70%, var(--ink)) 96%, transparent 100%);
+  --pearl-body-1: radial-gradient(circle closest-side, color-mix(in srgb, var(--pearl-1) 60%, var(--pearl-shine)) 0, var(--pearl-1) 50%, color-mix(in srgb, var(--pearl-1) 70%, var(--ink)) 96%, transparent 100%);
+  --pearl-body-2: radial-gradient(circle closest-side, color-mix(in srgb, var(--pearl-2) 60%, var(--pearl-shine)) 0, var(--pearl-2) 50%, color-mix(in srgb, var(--pearl-2) 70%, var(--ink)) 96%, transparent 100%);
+  --pearl-body-3: radial-gradient(circle closest-side, color-mix(in srgb, var(--pearl-3) 60%, var(--pearl-shine)) 0, var(--pearl-3) 50%, color-mix(in srgb, var(--pearl-3) 70%, var(--ink)) 96%, transparent 100%);
+  --pearl-body-4: radial-gradient(circle closest-side, color-mix(in srgb, var(--pearl-4) 60%, var(--pearl-shine)) 0, var(--pearl-4) 50%, color-mix(in srgb, var(--pearl-4) 70%, var(--ink)) 96%, transparent 100%);
+  --pearl-body-5: radial-gradient(circle closest-side, color-mix(in srgb, var(--pearl-5) 60%, var(--pearl-shine)) 0, var(--pearl-5) 50%, color-mix(in srgb, var(--pearl-5) 70%, var(--ink)) 96%, transparent 100%);
+  --pearl-body-6: radial-gradient(circle closest-side, color-mix(in srgb, var(--pearl-6) 60%, var(--pearl-shine)) 0, var(--pearl-6) 50%, color-mix(in srgb, var(--pearl-6) 70%, var(--ink)) 96%, transparent 100%);
+  --pearl-body-7: radial-gradient(circle closest-side, color-mix(in srgb, var(--pearl-7) 60%, var(--pearl-shine)) 0, var(--pearl-7) 50%, color-mix(in srgb, var(--pearl-7) 70%, var(--ink)) 96%, transparent 100%);
+}
+
+.pearl,
+.hero .page__title::after {
+  --pearl-body: var(--pearl-body-rose);
+  background: var(--pearl-glint), var(--pearl-body);
+}
+
+.pearl {
+  display: inline-block;
+  flex: none;
+  inline-size: 1.4rem;
+  block-size: 1.4rem;
+  filter: drop-shadow(0 2px 2px color-mix(in srgb, var(--ink) 28%, transparent));
+  animation: pearl-in 0.35s ease-out;
+}
+
+.pearl--1 { --pearl-body: var(--pearl-body-1); }
+.pearl--2 { --pearl-body: var(--pearl-body-2); }
+.pearl--3 { --pearl-body: var(--pearl-body-3); }
+.pearl--4 { --pearl-body: var(--pearl-body-4); }
+.pearl--5 { --pearl-body: var(--pearl-body-5); }
+.pearl--6 { --pearl-body: var(--pearl-body-6); }
+.pearl--7 { --pearl-body: var(--pearl-body-7); }
+
+.pearl--empty {
+  background: color-mix(in srgb, var(--surface-2) 55%, transparent);
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1.5px var(--line-soft);
+  filter: none;
+  animation: none;
+}
+
+.pearls {
+  display: inline-flex;
+  gap: 4px;
+}
+
+@keyframes pearl-in {
+  from {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pearl {
+    animation: none;
+  }
+}
+
+/* Three small pearls under the home page's title; no other title carries them. */
+.hero .page__title::after {
+  content: '';
+  display: block;
+  inline-size: 54px;
+  block-size: 14px;
+  margin-block-start: 10px;
+  background-size: 14px 14px;
+  background-repeat: space;
+}
+
+/* Pearl silk behind a welcoming area, washed out so text on it stays readable; its edges fade into the page.
+   The home hero carries the same class but spreads the silk across the whole page top instead (home.css). */
+.pearl-veil:not(.hero) {
+  padding: 40px 32px;
+  border-radius: var(--radius);
+  background: linear-gradient(var(--veil), var(--veil)), url('../assets/brand/pearls-light.jpg') center / cover;
+  box-shadow: none;
+  mask-image: var(--feather);
+  mask-composite: intersect;
+}

@@ -1,0 +1,86 @@
+.scanner__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 360px);
+  gap: var(--gap);
+  padding: var(--gap);
+  min-block-size: 0;
+}
+
+.scanner__camera {
+  min-block-size: 0;
+}
+
+.scanner__view {
+  position: relative;
+  background: var(--camera-backdrop);
+  border-radius: var(--radius);
+  overflow: hidden;
+  min-block-size: 200px;
+}
+
+.scanner__video,
+.scanner__overlay {
+  display: block;
+  inline-size: 100%;
+  block-size: auto;
+  max-block-size: calc(100vh - 160px);
+  object-fit: contain;
+}
+
+.scanner__overlay {
+  position: absolute;
+  inset: 0;
+  block-size: 100%;
+  pointer-events: none;
+}
+
+.scanner__status {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--camera-text);
+}
+
+.scanner__side {
+  overflow-y: auto;
+  min-block-size: 0;
+}
+
+.scanner__tally {
+  display: grid;
+  grid-template-columns: 2ch 1fr 3ch;
+  align-items: center;
+  gap: 8px;
+}
+
+.scanner__letter {
+  font-weight: var(--weight-label);
+}
+
+.scanner__student {
+  inline-size: 100%;
+  justify-content: flex-start;
+}
+
+.scanner__student-name {
+  flex: 1;
+  text-align: start;
+}
+
+.scanner__body--single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (max-width: 760px) {
+  .scanner__body {
+    grid-template-columns: minmax(0, 1fr);
+    overflow-y: auto;
+  }
+}
+
+.scanner__student-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}

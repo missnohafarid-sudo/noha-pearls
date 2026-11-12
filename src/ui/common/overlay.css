@@ -1,0 +1,19 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  background: var(--bg-wash);
+}
+
+.overlay__top {
+  padding: 12px 16px;
+  background: var(--surface);
+  border-block-end: 1px solid var(--line-soft);
+  flex-wrap: nowrap;
+}
+
+.overlay__title {
+  font-size: 1.2rem;
+}

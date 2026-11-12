@@ -1,0 +1,92 @@
+/*
+ * Design tokens: the one place colour values, sizes and fonts are written.
+ * Theme "pearl and maroon": warm pearl page, Qatari maroon accent, rose and fine gold details.
+ */
+:root {
+  --bg: #fbf6f2;
+  --bg-wash: #f7ecec;
+  --surface: #ffffff;
+  --surface-2: #f7ecec;
+  --ink: #3a1626;
+  --muted: #7a5565;
+  --line: #ead9d6;
+  --accent: #8a1538;
+  --accent-soft: #f7e3e8;
+  --on-accent: #ffffff;
+  --rose: #c25e7a;
+  --gold: #b8935a;
+  --gold-soft: #f3e9d8;
+  --gold-ink: #7a5a26;
+  --ok: #1e6b4e;
+  --ok-soft: #e3f0e9;
+  --bad: #c8401e;
+  --bad-soft: #fbe6df;
+  --bad-ink: #a8310f;
+  --rose-ink: #a8445f;
+  --heart-soft: #fce6ee;
+  --heart-ink: #a81f52;
+  --blush-deep: #f1d3db;
+
+  /* Rose-gold lettering: highlight, body, deep edge. The deep edge keeps 6.2:1 on the page background. */
+  --rose-gold-light: #dca597;
+  --rose-gold: #b76e79;
+  --rose-gold-deep: #8a3f52;
+
+  /* The seven pearls of a group's score, in the order of the brand's pearl row. */
+  --pearl-shine: #fffdfa;
+  --pearl-1: #f1ebe6;
+  --pearl-2: #f0c9a8;
+  --pearl-3: #e8907f;
+  --pearl-4: #d9b565;
+  --pearl-5: #9d82b8;
+  --pearl-6: #6e4631;
+  --pearl-7: #2f5a5c;
+
+  /* Printing and camera reading need true black on white, whatever the theme. */
+  --paper: #ffffff;
+  --print-ink: #000000;
+  --print-line: #999999;
+  --camera-backdrop: #000000;
+  --camera-text: #ffffff;
+
+  --radius: 18px;
+  --radius-small: 12px;
+  --radius-tiny: 8px;
+  --radius-pill: 999px;
+  --gap: 16px;
+  --shadow-tint: 58, 22, 38;
+  --shadow: 0 1px 2px rgba(var(--shadow-tint), 0.04), 0 12px 30px -16px rgba(var(--shadow-tint), 0.22);
+  --shadow-lift: 0 2px 4px rgba(var(--shadow-tint), 0.05), 0 18px 34px -16px rgba(var(--shadow-tint), 0.32);
+  --shadow-button: 0 1px 2px rgba(var(--shadow-tint), 0.06), 0 4px 10px -6px rgba(var(--shadow-tint), 0.28);
+  --glow: 0 6px 18px -6px rgba(138, 21, 56, 0.55);
+  --veil: color-mix(in srgb, var(--bg) 86%, transparent);
+  --veil-hero: color-mix(in srgb, var(--bg) 82%, transparent);
+  --scrim: rgba(var(--shadow-tint), 0.5);
+  --serration: 5px;
+  --tone-band: 8px;
+
+  /* Soft edges and translucent surfaces: separation by tint and shadow instead of outlines. */
+  --edge-soft: color-mix(in srgb, var(--rose) 30%, var(--surface));
+  --line-soft: color-mix(in srgb, var(--line) 55%, transparent);
+  --glass: color-mix(in srgb, var(--bg) 74%, transparent);
+  --glass-panel: color-mix(in srgb, var(--surface) 70%, transparent);
+  /* A mask that fades all four edges of a picture into the page. */
+  --feather: linear-gradient(90deg, transparent, var(--ink) 14%, var(--ink) 86%, transparent), linear-gradient(180deg, transparent, var(--ink) 18%, var(--ink) 82%, transparent);
+  /* The same fade kept shallow, for a picture that carries the lettering: no letter may be dimmed. */
+  --feather-shallow: linear-gradient(90deg, transparent, var(--ink) 7%, var(--ink) 93%, transparent), linear-gradient(180deg, transparent, var(--ink) 6%, var(--ink) 94%, transparent);
+  --section-gap: 44px;
+
+  /* Type: 400 for reading, 500 for labels and navigation, 600 for display headings. */
+  --leading: 1.8;
+  --weight-label: 500;
+  --weight-heading: 600;
+
+  /* Motion: one speed and curve for every hover and focus change; switched off for reduced motion in base.css. */
+  --motion: 200ms ease;
+  --lift: translateY(-2px);
+
+  --font-display: 'El Messiri', 'SF Arabic', 'Geeza Pro', 'Segoe UI', Tahoma, serif;
+  --font: 'IBM Plex Sans Arabic', 'SF Arabic', 'Segoe UI', 'Noto Sans Arabic', 'Geeza Pro', Tahoma, sans-serif;
+  --font-script: 'Sansita Swashed';
+  color-scheme: light;
+}

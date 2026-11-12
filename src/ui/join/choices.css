@@ -1,0 +1,20 @@
+@import '../forms/forms.css';
+
+/* The session-code input stays code-sized; each group button wears its colour. */
+.join-code .field__label {
+  white-space: nowrap;
+}
+
+.join-code .input {
+  flex: 0 1 14rem;
+  inline-size: auto;
+}
+
+.join-group .btn {
+  background: color-mix(in srgb, var(--tone) 28%, var(--surface));
+  color: var(--ink);
+}
+
+.join-group .btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--tone) 45%, var(--surface));
+}

@@ -1,0 +1,74 @@
+.join {
+  min-block-size: 100dvh;
+  padding: 16px;
+  max-inline-size: 640px;
+  margin-inline: auto;
+}
+
+.join__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  --tone-band: 16px;
+}
+
+.join__choice {
+  min-block-size: 60px;
+  font-size: 1.15rem;
+}
+
+.join__choice-note {
+  display: block;
+  font-weight: normal;
+}
+
+.join__hold {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 8px;
+  min-block-size: 50dvh;
+  text-align: center;
+}
+
+.join .page-state {
+  text-align: center;
+  justify-items: center;
+}
+
+.join__pace {
+  justify-self: center;
+}
+
+.join__banner {
+  display: block;
+  inline-size: 100%;
+  block-size: auto;
+  /* The lettering fills the top 500 of the poster's 720px width: show all of it at any width. */
+  aspect-ratio: 36 / 25;
+  object-fit: cover;
+  object-position: center top;
+  mask-image: var(--feather-shallow);
+  mask-composite: intersect;
+}
+
+.join__link {
+  justify-self: start;
+  padding: 8px 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.join__ended-action {
+  justify-self: center;
+}
+
+.join__leave {
+  justify-self: center;
+}

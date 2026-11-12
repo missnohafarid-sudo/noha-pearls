@@ -1,0 +1,1265 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { seatAnswerer } from '../domain/admission';
+import { inPeriod, periodAt } from '../domain/periods';
+import type { ChoiceSlide, Lesson, Student, TextSlide } from '../domain/models';
+import { MAX_MESSAGE_LENGTH } from '../domain/text';
+import type { DocumentStore } from '../ports/store';
+import { LocalChangeBus, LocalDocumentStore } from '../infrastructure/LocalDocumentStore';
+import { PrototypeAuthGateway, sha256Hex } from '../infrastructure/PrototypeAuthGateway';
+import { totpCode } from '../infrastructure/totp';
+import { MemoryStorage } from '../infrastructure/storage';
+import { AdmissionService } from './AdmissionService';
+import { AnswerService } from './AnswerService';
+import { AuthService, NotAuthorizedError } from './AuthService';
+import { LessonError, LessonService } from './LessonService';
+import { ParticipantService } from './ParticipantService';
+import { RecordService } from './RecordService';
+import { RewardService } from './RewardService';
+import { NameError } from './requireName';
+import { RosterError, RosterService } from './RosterService';
+import { SessionRosterService } from './SessionRosterService';
+import { SessionService } from './SessionService';
+import { TeacherError, TeacherService } from './TeacherService';
+
+const question: ChoiceSlide = {
+  id: 'q1', kind: 'choice', title: 'س', tag: '', prompt: '؟', options: ['a', 'b'],
+  correctIndex: 0, explanation: 'شرح', scope: 'individual', points: 1,
+};
+const groupQuestion: TextSlide = {
+  id: 'q2', kind: 'text', title: 'ن', tag: '', prompt: '؟', placeholder: '', scope: 'group', points: 1,
+};
+const lesson: Lesson = {
+  id: 'l1', title: 'درس', subject: '', grade: '', published: true, slides: [question, groupQuestion], updatedAt: 0,
+};
+
+const TOTP_SECRET = 'JBSWY3DPEHPK3PXP';
+const NOW = 1_700_000_000_000;
+
+async function gateway(totpSecret: string | undefined = TOTP_SECRET) {
+  return new PrototypeAuthGateway(
+    { passwordSha256: await sha256Hex('secret'), totpSecret },
+    new MemoryStorage(),
+    'admin',
+    () => NOW,
+  );
+}
+
+const validCode = () => totpCode(TOTP_SECRET, NOW);
+
+async function setup() {
+  const store = new LocalDocumentStore(new MemoryStorage(), new LocalChangeBus(), 'test');
+  const auth = new AuthService(await gateway());
+  const roster = new RosterService(store, auth);
+  const sessionRoster = new SessionRosterService(store, auth);
+  const teacherDevice = new ParticipantService(store, new MemoryStorage(), 'teacher', sessionRoster);
+  const records = new RecordService(store, auth, sessionRoster, roster, teacherDevice);
+  return {
+    store,
+    auth,
+    admission: new AdmissionService(store, auth, sessionRoster, sessionRoster),
+    sessions: new SessionService(store, auth, roster, sessionRoster, records),
+    records,
+    sessionRoster,
+    answers: new AnswerService(store, auth, teacherDevice, sessionRoster, sessionRoster),
+    lessons: new LessonService(store, auth),
+    roster,
+    teachers: new TeacherService(store, auth),
+    rewards: new RewardService(store, auth, teacherDevice, sessionRoster),
+    participants: (deviceKey: string) => new ParticipantService(store, new MemoryStorage(), deviceKey, sessionRoster),
+    /** One student device: its own seat memory, and the services that act through that seat. */
+    device: (deviceKey: string) => {
+      const participants = new ParticipantService(store, new MemoryStorage(), deviceKey, sessionRoster);
+      return {
+        participants,
+        answers: new AnswerService(store, auth, participants, sessionRoster, sessionRoster),
+        rewards: new RewardService(store, auth, participants, sessionRoster),
+        records: new RecordService(store, auth, sessionRoster, roster, participants),
+      };
+    },
+  };
+}
+
+describe('document store', () => {
+  it('filters, replaces and notifies watchers', async () => {
+    const { store } = await setup();
+    const seen: number[] = [];
+    const stop = store.watch('groups', { color: 'red' }, (docs) => seen.push(docs.length));
+    await store.put('groups', { id: 'a', classId: 'c1', name: 'أ', color: 'red', order: 1 });
+    await store.put('groups', { id: 'b', classId: 'c1', name: 'ب', color: 'blue', order: 2 });
+    await store.put('groups', { id: 'a', classId: 'c1', name: 'أأ', color: 'red', order: 1 });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    stop();
+    expect(seen.at(-1)).toBe(1);
+    expect((await store.get('groups', 'a'))?.name).toBe('أأ');
+    expect(await store.list('groups')).toHaveLength(2);
+    await store.remove('groups', 'a');
+    expect(await store.get('groups', 'a')).toBeNull();
+  });
+});
+
+describe('admin access', () => {
+  it('rejects a wrong password and admin commands from visitors', async () => {
+    const { auth, sessions, lessons } = await setup();
+    expect(await auth.signIn({ password: 'wrong', code: await validCode() })).toBe(false);
+    expect(auth.isAdmin()).toBe(false);
+    await expect(sessions.start('l1', 'c1', 't1')).rejects.toBeInstanceOf(NotAuthorizedError);
+    await expect(lessons.create('x')).rejects.toBeInstanceOf(NotAuthorizedError);
+    expect(await auth.signIn({ password: 'secret', code: await validCode() })).toBe(true);
+    await auth.signOut();
+    expect(auth.isAdmin()).toBe(false);
+  });
+
+  it('refuses the right password with a wrong code, and the right code with a wrong password', async () => {
+    const { auth } = await setup();
+    expect(await auth.signIn({ password: 'secret', code: '000000' })).toBe(false);
+    expect(await auth.signIn({ password: 'wrong', code: await validCode() })).toBe(false);
+    expect(auth.isAdmin()).toBe(false);
+  });
+
+  it('accepts a code typed with Arabic digits', async () => {
+    const { auth } = await setup();
+    const arabic = (await validCode()).replace(/\d/g, (d) => String.fromCharCode(0x0660 + Number(d)));
+    expect(await auth.signIn({ password: 'secret', code: arabic })).toBe(true);
+  });
+
+  it('has no admin at all unless both secrets are configured', async () => {
+    const noTotp = new AuthService(await gateway(''));
+    expect(await noTotp.signIn({ password: 'secret', code: await validCode() })).toBe(false);
+    const nothing = new AuthService(
+      new PrototypeAuthGateway({ passwordSha256: undefined, totpSecret: undefined }, new MemoryStorage(), 'admin'),
+    );
+    expect(await nothing.signIn({ password: '', code: '' })).toBe(false);
+  });
+});
+
+describe('a live class', () => {
+  let ctx: Awaited<ReturnType<typeof setup>>;
+  beforeEach(async () => {
+    ctx = await setup();
+    await ctx.auth.signIn({ password: 'secret', code: await validCode() });
+    await ctx.store.put('lessons', lesson);
+    await ctx.store.put('classes', { id: 'c1', name: '11-3', order: 1 });
+    await ctx.store.put('teachers', { id: 't1', name: 'أ. هدى', order: 1 });
+  });
+
+  /** The stored class list that seats are checked against. */
+  const storeClassList = async () => {
+    await ctx.store.put('groups', { id: 'g1', classId: 'c1', name: 'أ', color: '#000', order: 1 });
+    await ctx.store.put('groups', { id: 'g2', classId: 'c1', name: 'ب', color: '#111', order: 2 });
+    for (const student of [salma, mate, nour]) await ctx.store.put('students', student);
+  };
+  /** Starts a class of the stored class list, which must have its groups by then. */
+  const begin = async () => {
+    await storeClassList();
+    return (await ctx.sessions.start(lesson.id, 'c1', 't1'))!;
+  };
+  let deviceCount = 0;
+  /** A device that asked for a seat and was let in by the teacher. */
+  const seated = async (sessionId: string, groupId: string, studentId: string | null) => {
+    await storeClassList();
+    deviceCount += 1;
+    const device = ctx.device(`device-${deviceCount}`);
+    const mine = (await device.participants.join(sessionId, groupId, studentId))!;
+    await ctx.admission.admit(mine.id, studentId);
+    return device;
+  };
+  const salma: Student = { id: 's1', name: 'سلمى أحمد', cardNumber: 1, groupId: 'g1' };
+  const mate: Student = { id: 's3', name: 'ليلى سعيد', cardNumber: 3, groupId: 'g1' };
+  const nour: Student = { id: 's2', name: 'نور خالد', cardNumber: 2, groupId: 'g2' };
+
+  it('runs several classes at once without touching one another', async () => {
+    const { sessions, store } = ctx;
+    const first = await begin();
+    const { answers: firstAnswers } = await seated(first.id, 'g1', 's1');
+    await firstAnswers.submitFromDevice(first.id, 'q1', 1);
+    await sessions.goTo(first.id, 1);
+
+    const second = await begin();
+    expect(second.code).not.toBe(first.code);
+    const keptFirst = (await store.get('sessions', first.id))!;
+    expect(keptFirst.status).toBe('live');
+    expect(keptFirst.slideIndex).toBe(1);
+    expect(await store.list('answers', { sessionId: first.id })).toHaveLength(1);
+
+    await sessions.end(second.id);
+    expect((await store.get('sessions', first.id))!.status).toBe('live');
+    expect((await store.get('sessions', second.id))!.status).toBe('ended');
+  });
+
+  it('never reuses the join code of a stored class', async () => {
+    const { store } = ctx;
+    const first = await begin();
+    await store.put('sessions', { ...first, code: 'AAAAAA' });
+    const allZeros = ((bytes: Uint8Array) => bytes.fill(0)) as typeof crypto.getRandomValues;
+    const spy = vi.spyOn(crypto, 'getRandomValues').mockImplementationOnce(allZeros);
+    const second = await begin();
+    spy.mockRestore();
+    expect(second.code).not.toBe('AAAAAA');
+  });
+
+  it('locks a question on reveal', async () => {
+    const { sessions, store } = ctx;
+    const second = await begin();
+
+    const { answers } = await seated(second.id, 'g1', 's1');
+    expect(await answers.submitFromDevice(second.id, 'q1', 1)).toBe(true);
+    expect(await answers.submitFromDevice(second.id, 'q1', 0)).toBe(true);
+    expect(await store.list('answers', { sessionId: second.id })).toHaveLength(1);
+
+    await sessions.reveal(second.id, 'q1');
+    expect((await store.get('sessions', second.id))!.reveals.q1).toEqual({ correctIndex: 0, explanation: 'شرح' });
+    expect(await answers.submitFromDevice(second.id, 'q1', 1)).toBe(false);
+  });
+
+  it('refuses a shared group device on an individual question', async () => {
+    const session = await begin();
+    const { answers } = await seated(session.id, 'g1', null);
+    expect(await answers.submitFromDevice(session.id, 'q1', 0)).toBe(false);
+  });
+
+  it('applies overlapping commands to the stored session without losing one', async () => {
+    const { sessions, store } = ctx;
+    const session = await begin();
+    await Promise.all([sessions.reveal(session.id, 'q1'), sessions.goTo(session.id, 1), sessions.sendMessage(session.id, 'مرحبا', null)]);
+    const saved = (await store.get('sessions', session.id))!;
+    expect(Object.keys(saved.reveals)).toEqual(['q1']);
+    expect(saved.slideIndex).toBe(1);
+    expect(saved.message?.text).toBe('مرحبا');
+  });
+
+  it('reads slides and the slide count from the stored lesson', async () => {
+    const { sessions, store } = ctx;
+    const session = await begin();
+    const { answers } = await seated(session.id, 'g1', 's1');
+    await sessions.goTo(session.id, 99);
+    expect((await store.get('sessions', session.id))!.slideIndex).toBe(1);
+    expect(await answers.submitFromDevice(session.id, 'nope', 0)).toBe(false);
+    await sessions.reveal(session.id, 'nope');
+    await sessions.goTo('nope', 0);
+    expect(Object.keys((await store.get('sessions', session.id))!.reveals)).toEqual([]);
+    expect(await answers.submitFromDevice('nope', 'q1', 0)).toBe(false);
+  });
+
+  it('marks a reveal by the stored lesson, whatever the caller holds', async () => {
+    const { sessions, store } = ctx;
+    const session = await begin();
+    await store.put('lessons', { ...lesson, slides: [{ ...question, correctIndex: 1 }, groupQuestion] });
+    await sessions.reveal(session.id, 'q1');
+    expect((await store.get('sessions', session.id))!.reveals.q1.correctIndex).toBe(1);
+  });
+
+  it('enters answers for a student on individual choice questions only', async () => {
+    const { answers, store } = ctx;
+    const session = await begin();
+    const device = await seated(session.id, 'g1', null);
+    await device.answers.submitFromDevice(session.id, 'q2', 'جواب المجموعة');
+    expect(await answers.submitForStudent(session.id, 'q2', 's1', 'غيره', 'manual')).toBe(false);
+    await answers.clearForStudent(session.id, 'q2', 's1');
+    const kept = await store.list('answers', { sessionId: session.id });
+    expect(kept.map((a) => a.value)).toEqual(['جواب المجموعة']);
+  });
+
+  it('sets pacing per group and pins to the current slide', async () => {
+    const { sessions, store } = ctx;
+    const session = await begin();
+    await store.put('sessions', { ...session, slideIndex: 3 });
+    await sessions.setPacing(session.id, ['g1', 'g2'], 'pinned');
+    const saved = (await store.get('sessions', session.id))!;
+    expect(saved.pacing).toEqual({ g1: { mode: 'pinned', slideIndex: 3 }, g2: { mode: 'pinned', slideIndex: 3 } });
+  });
+
+  it('only lets the admin enter card answers and teacher hearts', async () => {
+    const { sessions, answers, rewards, auth } = ctx;
+    const session = await begin();
+    await storeClassList();
+    expect(await answers.submitForStudent(session.id, 'q1', 's1', 0, 'card')).toBe(true);
+    await auth.signOut();
+    await expect(answers.submitForStudent(session.id, 'q1', 's1', 0, 'card')).rejects.toBeInstanceOf(NotAuthorizedError);
+    await expect(answers.clearForStudent(session.id, 'q1', 's1')).rejects.toBeInstanceOf(NotAuthorizedError);
+    await expect(sessions.reveal(session.id, 'q1')).rejects.toBeInstanceOf(NotAuthorizedError);
+    await expect(sessions.goTo(session.id, 0)).rejects.toBeInstanceOf(NotAuthorizedError);
+    await expect(rewards.giveAsTeacher(session.id, { kind: 'student', id: 's1' })).rejects.toBeInstanceOf(NotAuthorizedError);
+  });
+
+  it('enters and withdraws answers only for a stored student, with the group she is stored in', async () => {
+    const { answers, store } = ctx;
+    const session = await begin();
+    await storeClassList();
+    expect(await answers.submitForStudent(session.id, 'q1', 'nobody', 0, 'card')).toBe(false);
+    expect(await answers.submitForStudent(session.id, 'q1', 's2', 1, 'card')).toBe(true);
+    expect((await store.list('answers', { sessionId: session.id })).map((a) => a.subject)).toEqual([{ kind: 'student', id: 's2' }]);
+    await answers.clearForStudent(session.id, 'q1', 'nobody');
+    expect(await store.list('answers', { sessionId: session.id })).toHaveLength(1);
+    await answers.clearForStudent(session.id, 'q1', 's2');
+    expect(await store.list('answers', { sessionId: session.id })).toEqual([]);
+  });
+
+  it('gives a teacher heart only to a stored student or a stored group', async () => {
+    const { rewards, store } = ctx;
+    const session = await begin();
+    await storeClassList();
+    expect(await rewards.giveAsTeacher(session.id, { kind: 'student', id: 'nobody' })).toBe(false);
+    expect(await rewards.giveAsTeacher(session.id, { kind: 'group', id: 'nobody' })).toBe(false);
+    expect(await rewards.giveAsTeacher(session.id, { kind: 'student', id: 's1' })).toBe(true);
+    expect(await rewards.giveAsTeacher(session.id, { kind: 'group', id: 'g2' })).toBe(true);
+    expect((await store.list('rewards', { sessionId: session.id })).map((r) => r.target)).toEqual([{ kind: 'student', id: 's1' }, { kind: 'group', id: 'g2' }]);
+  });
+
+  it('lets students give hearts to other groups only, judged on the stored classmate', async () => {
+    const { sessions, store } = ctx;
+    const session = await begin();
+    const girl = await seated(session.id, 'g2', 's2');
+    const groupmate = await seated(session.id, 'g1', 's1');
+    const shared = await seated(session.id, 'g2', null);
+    expect(await groupmate.rewards.giveAsPeer(session.id, 's3')).toBe(false);
+    expect(await groupmate.rewards.giveAsPeer(session.id, 's1')).toBe(false);
+    expect(await groupmate.rewards.giveAsPeer(session.id, 'nobody')).toBe(false);
+    expect(await shared.rewards.giveAsPeer(session.id, 's1')).toBe(false);
+    expect(await girl.rewards.giveAsPeer(session.id, 's1')).toBe(true);
+    await sessions.end(session.id);
+    expect(await girl.rewards.giveAsPeer(session.id, 's1')).toBe(false);
+    expect(await store.list('rewards', { sessionId: session.id })).toHaveLength(1);
+  });
+
+  it('refuses a waiting device an answer and a heart, and accepts it once admitted', async () => {
+    const { store, auth } = ctx;
+    const session = await begin();
+    await storeClassList();
+    const device = ctx.device('d1');
+    const mine = (await device.participants.join(session.id, 'g2', 's2'))!;
+    expect(mine.admitted).toBe(false);
+    expect(await device.answers.submitFromDevice(session.id, 'q1', 1)).toBe(false);
+    expect(await device.rewards.giveAsPeer(session.id, 's1')).toBe(false);
+    await auth.signOut();
+    await expect(ctx.admission.admit(mine.id, 's2')).rejects.toBeInstanceOf(NotAuthorizedError);
+    await auth.signIn({ password: 'secret', code: await validCode() });
+    await ctx.admission.admit(mine.id, 's2');
+    expect(await device.answers.submitFromDevice(session.id, 'q1', 1)).toBe(true);
+    expect(await device.rewards.giveAsPeer(session.id, 's1')).toBe(true);
+    expect(await store.list('answers', { sessionId: session.id })).toHaveLength(1);
+  });
+
+  it('never lets a device act through the admitted seat of another device', async () => {
+    const { store } = ctx;
+    const session = await begin();
+    await storeClassList();
+    await seated(session.id, 'g2', 's2');
+    const waiting = ctx.device('impostor');
+    expect(await waiting.participants.join(session.id, 'g2', 's2')).not.toBeNull();
+    const stranger = ctx.device('stranger');
+    for (const device of [waiting, stranger]) {
+      expect(await device.answers.submitFromDevice(session.id, 'q1', 1)).toBe(false);
+      expect(await device.rewards.giveAsPeer(session.id, 's1')).toBe(false);
+    }
+    expect(await store.list('answers')).toEqual([]);
+    expect(await store.list('rewards')).toEqual([]);
+  });
+
+  it('refuses a seat for an unknown or ended class, an unknown group, and a student of another group', async () => {
+    const { sessions, store } = ctx;
+    const session = await begin();
+    await storeClassList();
+    const device = ctx.device('d1').participants;
+    expect(await device.join('nope', 'g1', 's1')).toBeNull();
+    expect(await device.join(session.id, 'nope', null)).toBeNull();
+    expect(await device.join(session.id, 'nope', 's1')).toBeNull();
+    expect(await device.join(session.id, 'g1', 's2')).toBeNull();
+    expect(await device.join(session.id, 'g1', 'nobody')).toBeNull();
+    await sessions.end(session.id);
+    expect(await device.join(session.id, 'g1', 's1')).toBeNull();
+    expect(await store.list('participants')).toEqual([]);
+  });
+
+  it('puts a device that asks again back to waiting', async () => {
+    const session = await begin();
+    const device = await seated(session.id, 'g1', 's1');
+    expect(await device.participants.admittedSeat(session.id)).not.toBeNull();
+    const again = await device.participants.join(session.id, 'g1', 's1');
+    expect(again?.admitted).toBe(false);
+    expect(await device.participants.admittedSeat(session.id)).toBeNull();
+    expect(await device.answers.submitFromDevice(session.id, 'q1', 1)).toBe(false);
+  });
+
+  it('lets a name be asked for by a second device and keeps shared devices unlimited', async () => {
+    const { store } = ctx;
+    const session = await begin();
+    await storeClassList();
+    const [first, second, shared, sharedToo] = ['d1', 'd2', 'd3', 'd4'].map(ctx.participants);
+    expect(await first.join(session.id, 'g1', 's1')).not.toBeNull();
+    expect(await second.join(session.id, 'g1', 's1')).not.toBeNull();
+    expect(await shared.join(session.id, 'g1', null)).not.toBeNull();
+    expect(await sharedToo.join(session.id, 'g1', null)).not.toBeNull();
+    expect(await store.list('participants', { sessionId: session.id })).toHaveLength(4);
+  });
+
+  it('moves a name to the device that is let in, removing every other seat of that student', async () => {
+    const { store, participants } = ctx;
+    const session = await begin();
+    const dead = await seated(session.id, 'g1', 's1');
+    const [other, shared] = [await seated(session.id, 'g1', 's3'), await seated(session.id, 'g1', null)];
+    const fresh = participants('fresh');
+    const waiting = (await fresh.join(session.id, 'g1', 's1'))!;
+    expect(await store.list('participants', { sessionId: session.id })).toHaveLength(4);
+    await ctx.admission.admit(waiting.id, 's1');
+    const seats = await store.list('participants', { sessionId: session.id });
+    expect(seats.filter((p) => p.studentId === 's1').map((p) => [p.id, p.admitted])).toEqual([[waiting.id, true]]);
+    expect(seats).toHaveLength(3);
+    expect(await dead.participants.admittedSeat(session.id)).toBeNull();
+    expect(await other.participants.admittedSeat(session.id)).not.toBeNull();
+    expect(await shared.participants.admittedSeat(session.id)).not.toBeNull();
+  });
+
+  it('lets a card admit a name only when exactly one device waits for it, and a tap picks the right one', async () => {
+    const { store, participants } = ctx;
+    const session = await begin();
+    await storeClassList();
+    const [a, b, lone] = ['a', 'b', 'lone'].map(participants);
+    const seatA = (await a.join(session.id, 'g1', 's1'))!;
+    const seatB = (await b.join(session.id, 'g1', 's1'))!;
+    await lone.join(session.id, 'g1', 's3');
+    const admitted = async () => (await store.list('participants', { sessionId: session.id })).filter((p) => p.admitted).map((p) => p.studentId);
+
+    await ctx.admission.takeRoll(session.id, ['s1', 's3']);
+    expect(await admitted()).toEqual(['s3']);
+
+    await ctx.admission.admit(seatB.id, 's1');
+    const left = await store.list('participants', { sessionId: session.id });
+    expect(left.some((p) => p.id === seatA.id)).toBe(false);
+    expect(left.find((p) => p.id === seatB.id)?.admitted).toBe(true);
+  });
+
+  it('admits every waiting device with one press except those whose name is held or asked for twice, for the admin only', async () => {
+    const { store, auth, participants } = ctx;
+    const session = await begin();
+    await storeClassList();
+    const [a, b, twinOne, twinTwo, shared] = ['a', 'b', 'twin1', 'twin2', 'shared'].map(participants);
+    await a.join(session.id, 'g1', 's1');
+    await b.join(session.id, 'g2', 's2');
+    await twinOne.join(session.id, 'g1', 's3');
+    await twinTwo.join(session.id, 'g1', 's3');
+    await shared.join(session.id, 'g1', null);
+    const admitted = async () => (await store.list('participants', { sessionId: session.id })).filter((p) => p.admitted).length;
+
+    await auth.signOut();
+    await expect(ctx.admission.admitAll(session.id)).rejects.toBeInstanceOf(NotAuthorizedError);
+    await auth.signIn({ password: 'secret', code: await validCode() });
+    await ctx.admission.admitAll(session.id);
+    expect(await admitted()).toBe(3);
+    expect((await store.list('participants', { sessionId: session.id })).filter((p) => !p.admitted).map((p) => p.studentId)).toEqual(['s3', 's3']);
+  });
+
+  it('never lets a card move a name off an admitted device, but lets it in once the name is free', async () => {
+    const { store, participants } = ctx;
+    const session = await begin();
+    const holder = await seated(session.id, 'g1', 's1');
+    const fresh = participants('fresh');
+    const waiting = (await fresh.join(session.id, 'g1', 's1'))!;
+    const heldSeat = (await holder.participants.admittedSeat(session.id))!;
+    await ctx.admission.takeRoll(session.id, ['s1']);
+    expect((await store.list('participants', { sessionId: session.id })).map((p) => [p.id, p.admitted]).sort()).toEqual([[heldSeat.id, true], [waiting.id, false]].sort());
+
+    await ctx.admission.remove(heldSeat.id);
+    await ctx.admission.takeRoll(session.id, ['s1']);
+    expect((await store.list('participants', { sessionId: session.id })).map((p) => [p.id, p.admitted])).toEqual([[waiting.id, true]]);
+  });
+
+  it('lets the teacher tap a waiting seat to move a name off an admitted device', async () => {
+    const { store, participants } = ctx;
+    const session = await begin();
+    const holder = await seated(session.id, 'g1', 's1');
+    const waiting = (await participants('fresh').join(session.id, 'g1', 's1'))!;
+    await ctx.admission.admit(waiting.id, 's1');
+    expect(await holder.participants.admittedSeat(session.id)).toBeNull();
+    expect((await store.list('participants', { sessionId: session.id })).map((p) => [p.id, p.admitted])).toEqual([[waiting.id, true]]);
+  });
+
+  it('admits only what the teacher saw: nothing when the seat changed name, was admitted already, or vanished', async () => {
+    const { store, participants } = ctx;
+    const session = await begin();
+    await storeClassList();
+    const device = participants('d1');
+    const shown = (await device.join(session.id, 'g1', 's1'))!;
+    await device.join(session.id, 'g1', 's3');
+    await ctx.admission.admit(shown.id, 's1');
+    expect((await store.get('participants', shown.id))?.admitted).toBe(false);
+    await ctx.admission.admit(shown.id, null);
+    expect((await store.get('participants', shown.id))?.admitted).toBe(false);
+    await ctx.admission.admit(shown.id, 's3');
+    expect((await store.get('participants', shown.id))?.admitted).toBe(true);
+    await ctx.admission.remove(shown.id);
+    await ctx.admission.admit(shown.id, 's3');
+    expect(await store.list('participants', { sessionId: session.id })).toEqual([]);
+  });
+
+  it('lets a shared device in only when the teacher saw it as shared', async () => {
+    const { store, participants } = ctx;
+    const session = await begin();
+    await storeClassList();
+    const shared = (await participants('d1').join(session.id, 'g1', null))!;
+    await ctx.admission.admit(shared.id, 's1');
+    expect((await store.get('participants', shared.id))?.admitted).toBe(false);
+    await ctx.admission.admit(shared.id, null);
+    expect((await store.get('participants', shared.id))?.admitted).toBe(true);
+  });
+
+  it('displaces nobody when the store reports the seat was not there to admit', async () => {
+    const { store, participants, auth } = ctx;
+    const session = await begin();
+    const holder = await seated(session.id, 'g1', 's1');
+    const waiting = (await participants('fresh').join(session.id, 'g1', 's1'))!;
+    const losing: DocumentStore = {
+      get: (collection, id) => store.get(collection, id),
+      list: (collection, where) => store.list(collection, where),
+      put: (collection, doc) => store.put(collection, doc),
+      update: async () => false,
+      remove: (collection, id) => store.remove(collection, id),
+      watch: (collection, where, listener) => store.watch(collection, where, listener),
+    };
+    await new AdmissionService(losing, auth, ctx.sessionRoster, ctx.sessionRoster).admit(waiting.id, 's1');
+    expect(await holder.participants.admittedSeat(session.id)).not.toBeNull();
+  });
+
+  it('removes a waiting seat, for the admin only', async () => {
+    const { store, auth, participants } = ctx;
+    const session = await begin();
+    await storeClassList();
+    const device = participants('d1');
+    const waiting = (await device.join(session.id, 'g1', 's1'))!;
+    await auth.signOut();
+    await expect(ctx.admission.remove(waiting.id)).rejects.toBeInstanceOf(NotAuthorizedError);
+    await auth.signIn({ password: 'secret', code: await validCode() });
+    await ctx.admission.remove(waiting.id);
+    expect(await store.list('participants', { sessionId: session.id })).toEqual([]);
+    expect(await device.join(session.id, 'g1', 's1')).not.toBeNull();
+  });
+
+  it('removes an admitted seat, frees its name and leaves the other seats alone', async () => {
+    const { store, auth } = ctx;
+    const session = await begin();
+    const inside = await seated(session.id, 'g1', 's1');
+    const other = await seated(session.id, 'g1', 's3');
+    const seat = (await inside.participants.admittedSeat(session.id))!;
+    await auth.signOut();
+    await expect(ctx.admission.remove(seat.id)).rejects.toBeInstanceOf(NotAuthorizedError);
+    await auth.signIn({ password: 'secret', code: await validCode() });
+    await ctx.admission.remove(seat.id);
+    expect(await inside.participants.admittedSeat(session.id)).toBeNull();
+    expect(await other.participants.admittedSeat(session.id)).not.toBeNull();
+    expect(await store.list('participants', { sessionId: session.id })).toHaveLength(1);
+    expect(await inside.participants.join(session.id, 'g1', 's1')).not.toBeNull();
+  });
+
+  it('admits by cards only the waiting seats of the named students in that session', async () => {
+    const { participants, store, auth } = ctx;
+    const session = await begin();
+    await storeClassList();
+    const [d1, d2, d3] = ['d1', 'd2', 'd3'].map(participants);
+    await d1.join(session.id, 'g1', 's1');
+    await d2.join(session.id, 'g1', 's3');
+    await d3.join(session.id, 'g1', null);
+    await store.put('participants', { id: 'other:d9', sessionId: 'other', groupId: 'g1', studentId: 's1', joinedAt: 0, admitted: false });
+    const admitted = async () => (await store.list('participants')).filter((p) => p.admitted).map((p) => p.studentId);
+
+    await auth.signOut();
+    await expect(ctx.admission.takeRoll(session.id, ['s1'])).rejects.toBeInstanceOf(NotAuthorizedError);
+    await auth.signIn({ password: 'secret', code: await validCode() });
+    await ctx.admission.takeRoll(session.id, ['s1', 's9']);
+    expect(await admitted()).toEqual(['s1']);
+    await ctx.admission.takeRoll(session.id, ['s1']);
+    expect(await admitted()).toEqual(['s1']);
+  });
+
+  it('imports a valid lesson file and saves nothing for a broken one', async () => {
+    const { lessons, store } = ctx;
+    const text = lessons.exportToText(lesson);
+    expect((await lessons.importFromText(text)).ok).toBe(true);
+    expect((await lessons.importFromText('{"format":"spectrum-lesson","version":1,"title":"","slides":[]}')).ok).toBe(false);
+    expect(await store.list('lessons')).toHaveLength(2);
+  });
+
+  it('imports a class list as the admin only, keeping card numbers and changing nothing on a bad list', async () => {
+    const { roster, store } = ctx;
+    const visitor = await setup();
+    await expect(visitor.roster.importFromText('c1', '5\ta\tg', 'merge')).rejects.toBeInstanceOf(NotAuthorizedError);
+    const old = await roster.addGroup('c1', 'أ');
+    const kept = await roster.addStudent('سلمى', old.id);
+    await roster.addStudent('نور', old.id);
+
+    const bad = await roster.importFromText('c1', '901\tx\tب\n901\ty\tب', 'replace');
+    expect(bad).toEqual({ ok: false, issues: [{ code: 'duplicate-card-number', line: 2 }] });
+    expect(await store.list('students')).toHaveLength(2);
+
+    const merged = await roster.importFromText('c1', '٩٠١\tx\tب\n1\tسلمى\tب', 'merge');
+    expect(merged).toEqual({ ok: true, changes: { studentsAdded: 1, studentsUpdated: 1, studentsRemoved: 0, groupsAdded: 1, groupsRemoved: 0 } });
+    const students = await store.list('students');
+    expect(students.map((s) => s.cardNumber).sort((a, b) => a - b)).toEqual([1, 2, 901]);
+    expect(students.find((s) => s.cardNumber === 1)?.id).toBe(kept.id);
+
+    const text = await roster.exportToText('c1', 'رقم\tاسم\tمجموعة');
+    expect(text.split('\n').slice(1, 4)).toEqual(['1\tسلمى\tب', '2\tنور\tأ', '901\tx\tب']);
+
+    const replaced = await roster.importFromText('c1', text, 'replace');
+    expect(replaced).toEqual({ ok: true, changes: { studentsAdded: 0, studentsUpdated: 0, studentsRemoved: 0, groupsAdded: 0, groupsRemoved: 0 } });
+    await roster.importFromText('c1', '2\tنور\tأ', 'replace');
+    expect((await store.list('students')).map((s) => s.cardNumber)).toEqual([2]);
+    expect((await store.list('groups')).map((g) => g.name)).toEqual(['أ']);
+  });
+
+  it('protects the roster rules', async () => {
+    const { roster } = ctx;
+    const group = await roster.addGroup('c1', 'أ');
+    const one = await roster.addStudent('سلمى', group.id);
+    const two = await roster.addStudent('نور', group.id);
+    expect([one.cardNumber, two.cardNumber]).toEqual([1, 2]);
+    await expect(roster.saveStudent({ ...two, cardNumber: 1 })).rejects.toBeInstanceOf(RosterError);
+    await expect(roster.removeGroup(group.id)).rejects.toBeInstanceOf(RosterError);
+  });
+
+  it('refuses blank names for classes, groups, students and teachers, and trims the rest', async () => {
+    const { roster, teachers, store } = ctx;
+    await expect(roster.addClass('  ')).rejects.toBeInstanceOf(NameError);
+    await expect(roster.renameClass('c1', '')).rejects.toBeInstanceOf(NameError);
+    await expect(roster.addGroup('c1', ' ')).rejects.toBeInstanceOf(NameError);
+    await expect(teachers.add('')).rejects.toBeInstanceOf(NameError);
+    await expect(teachers.rename('t1', ' ')).rejects.toBeInstanceOf(NameError);
+    const group = await roster.addGroup('c1', ' أ ');
+    expect(group.name).toBe('أ');
+    await expect(roster.saveGroup({ ...group, name: '' })).rejects.toBeInstanceOf(NameError);
+    const girl = await roster.addStudent('سلمى', group.id);
+    await expect(roster.addStudent(' ', group.id)).rejects.toBeInstanceOf(NameError);
+    await expect(roster.saveStudent({ ...girl, name: '' })).rejects.toBeInstanceOf(NameError);
+    expect((await store.get('classes', 'c1'))!.name).toBe('11-3');
+    expect((await store.get('teachers', 't1'))!.name).toBe('أ. هدى');
+    expect((await store.get('groups', group.id))!.name).toBe('أ');
+    expect((await store.get('students', girl.id))!.name).toBe('سلمى');
+  });
+
+  it('refuses a group or a list for a class that is not stored, and a student moved to another class', async () => {
+    const { roster, store } = ctx;
+    await expect(roster.addGroup('nope', 'أ')).rejects.toMatchObject({ code: 'class-missing' });
+    await expect(roster.importFromText('nope', '1 | سلمى | أ', 'merge')).rejects.toMatchObject({ code: 'class-missing' });
+    expect(await store.list('groups')).toEqual([]);
+    const other = await roster.addClass('11-4');
+    const group = await roster.addGroup('c1', 'أ');
+    const otherGroup = await roster.addGroup(other.id, 'ج');
+    const girl = await roster.addStudent('سلمى', group.id);
+    await expect(roster.saveStudent({ ...girl, groupId: otherGroup.id })).rejects.toMatchObject({ code: 'group-missing' });
+    await expect(roster.saveStudent({ ...girl, groupId: 'nope' })).rejects.toMatchObject({ code: 'group-missing' });
+    expect((await store.get('students', girl.id))!.groupId).toBe(group.id);
+    const sister = await roster.addGroup('c1', 'ب');
+    await roster.saveStudent({ ...girl, groupId: sister.id });
+    expect((await store.get('students', girl.id))!.groupId).toBe(sister.id);
+  });
+
+  it('manages classes and teachers as the admin only', async () => {
+    const visitor = await setup();
+    await expect(visitor.roster.addClass('x')).rejects.toBeInstanceOf(NotAuthorizedError);
+    await expect(visitor.roster.renameClass('c1', 'x')).rejects.toBeInstanceOf(NotAuthorizedError);
+    await expect(visitor.roster.removeClass('c1')).rejects.toBeInstanceOf(NotAuthorizedError);
+    await expect(visitor.teachers.add('x')).rejects.toBeInstanceOf(NotAuthorizedError);
+    await expect(visitor.teachers.rename('t1', 'x')).rejects.toBeInstanceOf(NotAuthorizedError);
+    await expect(visitor.teachers.remove('t1')).rejects.toBeInstanceOf(NotAuthorizedError);
+
+    const { roster, teachers, store } = ctx;
+    const added = await roster.addClass('11-4');
+    expect(added.order).toBe(2);
+    await roster.renameClass(added.id, '11-5');
+    expect((await store.get('classes', added.id))?.name).toBe('11-5');
+    const teacher = await teachers.add('أ. سلمى');
+    await teachers.rename(teacher.id, 'أ. سلمى علي');
+    expect((await store.get('teachers', teacher.id))?.name).toBe('أ. سلمى علي');
+    await teachers.remove(teacher.id);
+    expect(await store.get('teachers', teacher.id)).toBeNull();
+  });
+
+  it('removes a class with its groups and students and leaves other classes alone', async () => {
+    const { roster, store } = ctx;
+    const other = await roster.addClass('11-4');
+    const keptGroup = await roster.addGroup(other.id, 'ج');
+    await roster.addStudent('ريم', keptGroup.id);
+    const group = await roster.addGroup('c1', 'أ');
+    await roster.addStudent('سلمى', group.id);
+    await roster.removeClass('c1');
+    expect(await store.get('classes', 'c1')).toBeNull();
+    expect(await store.list('groups')).toEqual([keptGroup]);
+    expect((await store.list('students')).map((s) => s.name)).toEqual(['ريم']);
+  });
+
+  it('keeps a class and a teacher that a live class uses', async () => {
+    const { roster, teachers, sessions, store } = ctx;
+    const session = await begin();
+    await expect(roster.removeClass('c1')).rejects.toMatchObject({ code: 'class-in-use' });
+    await expect(teachers.remove('t1')).rejects.toBeInstanceOf(TeacherError);
+    expect(await store.get('classes', 'c1')).not.toBeNull();
+    await sessions.end(session.id);
+    await teachers.remove('t1');
+    await roster.removeClass('c1');
+    expect(await store.get('teachers', 't1')).toBeNull();
+    expect(await store.get('classes', 'c1')).toBeNull();
+  });
+
+  it('lets two classes both hold card 1, and the import and export touch only the class asked for', async () => {
+    const { roster, store } = ctx;
+    const other = await roster.addClass('11-4');
+    const otherGroup = await roster.addGroup(other.id, 'ج');
+    const group = await roster.addGroup('c1', 'أ');
+    const mine = await roster.addStudent('سلمى', group.id);
+    const theirs = await roster.addStudent('ريم', otherGroup.id);
+    expect([mine.cardNumber, theirs.cardNumber]).toEqual([1, 1]);
+    await roster.saveStudent({ ...theirs, name: 'ريم علي' });
+
+    await roster.importFromText(other.id, '5\tهدى\tج', 'replace');
+    expect((await store.list('students')).map((s) => s.name).sort()).toEqual(['سلمى', 'هدى'].sort());
+    expect(await store.get('students', mine.id)).toEqual(mine);
+    const text = await roster.exportToText('c1', 'رقم\tاسم\tمجموعة');
+    expect(text.split('\n').slice(1, 2)).toEqual(['1\tسلمى\tأ']);
+    await roster.removeClass(other.id);
+    expect(await store.get('students', mine.id)).toEqual(mine);
+  });
+
+  it('refuses to start without a stored lesson, class or teacher, and stores the names', async () => {
+    const { sessions, roster, teachers, store } = ctx;
+    expect(await sessions.start('nope', 'c1', 't1')).toBeNull();
+    expect(await sessions.start(lesson.id, 'nope', 't1')).toBeNull();
+    expect(await sessions.start(lesson.id, 'c1', 'nope')).toBeNull();
+    expect(await sessions.start(lesson.id, 'c1', 't1')).toBeNull();
+    expect(await store.list('sessions')).toEqual([]);
+    expect(await store.list('rosters')).toEqual([]);
+
+    const started = await begin();
+    expect(started).toMatchObject({ classId: 'c1', className: '11-3', teacherId: 't1', teacherName: 'أ. هدى', status: 'live' });
+
+    await roster.renameClass('c1', '11-9');
+    await teachers.rename('t1', 'أ. نورة');
+    expect(await store.get('sessions', started.id)).toMatchObject({ className: '11-3', teacherName: 'أ. هدى' });
+  });
+
+  it('seats a device only in a group of the class the session is for', async () => {
+    const { roster, store } = ctx;
+    await storeClassList();
+    const other = await roster.addClass('11-4');
+    const otherGroup = await roster.addGroup(other.id, 'ج');
+    const session = await begin();
+    expect(await ctx.participants('d1').join(session.id, otherGroup.id, null)).toBeNull();
+    expect(await ctx.participants('d1').join(session.id, 'g1', null)).not.toBeNull();
+    expect(await store.list('participants')).toHaveLength(1);
+  });
+
+  it('starts with its own copy of the class groups and students, keeping their ids', async () => {
+    const { store } = ctx;
+    const session = await begin();
+    const copy = (await store.get('rosters', session.id))!;
+    expect(copy.groups.map((g) => g.id)).toEqual(['g1', 'g2']);
+    expect(copy.students.map((s) => [s.id, s.name, s.cardNumber, s.groupId])).toEqual([
+      ['s1', 'سلمى أحمد', 1, 'g1'],
+      ['s2', 'نور خالد', 2, 'g2'],
+      ['s3', 'ليلى سعيد', 3, 'g1'],
+    ]);
+  });
+
+  it('does not follow the class list after the start, and does not change it either', async () => {
+    const { roster, sessionRoster, store } = ctx;
+    const session = await begin();
+    await roster.saveStudent({ ...salma, name: 'سلمى علي', groupId: 'g2', cardNumber: 9 });
+    await roster.saveGroup({ id: 'g1', classId: 'c1', name: 'الأولى', color: '#000', order: 1 });
+    await roster.removeStudent('s3');
+    const kept = await sessionRoster.rosterOf(session.id);
+    expect(kept.students.find((s) => s.id === 's1')).toEqual(salma);
+    expect(kept.students.map((s) => s.id)).toContain('s3');
+    expect(kept.groups[0].name).toBe('أ');
+
+    await sessionRoster.moveStudent(session.id, 's2', 'g1');
+    await sessionRoster.addStudent(session.id, 'هدى', 'g1');
+    await sessionRoster.renameGroup(session.id, 'g2', 'اليوم');
+    expect(await store.get('students', 's2')).toEqual(nour);
+    expect((await store.list('students')).map((s) => s.name)).not.toContain('هدى');
+    expect((await store.get('groups', 'g2'))!.name).toBe('ب');
+  });
+
+  it('lets only the admin regroup a running class, and only with ids the roster has', async () => {
+    const { sessionRoster, sessions, auth } = ctx;
+    const session = await begin();
+    expect(await sessionRoster.moveStudent(session.id, 's1', 'g9')).toBe(false);
+    expect(await sessionRoster.moveStudent(session.id, 's9', 'g2')).toBe(false);
+    expect(await sessionRoster.addStudent(session.id, 'هدى', 'g9')).toBeNull();
+    expect(await sessionRoster.addStudent(session.id, ' ', 'g1')).toBeNull();
+    expect(await sessionRoster.renameGroup(session.id, 'g1', '')).toBe(false);
+    expect(await sessionRoster.moveStudent('nope', 's1', 'g2')).toBe(false);
+    await auth.signOut();
+    await expect(sessionRoster.moveStudent(session.id, 's1', 'g2')).rejects.toBeInstanceOf(NotAuthorizedError);
+    await expect(sessionRoster.addStudent(session.id, 'هدى', 'g1')).rejects.toBeInstanceOf(NotAuthorizedError);
+    await expect(sessionRoster.renameGroup(session.id, 'g1', 'س')).rejects.toBeInstanceOf(NotAuthorizedError);
+    await auth.signIn({ password: 'secret', code: await validCode() });
+    await sessions.end(session.id);
+    expect(await sessionRoster.moveStudent(session.id, 's1', 'g2')).toBe(false);
+    expect((await sessionRoster.rosterOf(session.id)).students[0].groupId).toBe('g1');
+  });
+
+  it('gives a student added for today the lowest free card number, a seat, answers and hearts', async () => {
+    const { sessionRoster, store } = ctx;
+    const session = await begin();
+    const added = (await sessionRoster.addStudent(session.id, 'هدى', 'g2'))!;
+    expect(added.cardNumber).toBe(4);
+    const girl = await seated(session.id, 'g2', added.id);
+    expect(await girl.answers.submitFromDevice(session.id, 'q1', 1)).toBe(true);
+    expect(await girl.rewards.giveAsPeer(session.id, 's1')).toBe(true);
+    const groupmate = await seated(session.id, 'g1', 's1');
+    expect(await groupmate.rewards.giveAsPeer(session.id, added.id)).toBe(true);
+    expect(await ctx.rewards.giveAsTeacher(session.id, { kind: 'student', id: added.id })).toBe(true);
+    expect(await ctx.answers.submitForStudent(session.id, 'q1', added.id, 0, 'manual')).toBe(true);
+    expect((await store.list('answers', { sessionId: session.id })).map((a) => a.subject.id)).toEqual([added.id]);
+    expect(await store.get('students', added.id)).toBeNull();
+  });
+
+  it('judges a seat by the group her student is in now, not the group she joined', async () => {
+    const { sessionRoster, sessions, store } = ctx;
+    const session = await begin();
+    const moving = await seated(session.id, 'g1', 's1');
+    const staying = await seated(session.id, 'g1', 's3');
+    const shared = await seated(session.id, 'g1', null);
+    await sessions.goTo(session.id, 1);
+    expect(await staying.rewards.giveAsPeer(session.id, 's1')).toBe(false);
+    await sessionRoster.moveStudent(session.id, 's1', 'g2');
+
+    expect(await staying.rewards.giveAsPeer(session.id, 's1')).toBe(true);
+    expect(await moving.rewards.giveAsPeer(session.id, 's3')).toBe(true);
+    expect(await moving.rewards.giveAsPeer(session.id, 's2')).toBe(false);
+    expect(await moving.answers.submitFromDevice(session.id, 'q2', 'جوابنا')).toBe(true);
+    expect(await shared.answers.submitFromDevice(session.id, 'q2', 'جواب القديمة')).toBe(true);
+    const bySubject = (await store.list('answers', { sessionId: session.id })).map((a) => `${a.subject.kind}:${a.subject.id}`).sort();
+    expect(bySubject).toEqual(['group:g1', 'group:g2']);
+  });
+
+  it('refuses a student who is on the class list but not on this session roster', async () => {
+    const { store, rewards, answers, admission, roster } = ctx;
+    const session = await begin();
+    const latecomer = await roster.addStudent('متأخرة', 'g1');
+    const device = ctx.device('late');
+    expect(await device.participants.join(session.id, 'g1', latecomer.id)).toBeNull();
+    expect(await answers.submitForStudent(session.id, 'q1', latecomer.id, 0, 'card')).toBe(false);
+    expect(await rewards.giveAsTeacher(session.id, { kind: 'student', id: latecomer.id })).toBe(false);
+    await store.put('participants', { id: 'late-seat', sessionId: session.id, groupId: 'g1', studentId: latecomer.id, joinedAt: 1, admitted: false });
+    await admission.admit('late-seat', latecomer.id);
+    await admission.admitAll(session.id);
+    expect((await store.get('participants', 'late-seat'))!.admitted).toBe(false);
+    expect((await ctx.sessionRoster.rosterOf(session.id)).students.map((student) => student.id)).not.toContain(latecomer.id);
+    expect(await store.list('answers', { sessionId: session.id })).toEqual([]);
+    expect(await store.list('rewards', { sessionId: session.id })).toEqual([]);
+  });
+
+  it('accepts no change at all once the class has ended', async () => {
+    const { sessions, store, admission, sessionRoster, participants } = ctx;
+    const session = await begin();
+    const insider = await seated(session.id, 'g1', 's1');
+    const insiderSeat = (await insider.participants.admittedSeat(session.id))!;
+    const waiting = (await participants('waiting').join(session.id, 'g2', 's2'))!;
+    await participants('mate').join(session.id, 'g1', 's3');
+    await sessions.goTo(session.id, 1);
+    await sessions.end(session.id);
+    const frozen = async () =>
+      JSON.stringify([
+        await store.get('sessions', session.id),
+        await store.list('participants', { sessionId: session.id }),
+        await store.get('rosters', session.id),
+        await store.list('answers', { sessionId: session.id }),
+        await store.list('rewards', { sessionId: session.id }),
+      ]);
+    const before = await frozen();
+
+    await sessions.goTo(session.id, 0);
+    await sessions.reveal(session.id, 'q1');
+    await sessions.setPacing(session.id, ['g1'], 'hold');
+    await sessions.sendMessage(session.id, 'مرحبا', null);
+    await sessions.clearMessage(session.id);
+    await sessions.end(session.id);
+    await admission.admit(waiting.id, 's2');
+    await admission.takeRoll(session.id, ['s1', 's2', 's3']);
+    await admission.admitAll(session.id);
+    await admission.remove(insiderSeat.id);
+    await insider.participants.leave(session.id);
+    expect(await insider.participants.join(session.id, 'g1', 's1')).toBeNull();
+    expect(await insider.answers.submitFromDevice(session.id, 'q1', 0)).toBe(false);
+    expect(await insider.rewards.giveAsPeer(session.id, 'nour')).toBe(false);
+    expect(await ctx.answers.submitForStudent(session.id, 'q1', 's2', 0, 'manual')).toBe(false);
+    expect(await sessionRoster.moveStudent(session.id, 's1', 'g2')).toBe(false);
+    expect(await sessionRoster.addStudent(session.id, 'هدى', 'g1')).toBeNull();
+    expect(await sessionRoster.renameGroup(session.id, 'g1', 'س')).toBe(false);
+    expect(await sessionRoster.markAbsent(session.id, 's1')).toBe(false);
+    expect(await sessionRoster.markPresent(session.id, 's1')).toBe(false);
+
+    expect(await frozen()).toBe(before);
+    expect((await store.get('sessions', session.id))!.status).toBe('ended');
+  });
+
+  it('takes the teacher\'s heart after the class has ended, but not a student\'s, nor one for a target off the roster', async () => {
+    const { sessions, store } = ctx;
+    const session = await begin();
+    const insider = await seated(session.id, 'g2', 's2');
+    await sessions.end(session.id);
+    expect(await insider.rewards.giveAsPeer(session.id, 's1')).toBe(false);
+    expect(await ctx.rewards.giveAsTeacher(session.id, { kind: 'student', id: 'nobody' })).toBe(false);
+    expect(await ctx.rewards.giveAsTeacher(session.id, { kind: 'student', id: 's1' })).toBe(true);
+    expect(await ctx.rewards.giveAsTeacher(session.id, { kind: 'group', id: 'g1' })).toBe(true);
+    expect((await store.list('rewards', { sessionId: session.id })).map((r) => [r.source, r.target])).toEqual([
+      ['teacher', { kind: 'student', id: 's1' }],
+      ['teacher', { kind: 'group', id: 'g1' }],
+    ]);
+  });
+
+  it('lets only the admin set the minimum of interactions, in a live class, kept within the lesson, and keeps the default as no setting', async () => {
+    const { sessions, store, auth } = ctx;
+    const session = await begin();
+    const stored = async () => (await store.get('sessions', session.id))!;
+    expect('minInteractions' in session).toBe(false);
+    await sessions.setMinInteractions(session.id, 5);
+    expect((await stored()).minInteractions).toBe(1);
+    await sessions.setMinInteractions(session.id, -4);
+    expect('minInteractions' in (await stored())).toBe(false);
+    await sessions.setMinInteractions(session.id, 1);
+    await sessions.setMinInteractions(session.id, NaN);
+    expect((await stored()).minInteractions).toBe(1);
+    await sessions.setMinInteractions(session.id, 0);
+    expect('minInteractions' in (await stored())).toBe(false);
+    await sessions.setMinInteractions(session.id, 1);
+    await auth.signOut();
+    await expect(sessions.setMinInteractions(session.id, 0)).rejects.toBeInstanceOf(NotAuthorizedError);
+    await auth.signIn({ password: 'secret', code: await validCode() });
+    await sessions.end(session.id);
+    await sessions.setMinInteractions(session.id, 0);
+    expect((await stored()).minInteractions).toBe(1);
+  });
+
+  it('keeps the rosters and rolls of two classes of the same lesson apart', async () => {
+    const { sessionRoster } = ctx;
+    const first = await begin();
+    const second = await begin();
+    await sessionRoster.moveStudent(first.id, 's1', 'g2');
+    await ctx.admission.takeRoll(first.id, ['s1']);
+    expect((await sessionRoster.rosterOf(first.id)).students.find((s) => s.id === 's1')!.groupId).toBe('g2');
+    expect((await sessionRoster.rosterOf(second.id)).students.find((s) => s.id === 's1')!.groupId).toBe('g1');
+    expect((await sessionRoster.rosterOf(first.id)).present).toEqual(['s1']);
+    expect((await sessionRoster.rosterOf(second.id)).present).toBeNull();
+  });
+
+  it('refuses a seat of class A in class B', async () => {
+    const { roster, store } = ctx;
+    const first = await begin();
+    const other = await roster.addClass('11-4');
+    const otherGroup = await roster.addGroup(other.id, 'ج');
+    const otherStudent = await roster.addStudent('ريم', otherGroup.id);
+    await ctx.teachers.add('أ. سلمى');
+    const second = (await ctx.sessions.start(lesson.id, other.id, 't1'))!;
+    expect(await ctx.participants('a').join(second.id, 'g1', 's1')).toBeNull();
+    expect(await ctx.participants('a').join(first.id, otherGroup.id, otherStudent.id)).toBeNull();
+    expect(await ctx.participants('a').join(second.id, otherGroup.id, otherStudent.id)).not.toBeNull();
+    expect(await store.list('participants')).toHaveLength(1);
+  });
+
+  it('shows a moved student her new group on a group question, and records her tap there', async () => {
+    const { sessionRoster, sessions, store } = ctx;
+    const session = await begin();
+    const moving = await seated(session.id, 'g1', 's1');
+    await sessions.goTo(session.id, 1);
+    await sessionRoster.moveStudent(session.id, 's1', 'g2');
+    expect(await moving.answers.submitFromDevice(session.id, 'q2', 'جوابنا')).toBe(true);
+    const stored = await store.list('answers', { sessionId: session.id });
+    const seat = (await moving.participants.admittedSeat(session.id))!;
+    const { students } = await sessionRoster.rosterOf(session.id);
+    expect(stored.map((a) => a.subject)).toEqual([{ kind: 'group', id: seatAnswerer(seat, students).groupId }]);
+    expect(stored[0].subject.id).toBe('g2');
+  });
+
+  it('does not write the roster again when a second sighting of the same card adds nobody', async () => {
+    const { admission, store } = ctx;
+    const session = await begin();
+    await seated(session.id, 'g1', 's1');
+    await admission.takeRoll(session.id, ['s1']);
+    const writes = vi.spyOn(MemoryStorage.prototype, 'setItem');
+    await admission.takeRoll(session.id, ['s1']);
+    await admission.takeRoll(session.id, ['s1', 'nobody']);
+    expect(writes).not.toHaveBeenCalled();
+    writes.mockRestore();
+    expect((await store.get('rosters', session.id))!.present).toEqual(['s1']);
+  });
+
+  it('writes the roll once when a card lets a waiting device in', async () => {
+    const { admission, participants, store } = ctx;
+    const session = await begin();
+    await participants('waiting').join(session.id, 'g1', 's1');
+    const roster = vi.spyOn(MemoryStorage.prototype, 'setItem');
+    await admission.takeRoll(session.id, ['s1']);
+    const rosterWrites = roster.mock.calls.filter(([key]) => key.includes('/rosters/'));
+    roster.mockRestore();
+    expect(rosterWrites).toHaveLength(1);
+    expect((await store.list('participants', { sessionId: session.id }))[0].admitted).toBe(true);
+  });
+
+  it('lets in only the name the stored seat holds at that moment', async () => {
+    const { store, participants, auth } = ctx;
+    const session = await begin();
+    const waiting = (await participants('wavering').join(session.id, 'g1', 's1'))!;
+    const switching: DocumentStore = {
+      get: (collection, id) => store.get(collection, id),
+      list: (collection, where) => store.list(collection, where),
+      put: (collection, doc) => store.put(collection, doc),
+      update: async (collection, id, change) => {
+        if (collection === 'participants') await store.put('participants', { ...waiting, studentId: 's3' });
+        return store.update(collection, id, change);
+      },
+      remove: (collection, id) => store.remove(collection, id),
+      watch: (collection, where, listener) => store.watch(collection, where, listener),
+    };
+    await new AdmissionService(switching, auth, ctx.sessionRoster, ctx.sessionRoster).admit(waiting.id, 's1');
+    expect(await store.get('participants', waiting.id)).toMatchObject({ studentId: 's3', admitted: false });
+    expect(await store.get('rosters', session.id)).toMatchObject({ present: null });
+  });
+
+  it('keeps pacing and messages to the groups of the session and cleans the text', async () => {
+    const { sessions, store } = ctx;
+    const session = await begin();
+    await sessions.setPacing(session.id, ['g1', 'g9'], 'hold');
+    expect(Object.keys((await store.get('sessions', session.id))!.pacing)).toEqual(['g1']);
+    await sessions.sendMessage(session.id, '   ', null);
+    await sessions.sendMessage(session.id, 'مرحبا', 'g9');
+    expect((await store.get('sessions', session.id))!.message).toBeNull();
+    await sessions.sendMessage(session.id, `  ${'س'.repeat(MAX_MESSAGE_LENGTH + 20)} `, 'g2');
+    const { message } = (await store.get('sessions', session.id))!;
+    expect(message).toMatchObject({ groupId: 'g2' });
+    expect(message!.text).toHaveLength(MAX_MESSAGE_LENGTH);
+  });
+
+  describe('who is here', () => {
+    const rollOf = async (sessionId: string) => (await ctx.store.get('rosters', sessionId))!.present;
+
+    it('starts a class with no roll', async () => {
+      const session = await begin();
+      expect(await rollOf(session.id)).toBeNull();
+    });
+
+    it('marks the cards seen present and admits their waiting devices in one call, never moving a name', async () => {
+      const { store, participants } = ctx;
+      const session = await begin();
+      const holder = await seated(session.id, 'g1', 's1');
+      const heldSeat = (await holder.participants.admittedSeat(session.id))!;
+      await participants('mate').join(session.id, 'g1', 's3');
+      const rival = (await participants('rival').join(session.id, 'g1', 's1'))!;
+
+      await ctx.admission.takeRoll(session.id, ['s1', 's3', 's2', 'nobody']);
+      expect((await rollOf(session.id))!.slice().sort()).toEqual(['s1', 's2', 's3']);
+      const seats = await store.list('participants', { sessionId: session.id });
+      expect(seats.find((p) => p.studentId === 's3')?.admitted).toBe(true);
+      expect(seats.find((p) => p.id === rival.id)?.admitted).toBe(false);
+      expect(seats.find((p) => p.id === heldSeat.id)?.admitted).toBe(true);
+    });
+
+    it('starts a roll with a card whether or not she has a device, and with none seen starts none', async () => {
+      const session = await begin();
+      await ctx.admission.takeRoll(session.id, []);
+      expect(await rollOf(session.id)).toBeNull();
+      await ctx.admission.takeRoll(session.id, ['s2']);
+      expect(await rollOf(session.id)).toEqual(['s2']);
+    });
+
+    it('starts a roll when a device is let in by tap, by let everyone in, and by card', async () => {
+      const tapped = await begin();
+      const seat = (await ctx.participants('a').join(tapped.id, 'g1', 's1'))!;
+      await ctx.admission.admit(seat.id, 's1');
+      expect(await rollOf(tapped.id)).toEqual(['s1']);
+
+      const everyone = await begin();
+      await ctx.participants('b').join(everyone.id, 'g1', 's1');
+      await ctx.participants('c').join(everyone.id, 'g2', 's2');
+      await ctx.participants('d').join(everyone.id, 'g1', null);
+      await ctx.admission.admitAll(everyone.id);
+      expect((await rollOf(everyone.id))!.slice().sort()).toEqual(['s1', 's2']);
+
+      const carded = await begin();
+      await ctx.participants('e').join(carded.id, 'g2', 's2');
+      await ctx.admission.takeRoll(carded.id, ['s2']);
+      expect(await rollOf(carded.id)).toEqual(['s2']);
+    });
+
+    it('does not start a roll for a shared device let in', async () => {
+      const session = await begin();
+      const seat = (await ctx.participants('shared').join(session.id, 'g1', null))!;
+      await ctx.admission.admit(seat.id, null);
+      expect(await rollOf(session.id)).toBeNull();
+    });
+
+    it('adds a student whose answer the teacher enters to a roll that exists, but starts none', async () => {
+      const session = await begin();
+      expect(await ctx.answers.submitForStudent(session.id, 'q1', 's1', 0, 'card')).toBe(true);
+      expect(await rollOf(session.id)).toBeNull();
+      await ctx.admission.takeRoll(session.id, ['s2']);
+      expect(await ctx.answers.submitForStudent(session.id, 'q1', 's1', 0, 'manual')).toBe(true);
+      expect((await rollOf(session.id))!.slice().sort()).toEqual(['s1', 's2']);
+    });
+
+    it('does not add a student whose answer was refused', async () => {
+      const session = await begin();
+      await ctx.admission.takeRoll(session.id, ['s2']);
+      expect(await ctx.answers.submitForStudent(session.id, 'q2', 's1', 'x', 'manual')).toBe(false);
+      expect(await rollOf(session.id)).toEqual(['s2']);
+    });
+
+    it('marks a student absent from everyone when no roll exists, and present again by hand', async () => {
+      const { sessionRoster } = ctx;
+      const session = await begin();
+      expect(await sessionRoster.markPresent(session.id, 's1')).toBe(true);
+      expect(await rollOf(session.id)).toBeNull();
+      expect(await sessionRoster.markAbsent(session.id, 's1')).toBe(true);
+      expect((await rollOf(session.id))!.slice().sort()).toEqual(['s2', 's3']);
+      expect(await sessionRoster.markPresent(session.id, 's1')).toBe(true);
+      expect((await rollOf(session.id))!.slice().sort()).toEqual(['s1', 's2', 's3']);
+    });
+
+    it('keeps the roll when students are moved, renamed or added, and puts a student added for today on it', async () => {
+      const { sessionRoster } = ctx;
+      const session = await begin();
+      await sessionRoster.markAbsent(session.id, 's1');
+      await sessionRoster.moveStudent(session.id, 's3', 'g2');
+      await sessionRoster.renameGroup(session.id, 'g1', 'جديدة');
+      expect((await rollOf(session.id))!.slice().sort()).toEqual(['s2', 's3']);
+      const added = (await sessionRoster.addStudent(session.id, 'هدى', 'g1'))!;
+      expect((await rollOf(session.id))!).toContain(added.id);
+
+      const noRoll = await begin();
+      const counted = (await sessionRoster.addStudent(noRoll.id, 'سارة', 'g1'))!;
+      expect(counted).not.toBeNull();
+      expect(await rollOf(noRoll.id)).toBeNull();
+    });
+
+    it('is for the admin only, refuses ids not on the roster, and refuses an ended class', async () => {
+      const { auth, sessionRoster, sessions } = ctx;
+      const session = await begin();
+      expect(await sessionRoster.markAbsent(session.id, 'nobody')).toBe(false);
+      expect(await sessionRoster.markPresent(session.id, 'nobody')).toBe(false);
+      expect(await rollOf(session.id)).toBeNull();
+      await auth.signOut();
+      await expect(sessionRoster.markAbsent(session.id, 's1')).rejects.toBeInstanceOf(NotAuthorizedError);
+      await expect(sessionRoster.markPresent(session.id, 's1')).rejects.toBeInstanceOf(NotAuthorizedError);
+      await expect(ctx.admission.takeRoll(session.id, ['s1'])).rejects.toBeInstanceOf(NotAuthorizedError);
+      await auth.signIn({ password: 'secret', code: await validCode() });
+      await sessions.end(session.id);
+      expect(await sessionRoster.markAbsent(session.id, 's1')).toBe(false);
+      expect(await sessionRoster.markPresent(session.id, 's1')).toBe(false);
+      await ctx.admission.takeRoll(session.id, ['s1']);
+      expect(await rollOf(session.id)).toBeNull();
+    });
+  });
+});
+
+describe('the kept record of an ended class', () => {
+  let ctx: Awaited<ReturnType<typeof setup>>;
+  beforeEach(async () => {
+    ctx = await setup();
+    await ctx.auth.signIn({ password: 'secret', code: await validCode() });
+    await ctx.store.put('lessons', lesson);
+    await ctx.store.put('classes', { id: 'c1', name: '11-3', order: 1 });
+    await ctx.store.put('teachers', { id: 't1', name: 'أ. هدى', order: 1 });
+    await ctx.store.put('groups', { id: 'g1', classId: 'c1', name: 'أ', color: '#000', order: 1 });
+    await ctx.store.put('students', { id: 's1', name: 'سلمى أحمد', cardNumber: 1, groupId: 'g1' });
+  });
+  const begin = async () => (await ctx.sessions.start('l1', 'c1', 't1'))!;
+
+  it('is written once when the class ends, from the answers it had', async () => {
+    const session = await begin();
+    await ctx.answers.submitForStudent(session.id, 'q1', 's1', 0, 'manual');
+    expect(await ctx.store.list('records')).toEqual([]);
+    await ctx.sessions.end(session.id);
+    const [record] = await ctx.store.list('records');
+    expect(record).toMatchObject({ id: session.id, classId: 'c1', startedAt: session.startedAt });
+    expect(record.students).toEqual([{ studentId: 's1', name: 'سلمى أحمد', groupId: 'g1', present: true, answered: 1, points: 1, unresponsive: false }]);
+  });
+
+  it('is not rewritten by ending again, even after the lesson changed, and is made when it is missing', async () => {
+    const session = await begin();
+    await ctx.answers.submitForStudent(session.id, 'q1', 's1', 0, 'manual');
+    await ctx.sessions.end(session.id);
+    const [kept] = await ctx.store.list('records');
+    await ctx.lessons.save({ ...lesson, slides: [] });
+    await ctx.sessions.end(session.id);
+    expect(await ctx.store.list('records')).toEqual([kept]);
+    await ctx.store.remove('records', session.id);
+    await ctx.sessions.end(session.id);
+    expect((await ctx.store.list('records')).map((r) => r.groups[0].max)).toEqual([0]);
+  });
+
+  it('is not made for a live class, an unknown class or an ended class whose lesson is gone', async () => {
+    const session = await begin();
+    await ctx.records.keep(session.id);
+    await ctx.records.keep('nobody');
+    await ctx.store.put('sessions', { ...session, status: 'ended', lessonId: 'gone' });
+    await ctx.records.keep(session.id);
+    expect(await ctx.store.list('records')).toEqual([]);
+  });
+
+  it('names the week and the month of now', async () => {
+    for (const kind of ['week', 'month'] as const) expect(inPeriod(ctx.records.currentPeriod(kind), Date.now())).toBe(true);
+  });
+
+  it('cannot be asked of by a visitor', async () => {
+    await ctx.auth.signOut();
+    await expect(ctx.records.keep('x')).rejects.toBeInstanceOf(NotAuthorizedError);
+    await expect(ctx.records.standingsOf('c1', periodAt('week', NOW))).rejects.toBeInstanceOf(NotAuthorizedError);
+  });
+
+  it('keeps a lesson that a running class uses', async () => {
+    const session = await begin();
+    await expect(ctx.lessons.remove('l1')).rejects.toBeInstanceOf(LessonError);
+    expect(await ctx.store.get('lessons', 'l1')).not.toBeNull();
+    await ctx.sessions.end(session.id);
+    await ctx.lessons.remove('l1');
+    expect(await ctx.store.get('lessons', 'l1')).toBeNull();
+    expect(await ctx.store.list('records')).toHaveLength(1);
+  });
+
+  it('sums the ended classes of one class list over a period, with hearts given after the end', async () => {
+    const session = await begin();
+    await ctx.answers.submitForStudent(session.id, 'q1', 's1', 0, 'manual');
+    await ctx.sessions.end(session.id);
+    await ctx.rewards.giveAsTeacher(session.id, { kind: 'student', id: 's1' });
+    const [{ startedAt }] = await ctx.store.list('records');
+    const result = await ctx.records.standingsOf('c1', periodAt('month', startedAt));
+    expect(result.classes).toBe(1);
+    expect(result.students).toEqual([{ studentId: 's1', name: 'سلمى أحمد', classes: 1, attended: 1, answered: 1, points: 1, hearts: 1, unresponsive: 0 }]);
+    expect(result.groups).toEqual([{ groupId: 'g1', name: 'أ', score: 1, max: question.points + groupQuestion.points, hearts: 1 }]);
+    expect((await ctx.records.standingsOf('other', periodAt('month', startedAt))).classes).toBe(0);
+    expect((await ctx.records.standingsOf('c1', periodAt('month', 0))).classes).toBe(0);
+  });
+
+  it('gives a visitor the groups\' totals only, and her own line only through the seat she was let in at', async () => {
+    const session = await begin();
+    const device = ctx.device('d1');
+    const mine = (await device.participants.join(session.id, 'g1', 's1'))!;
+    const waitingLine = await device.records.ownStandingIn(session.id, periodAt('month', session.startedAt));
+    await ctx.admission.admit(mine.id, 's1');
+    await ctx.answers.submitForStudent(session.id, 'q1', 's1', 0, 'manual');
+    const other = ctx.device('d2');
+    const shared = (await other.participants.join(session.id, 'g1', null))!;
+    await ctx.admission.admit(shared.id, null);
+    const stranger = ctx.device('d3');
+    await ctx.sessions.end(session.id);
+    await ctx.rewards.giveAsTeacher(session.id, { kind: 'student', id: 's1' });
+    await ctx.auth.signOut();
+
+    const period = periodAt('month', session.startedAt);
+    expect(waitingLine).toBeNull();
+    expect(await ctx.records.groupStandingsOf('c1', period)).toEqual([{ groupId: 'g1', name: 'أ', score: 1, max: question.points + groupQuestion.points, hearts: 1 }]);
+    expect(await device.records.ownStandingIn(session.id, period)).toEqual({ classes: 1, attended: 1, points: 1, hearts: 1 });
+    expect(await other.records.ownStandingIn(session.id, period)).toBeNull();
+    expect(await stranger.records.ownStandingIn(session.id, period)).toBeNull();
+    expect(await device.records.ownStandingIn('nobody', period)).toBeNull();
+    await expect(device.records.standingsOf('c1', period)).rejects.toBeInstanceOf(NotAuthorizedError);
+  });
+
+  it('gives nothing to a device whose seat was removed', async () => {
+    const session = await begin();
+    const device = ctx.device('d1');
+    const mine = (await device.participants.join(session.id, 'g1', 's1'))!;
+    await ctx.admission.admit(mine.id, 's1');
+    await ctx.sessions.end(session.id);
+    await ctx.store.remove('participants', mine.id);
+    expect(await device.records.ownStandingIn(session.id, periodAt('month', session.startedAt))).toBeNull();
+  });
+});

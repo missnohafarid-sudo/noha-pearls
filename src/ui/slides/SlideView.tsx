@@ -1,0 +1,35 @@
+import type { ReactNode } from 'react';
+import type { AnswerKey, Slide } from '../../domain/models';
+import { t } from '../../i18n';
+import { slideUi } from './slideUi';
+import './slides.css';
+
+interface SlideViewProps {
+  slide: Slide;
+  /** The viewer's current answer. */
+  answer?: number | string | null;
+  /** Pass it to let the viewer answer; leave it out for a read-only slide. */
+  onAnswer?: ((value: number | string) => void) | null;
+  /** The published answer key, once revealed. */
+  reveal?: AnswerKey | null;
+  /** Answers per option, for the presenter. */
+  tally?: number[] | null;
+  /** Extra content under the slide body, e.g. the presenter's wall of text answers. */
+  children?: ReactNode;
+}
+
+/** Draws any slide, for any audience. The same component serves the lesson page, the presenter and student devices. */
+export function SlideView({ slide, answer = null, onAnswer = null, reveal = null, tally = null, children }: SlideViewProps) {
+  const { Body } = slideUi(slide.kind);
+  return (
+    <article className="slide">
+      <header className="slide__head">
+        {slide.tag && <span className="chip">{slide.tag}</span>}
+        <h2 className="slide__title">{slide.title || t.slides.view.emptySlide}</h2>
+      </header>
+      {/* Keyed by slide: nothing typed on one slide may leak into the next. */}
+      <Body key={slide.id} slide={slide} interaction={{ answer, onAnswer, reveal, tally }} />
+      {children}
+    </article>
+  );
+}

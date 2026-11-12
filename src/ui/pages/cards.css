@@ -1,0 +1,110 @@
+/* Cards use physical geometry: letters must match the marker's real edges, so no logical properties here. */
+.cards-sheet {
+  --marker: 220px;
+  --band: 34px;
+  display: grid;
+  gap: var(--gap);
+  grid-template-columns: repeat(auto-fill, minmax(calc(var(--marker) + 2 * var(--band)), 1fr));
+  justify-items: center;
+}
+
+.answer-card {
+  inline-size: calc(var(--marker) + 2 * var(--band));
+  background: var(--paper);
+  border: 1px dashed var(--print-line);
+  border-radius: 4px;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.answer-card__frame {
+  position: relative;
+  width: calc(var(--marker) + 2 * var(--band));
+  height: calc(var(--marker) + 2 * var(--band));
+  padding: var(--band);
+}
+
+.answer-card__marker,
+.answer-card__marker svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.answer-card__letter {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--band);
+  height: var(--band);
+  color: var(--print-ink);
+  font-size: calc(var(--band) * 0.7);
+  font-weight: 700;
+  line-height: 1;
+}
+
+.answer-card__letter--top {
+  top: 0;
+  left: calc(50% - var(--band) / 2);
+}
+
+.answer-card__letter--right {
+  right: 0;
+  top: calc(50% - var(--band) / 2);
+  transform: rotate(90deg);
+}
+
+.answer-card__letter--bottom {
+  bottom: 0;
+  left: calc(50% - var(--band) / 2);
+  transform: rotate(180deg);
+}
+
+.answer-card__letter--left {
+  left: 0;
+  top: calc(50% - var(--band) / 2);
+  transform: rotate(-90deg);
+}
+
+.answer-card__footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 8px;
+  border-top: 1px solid var(--print-line);
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 8mm;
+  }
+
+  body {
+    background: var(--paper);
+  }
+
+  .cards-sheet {
+    --marker: 110mm;
+    --band: 8mm;
+    display: block;
+  }
+
+  .answer-card {
+    margin: 0 auto 6mm;
+    border-radius: 0;
+    border-color: var(--print-line);
+  }
+
+  .answer-card:nth-child(2n) {
+    break-after: page;
+    page-break-after: always;
+  }
+
+  .answer-card__footer {
+    font-size: 11pt;
+  }
+}

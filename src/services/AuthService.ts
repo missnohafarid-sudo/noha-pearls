@@ -1,4 +1,5 @@
 import type { AdminCredentials, AuthGateway } from '../ports/auth';
+import type { Caller } from '../ports/caller';
 import type { Unsubscribe } from '../ports/store';
 
 export class NotAuthorizedError extends Error {
@@ -8,7 +9,7 @@ export class NotAuthorizedError extends Error {
   }
 }
 
-/** The single place every layer asks "is this the admin?". */
+/** The sign-in use case: the interface signs the admin in and out and follows the result. */
 export class AuthService {
   constructor(private readonly gateway: AuthGateway) {}
 
@@ -27,9 +28,9 @@ export class AuthService {
   subscribe(listener: () => void): Unsubscribe {
     return this.gateway.subscribe(listener);
   }
+}
 
-  /** Guards admin commands in the other services. The backend enforces the same rule on the data. */
-  requireAdmin(): void {
-    if (!this.isAdmin()) throw new NotAuthorizedError();
-  }
+/** Guards admin commands in the other services. The single place every service asks "is this the admin?". */
+export function requireAdmin(caller: Caller): void {
+  if (!caller.isAdmin()) throw new NotAuthorizedError();
 }

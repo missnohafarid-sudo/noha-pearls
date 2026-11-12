@@ -3,7 +3,8 @@ import type { Id, Reward, RewardSource, SubjectRef } from '../domain/models';
 import { canGivePeerHeart, canGiveTeacherHeart } from '../domain/rewards';
 import { studentById } from '../domain/roster';
 import type { DocumentStore, Unsubscribe } from '../ports/store';
-import type { AuthService } from './AuthService';
+import type { Caller } from '../ports/caller';
+import { requireAdmin } from './AuthService';
 import type { SeatSource } from './SeatSource';
 import type { SessionRosterSource } from './SessionRosterSource';
 
@@ -11,7 +12,7 @@ import type { SessionRosterSource } from './SessionRosterSource';
 export class RewardService {
   constructor(
     private readonly store: DocumentStore,
-    private readonly auth: AuthService,
+    private readonly caller: Caller,
     private readonly seats: SeatSource,
     private readonly rosters: SessionRosterSource,
   ) {}
@@ -22,7 +23,7 @@ export class RewardService {
 
   /** Admin only: a heart in the teacher's name, for a student or a group of the session's roster. Returns false when the target is not on it. Accepted after the class has ended too. */
   async giveAsTeacher(sessionId: Id, target: SubjectRef): Promise<boolean> {
-    this.auth.requireAdmin();
+    requireAdmin(this.caller);
     const [session, roster] = await Promise.all([this.store.get('sessions', sessionId), this.rosters.rosterOf(sessionId)]);
     if (!canGiveTeacherHeart(session, roster, target)) return false;
     await this.add(sessionId, target, 'teacher');

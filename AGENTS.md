@@ -37,7 +37,7 @@ A teacher. She is not a programmer and cannot judge your code.
 | Layer | Holds | May import |
 |---|---|---|
 | `src/domain` | Rules and data shapes. Pure: no React, no browser, no I/O | itself only |
-| `src/ports` | Interfaces the app needs from outside (`DocumentStore`, `AuthGateway`, codes) | `domain` |
+| `src/ports` | Interfaces the app needs from outside (`DocumentStore`, `AuthGateway`, `Caller`, codes) | `domain` |
 | `src/services` | Use cases as classes (`LessonService`, `RosterService`, ...). Every change of stored data goes through one | `domain`, `ports` |
 | `src/infrastructure` | Adapters that implement ports: browser storage, auth, markers, QR | `domain`, `ports` |
 | `src/app` | `container.ts` (the only file naming concrete adapters), `config.ts`, `seed.ts` | everything |
@@ -72,8 +72,10 @@ A teacher. She is not a programmer and cannot judge your code.
 | A class session: live or ended, starting one, which one a page shows, and what a running class keeps from being removed (its class list, teacher, lesson) | `domain/sessions.ts` |
 | The list of teachers | `domain/teachers.ts` |
 | Session codes: making and reading one | `domain/ids.ts` |
+| Who is asking: the admin or not, and which device | `ports/caller.ts` |
 | Is this the admin | `services/AuthService.ts` |
 | What the UI may ask of the app | `services/Services.ts` |
+| How the data services are wired together | `services/createDataServices.ts` |
 | Addresses and links | `ui/routing/routes.ts` |
 | Whether the edit panel shows | `ui/shell/AdminPanel.tsx` |
 | Settings (password hash, authenticator key) | `app/config.ts` |

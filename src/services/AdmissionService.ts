@@ -3,7 +3,8 @@ import type { Id, Participant } from '../domain/models';
 import { isOnRoster } from '../domain/roster';
 import { acceptsChanges } from '../domain/sessions';
 import type { DocumentStore } from '../ports/store';
-import type { AuthService } from './AuthService';
+import type { Caller } from '../ports/caller';
+import { requireAdmin } from './AuthService';
 import type { PresenceMarker } from './PresenceMarker';
 import type { SessionRosterSource } from './SessionRosterSource';
 
@@ -11,7 +12,7 @@ import type { SessionRosterSource } from './SessionRosterSource';
 export class AdmissionService {
   constructor(
     private readonly store: DocumentStore,
-    private readonly auth: AuthService,
+    private readonly caller: Caller,
     private readonly rosters: SessionRosterSource,
     private readonly presence: PresenceMarker,
   ) {}
@@ -22,7 +23,7 @@ export class AdmissionService {
    * Any other device holding the name leaves, so the name moves. A device let in under a name puts that student on the roll.
    */
   async admit(participantId: Id, studentId: Id | null): Promise<void> {
-    this.auth.requireAdmin();
+    requireAdmin(this.caller);
     const seat = await this.letIn(participantId, studentId);
     if (seat?.studentId) await this.presence.joinRoll(seat.sessionId, [seat.studentId]);
   }
@@ -32,21 +33,21 @@ export class AdmissionService {
    * the waiting devices among them. A card never moves a name: a seat whose name is held or asked for elsewhere waits for a tap.
    */
   async takeRoll(sessionId: Id, studentIds: readonly Id[]): Promise<void> {
-    this.auth.requireAdmin();
+    requireAdmin(this.caller);
     await this.presence.joinRoll(sessionId, studentIds);
     await this.letInSeats(seatsForCards(await this.store.list('participants', { sessionId }), studentIds));
   }
 
   /** Lets in every waiting device whose name no other device holds or asks for. */
   async admitAll(sessionId: Id): Promise<void> {
-    this.auth.requireAdmin();
+    requireAdmin(this.caller);
     const letIn = await this.letInSeats(seatsForBulkAdmission(await this.store.list('participants', { sessionId })));
     await this.presence.joinRoll(sessionId, letIn);
   }
 
   /** Sends a device out of the class and frees its name. */
   async remove(participantId: Id): Promise<void> {
-    this.auth.requireAdmin();
+    requireAdmin(this.caller);
     const seat = await this.store.get('participants', participantId);
     if (seat && acceptsChanges(await this.store.get('sessions', seat.sessionId))) await this.store.remove('participants', participantId);
   }

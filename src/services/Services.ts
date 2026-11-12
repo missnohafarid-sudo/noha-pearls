@@ -14,20 +14,27 @@ import type { TeacherService } from './TeacherService';
 
 export type CardCodec = MarkerDetector & MarkerRenderer;
 
+/** The public shape of a service class: what a caller may use, without its internals. */
+export type Api<T> = { [K in keyof T]: T[K] };
+
+/** The use cases over stored data. Built the same way wherever they run. */
+export interface DataServices {
+  content: Api<ContentService>;
+  roster: Api<RosterService>;
+  teachers: Api<TeacherService>;
+  lessons: Api<LessonService>;
+  sessions: Api<SessionService>;
+  sessionRoster: Api<SessionRosterService>;
+  participants: Api<ParticipantService>;
+  admission: Api<AdmissionService>;
+  answers: Api<AnswerService>;
+  rewards: Api<RewardService>;
+  records: Api<RecordService>;
+}
+
 /** Everything the interface may ask of the application. The composition root builds one. */
-export interface Services {
-  auth: AuthService;
-  content: ContentService;
-  roster: RosterService;
-  teachers: TeacherService;
-  lessons: LessonService;
-  sessions: SessionService;
-  sessionRoster: SessionRosterService;
-  participants: ParticipantService;
-  admission: AdmissionService;
-  answers: AnswerService;
-  rewards: RewardService;
-  records: RecordService;
+export interface Services extends DataServices {
+  auth: Api<AuthService>;
   qr: QrRenderer;
   /** Loaded on demand: only the teacher's scanner and the card printer need it. */
   loadCardCodec(): Promise<CardCodec>;

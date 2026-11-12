@@ -3,7 +3,8 @@ import type { ClassRoster, Id, SessionRoster, Student } from '../domain/models';
 import { addStudentToRoster, isOnRoster, moveStudent, renameGroupIn } from '../domain/roster';
 import { acceptsChanges } from '../domain/sessions';
 import type { DocumentStore, Unsubscribe } from '../ports/store';
-import type { AuthService } from './AuthService';
+import type { Caller } from '../ports/caller';
+import { requireAdmin } from './AuthService';
 import type { PresenceMarker } from './PresenceMarker';
 import type { SessionRosterSource } from './SessionRosterSource';
 
@@ -21,7 +22,7 @@ function merged(roster: SessionRoster, lists: ClassRoster | null): SessionRoster
 export class SessionRosterService implements SessionRosterSource, PresenceMarker {
   constructor(
     private readonly store: DocumentStore,
-    private readonly auth: AuthService,
+    private readonly caller: Caller,
   ) {}
 
   watchRoster(sessionId: Id, listener: (roster: SessionRoster) => void): Unsubscribe {
@@ -74,7 +75,7 @@ export class SessionRosterService implements SessionRosterSource, PresenceMarker
 
   /** Applies a rule to the roster as stored, in one step, for a running class only. A rule that refuses leaves it as it was. */
   private async change(sessionId: Id, rule: (roster: SessionRoster) => SessionRoster | null): Promise<boolean> {
-    this.auth.requireAdmin();
+    requireAdmin(this.caller);
     if (!acceptsChanges(await this.store.get('sessions', sessionId))) return false;
     let applied = false;
     await this.store.update('rosters', sessionId, (current) => {

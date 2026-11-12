@@ -9,7 +9,8 @@ import { isOnRoster } from '../domain/roster';
 import { acceptsChanges, isLive, newUniqueJoinCode, sessionBasis } from '../domain/sessions';
 import { cleanMessage } from '../domain/text';
 import type { DocumentStore, Unsubscribe } from '../ports/store';
-import type { AuthService } from './AuthService';
+import type { Caller } from '../ports/caller';
+import { requireAdmin } from './AuthService';
 import type { ClassRosterSource } from './ClassRosterSource';
 import type { RecordKeeper } from './RecordKeeper';
 import type { SessionRosterSource } from './SessionRosterSource';
@@ -18,7 +19,7 @@ import type { SessionRosterSource } from './SessionRosterSource';
 export class SessionService {
   constructor(
     private readonly store: DocumentStore,
-    private readonly auth: AuthService,
+    private readonly caller: Caller,
     private readonly classes: ClassRosterSource,
     private readonly rosters: SessionRosterSource,
     private readonly records: RecordKeeper,
@@ -39,7 +40,7 @@ export class SessionService {
    * are stored and the class has a group.
    */
   async start(lessonId: Id, classId: Id, teacherId: Id): Promise<Session | null> {
-    this.auth.requireAdmin();
+    requireAdmin(this.caller);
     const [lesson, schoolClass, teacher] = await Promise.all([
       this.store.get('lessons', lessonId),
       this.store.get('classes', classId),
@@ -66,21 +67,21 @@ export class SessionService {
 
   /** Ends the class, then has what it came to kept from the frozen answers and roll. Ending one that has ended is harmless and keeps a record it lacks. */
   async end(sessionId: Id): Promise<void> {
-    this.auth.requireAdmin();
+    requireAdmin(this.caller);
     await this.store.update('sessions', sessionId, (current) => (isLive(current) ? { ...current, status: 'ended' } : current));
     await this.records.keep(sessionId);
   }
 
   /** Moves the whole class to a slide of the session's stored lesson. */
   async goTo(sessionId: Id, slideIndex: number): Promise<void> {
-    this.auth.requireAdmin();
+    requireAdmin(this.caller);
     const lesson = await this.lessonOf(sessionId);
     if (lesson) await this.update(sessionId, () => ({ slideIndex: clampIndex(slideIndex, lesson.slides.length) }));
   }
 
   /** Publishes the answer of a question of the session's stored lesson and locks it. */
   async reveal(sessionId: Id, slideId: Id): Promise<void> {
-    this.auth.requireAdmin();
+    requireAdmin(this.caller);
     const slide = (await this.lessonOf(sessionId))?.slides.find((s) => s.id === slideId);
     if (!slide || !isQuestion(slide)) return;
     const key = answerKey(slide);
@@ -111,7 +112,7 @@ export class SessionService {
 
   /** Sets the fewest individual questions a present student should answer; the default is kept as no setting at all, and a value that is not a number changes nothing. */
   async setMinInteractions(sessionId: Id, value: number): Promise<void> {
-    this.auth.requireAdmin();
+    requireAdmin(this.caller);
     const lesson = await this.lessonOf(sessionId);
     if (!lesson) return;
     const answers = await this.store.list('answers', { sessionId });
@@ -129,7 +130,7 @@ export class SessionService {
    * overlapping commands must not undo each other. A class that has ended accepts none.
    */
   private async update(sessionId: Id, change: (current: Session) => Partial<Session>): Promise<void> {
-    this.auth.requireAdmin();
+    requireAdmin(this.caller);
     await this.store.update('sessions', sessionId, (current) => (acceptsChanges(current) ? { ...current, ...change(current) } : current));
   }
 }

@@ -4,7 +4,8 @@ import { classRecord } from '../domain/records';
 import { isLive } from '../domain/sessions';
 import { ownStanding, recordsIn, standings, type GroupStanding, type OwnStanding, type Standings } from '../domain/standings';
 import type { DocumentStore, Unsubscribe } from '../ports/store';
-import type { AuthService } from './AuthService';
+import type { Caller } from '../ports/caller';
+import { requireAdmin } from './AuthService';
 import type { ClassRosterSource } from './ClassRosterSource';
 import type { RecordKeeper } from './RecordKeeper';
 import type { SeatSource } from './SeatSource';
@@ -14,14 +15,14 @@ import type { SessionRosterSource } from './SessionRosterSource';
 export class RecordService implements RecordKeeper {
   constructor(
     private readonly store: DocumentStore,
-    private readonly auth: AuthService,
+    private readonly caller: Caller,
     private readonly rosters: SessionRosterSource,
     private readonly classes: ClassRosterSource,
     private readonly seats: SeatSource,
   ) {}
 
   async keep(sessionId: Id): Promise<void> {
-    this.auth.requireAdmin();
+    requireAdmin(this.caller);
     const [session, kept] = await Promise.all([this.store.get('sessions', sessionId), this.store.get('records', sessionId)]);
     if (!session || isLive(session) || kept) return;
     const lesson = await this.store.get('lessons', session.lessonId);
@@ -37,7 +38,7 @@ export class RecordService implements RecordKeeper {
 
   /** Admin only: the cumulative results of one class list over a period, named as the list names them now; hearts are counted as they stand now. */
   async standingsOf(classId: Id, period: Period): Promise<Standings> {
-    this.auth.requireAdmin();
+    requireAdmin(this.caller);
     return this.sum(classId, period);
   }
 

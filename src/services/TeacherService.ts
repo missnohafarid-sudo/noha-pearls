@@ -3,7 +3,8 @@ import type { Id, Teacher } from '../domain/models';
 import { canRemoveTeacher } from '../domain/sessions';
 import { createTeacher } from '../domain/teachers';
 import type { DocumentStore, Unsubscribe } from '../ports/store';
-import type { AuthService } from './AuthService';
+import type { Caller } from '../ports/caller';
+import { requireAdmin } from './AuthService';
 import { requireName } from './requireName';
 
 export class TeacherError extends Error {
@@ -17,7 +18,7 @@ export class TeacherError extends Error {
 export class TeacherService {
   constructor(
     private readonly store: DocumentStore,
-    private readonly auth: AuthService,
+    private readonly caller: Caller,
   ) {}
 
   watchTeachers(listener: (teachers: Teacher[]) => void): Unsubscribe {
@@ -25,21 +26,21 @@ export class TeacherService {
   }
 
   async add(name: string): Promise<Teacher> {
-    this.auth.requireAdmin();
+    requireAdmin(this.caller);
     const teacher = createTeacher(requireName(name), await this.store.list('teachers'));
     await this.store.put('teachers', teacher);
     return teacher;
   }
 
   async rename(teacherId: Id, name: string): Promise<void> {
-    this.auth.requireAdmin();
+    requireAdmin(this.caller);
     const cleaned = requireName(name);
     await this.store.update('teachers', teacherId, (current) => ({ ...current, name: cleaned }));
   }
 
   /** Removes the teacher, unless a running class is hers. */
   async remove(teacherId: Id): Promise<void> {
-    this.auth.requireAdmin();
+    requireAdmin(this.caller);
     if (!canRemoveTeacher(teacherId, await this.store.list('sessions'))) throw new TeacherError('teacher-in-use');
     await this.store.remove('teachers', teacherId);
   }

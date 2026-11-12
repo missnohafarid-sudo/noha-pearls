@@ -1,12 +1,13 @@
 import type { SiteContent } from '../domain/models';
 import type { DocumentStore, Unsubscribe } from '../ports/store';
-import type { AuthService } from './AuthService';
+import type { Caller } from '../ports/caller';
+import { requireAdmin } from './AuthService';
 
 /** The editable text of the public pages. */
 export class ContentService {
   constructor(
     private readonly store: DocumentStore,
-    private readonly auth: AuthService,
+    private readonly caller: Caller,
   ) {}
 
   watchSite(listener: (site: SiteContent | null) => void): Unsubscribe {
@@ -14,7 +15,7 @@ export class ContentService {
   }
 
   async updateSite(site: SiteContent): Promise<void> {
-    this.auth.requireAdmin();
+    requireAdmin(this.caller);
     await this.store.put('site', site);
   }
 }

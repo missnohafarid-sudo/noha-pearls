@@ -3,7 +3,8 @@ import { answerId, canAnswer, canScanCards, normalizeAnswerValue, subjectFor } f
 import type { Answer, AnswerSource, Id, QuestionSlide, Student } from '../domain/models';
 import { studentById } from '../domain/roster';
 import type { DocumentStore, Unsubscribe } from '../ports/store';
-import type { AuthService } from './AuthService';
+import type { Caller } from '../ports/caller';
+import { requireAdmin } from './AuthService';
 import type { SeatSource } from './SeatSource';
 import type { PresenceMarker } from './PresenceMarker';
 import type { SessionRosterSource } from './SessionRosterSource';
@@ -16,7 +17,7 @@ import type { SessionRosterSource } from './SessionRosterSource';
 export class AnswerService {
   constructor(
     private readonly store: DocumentStore,
-    private readonly auth: AuthService,
+    private readonly caller: Caller,
     private readonly seats: SeatSource,
     private readonly rosters: SessionRosterSource,
     private readonly presence: PresenceMarker,
@@ -50,7 +51,7 @@ export class AnswerService {
     value: unknown,
     source: 'card' | 'manual',
   ): Promise<boolean> {
-    this.auth.requireAdmin();
+    requireAdmin(this.caller);
     const [student, question] = await Promise.all([this.studentOf(sessionId, studentId), this.openQuestion(sessionId, slideId, true)]);
     if (!student || !question) return false;
     const recorded = await this.record(sessionId, question, { groupId: student.groupId, studentId: student.id }, value, source);
@@ -60,7 +61,7 @@ export class AnswerService {
 
   /** Admin only: withdraws a student's answer while an individual choice question is still open. */
   async clearForStudent(sessionId: Id, slideId: Id, studentId: Id): Promise<void> {
-    this.auth.requireAdmin();
+    requireAdmin(this.caller);
     const [student, question] = await Promise.all([this.studentOf(sessionId, studentId), this.openQuestion(sessionId, slideId, true)]);
     const subject = student && question && subjectFor(question, { groupId: student.groupId, studentId: student.id });
     if (subject) await this.store.remove('answers', answerId(sessionId, slideId, subject));

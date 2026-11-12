@@ -1,23 +1,16 @@
 import { canClaimSeat, isAdmitted } from '../domain/admission';
-import { newId } from '../domain/ids';
 import type { Id, Participant } from '../domain/models';
 import { acceptsChanges } from '../domain/sessions';
-import type { KeyValueStorage } from '../ports/storage';
+import type { Caller } from '../ports/caller';
 import type { DocumentStore, Unsubscribe } from '../ports/store';
 import type { SeatSource } from './SeatSource';
 import type { SessionRosterSource } from './SessionRosterSource';
 
 /** This device's own seat in a session: asking for it, following it, giving it up. */
 export class ParticipantService implements SeatSource {
-  /**
-   * @param deviceMemory survives reloads on this device, so a student who
-   * refreshes the page keeps their name.
-   * @param deviceKey where this device's identity is kept in that memory.
-   */
   constructor(
     private readonly store: DocumentStore,
-    private readonly deviceMemory: KeyValueStorage,
-    private readonly deviceKey: string,
+    private readonly caller: Caller,
     private readonly rosters: SessionRosterSource,
   ) {}
 
@@ -55,14 +48,6 @@ export class ParticipantService implements SeatSource {
   }
 
   private participantId(sessionId: Id): Id {
-    return `${sessionId}:${this.deviceId()}`;
-  }
-
-  private deviceId(): Id {
-    const existing = this.deviceMemory.getItem(this.deviceKey);
-    if (existing) return existing;
-    const created = newId();
-    this.deviceMemory.setItem(this.deviceKey, created);
-    return created;
+    return `${sessionId}:${this.caller.deviceId()}`;
   }
 }

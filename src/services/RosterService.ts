@@ -10,7 +10,8 @@ import {
 import { applyRoster, exportRosterText, parseRosterText, type ImportMode, type RosterChanges, type RosterIssue } from '../domain/rosterFormat';
 import { canRemoveClass } from '../domain/sessions';
 import type { DocumentStore, Unsubscribe } from '../ports/store';
-import type { AuthService } from './AuthService';
+import type { Caller } from '../ports/caller';
+import { requireAdmin } from './AuthService';
 import type { ClassRosterSource } from './ClassRosterSource';
 import { requireName } from './requireName';
 
@@ -29,7 +30,7 @@ export type RosterImportResult = { ok: true; changes: RosterChanges } | { ok: fa
 export class RosterService implements ClassRosterSource {
   constructor(
     private readonly store: DocumentStore,
-    private readonly auth: AuthService,
+    private readonly caller: Caller,
   ) {}
 
   watchClasses(listener: (classes: SchoolClass[]) => void): Unsubscribe {
@@ -57,21 +58,21 @@ export class RosterService implements ClassRosterSource {
   }
 
   async addClass(name: string): Promise<SchoolClass> {
-    this.auth.requireAdmin();
+    requireAdmin(this.caller);
     const schoolClass = createSchoolClass(requireName(name), await this.store.list('classes'));
     await this.store.put('classes', schoolClass);
     return schoolClass;
   }
 
   async renameClass(classId: Id, name: string): Promise<void> {
-    this.auth.requireAdmin();
+    requireAdmin(this.caller);
     const cleaned = requireName(name);
     await this.store.update('classes', classId, (current) => ({ ...current, name: cleaned }));
   }
 
   /** Removes the class with its groups and students, unless a running class belongs to it. */
   async removeClass(classId: Id): Promise<void> {
-    this.auth.requireAdmin();
+    requireAdmin(this.caller);
     if (!canRemoveClass(classId, await this.store.list('sessions'))) throw new RosterError('class-in-use');
     const { groups, students } = await this.rosterOfClass(classId);
     for (const student of students) await this.store.remove('students', student.id);
@@ -80,7 +81,7 @@ export class RosterService implements ClassRosterSource {
   }
 
   async addGroup(classId: Id, name: string): Promise<Group> {
-    this.auth.requireAdmin();
+    requireAdmin(this.caller);
     const cleaned = requireName(name);
     await this.requireClass(classId);
     const group = createGroup(cleaned, classId, (await this.rosterOfClass(classId)).groups);
@@ -90,20 +91,20 @@ export class RosterService implements ClassRosterSource {
 
   /** Saves the group's own fields; the class it belongs to cannot be changed here. */
   async saveGroup(group: Group): Promise<void> {
-    this.auth.requireAdmin();
+    requireAdmin(this.caller);
     const name = requireName(group.name);
     await this.store.update('groups', group.id, (current) => ({ ...group, name, classId: current.classId }));
   }
 
   async removeGroup(groupId: Id): Promise<void> {
-    this.auth.requireAdmin();
+    requireAdmin(this.caller);
     const members = await this.store.list('students', { groupId });
     if (members.length > 0) throw new RosterError('group-not-empty');
     await this.store.remove('groups', groupId);
   }
 
   async addStudent(name: string, groupId: Id): Promise<Student> {
-    this.auth.requireAdmin();
+    requireAdmin(this.caller);
     const cleaned = requireName(name);
     const classmates = await this.classmatesOfGroup(groupId);
     const student = createStudent(cleaned, groupId, classmates);
@@ -112,7 +113,7 @@ export class RosterService implements ClassRosterSource {
   }
 
   async saveStudent(student: Student): Promise<void> {
-    this.auth.requireAdmin();
+    requireAdmin(this.caller);
     const name = requireName(student.name);
     const stored = await this.store.get('students', student.id);
     const [storedGroup, newGroup] = await Promise.all([stored && this.store.get('groups', stored.groupId), this.store.get('groups', student.groupId)]);
@@ -123,13 +124,13 @@ export class RosterService implements ClassRosterSource {
   }
 
   async removeStudent(studentId: Id): Promise<void> {
-    this.auth.requireAdmin();
+    requireAdmin(this.caller);
     await this.store.remove('students', studentId);
   }
 
   /** Reads a class list (pasted or uploaded) into the class. Changes nothing unless every line is valid. */
   async importFromText(classId: Id, text: string, mode: ImportMode): Promise<RosterImportResult> {
-    this.auth.requireAdmin();
+    requireAdmin(this.caller);
     await this.requireClass(classId);
     const parsed = parseRosterText(text);
     if (!parsed.ok) return parsed;

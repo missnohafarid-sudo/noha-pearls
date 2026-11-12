@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { seatAnswerer } from '../domain/admission';
+import { newId } from '../domain/ids';
 import { inPeriod, periodAt } from '../domain/periods';
-import type { ChoiceSlide, Lesson, Student, TextSlide } from '../domain/models';
+import type { ChoiceSlide, Id, Lesson, Student, TextSlide } from '../domain/models';
 import { MAX_MESSAGE_LENGTH } from '../domain/text';
+import type { Caller } from '../ports/caller';
 import type { DocumentStore } from '../ports/store';
 import { LocalChangeBus, LocalDocumentStore } from '../infrastructure/LocalDocumentStore';
 import { PrototypeAuthGateway, sha256Hex } from '../infrastructure/PrototypeAuthGateway';
@@ -44,36 +46,41 @@ async function gateway(totpSecret: string | undefined = TOTP_SECRET) {
   );
 }
 
+function callerOf(auth: AuthService, deviceId: Id = newId()): Caller {
+  return { isAdmin: () => auth.isAdmin(), deviceId: () => deviceId };
+}
+
 const validCode = () => totpCode(TOTP_SECRET, NOW);
 
 async function setup() {
   const store = new LocalDocumentStore(new MemoryStorage(), new LocalChangeBus(), 'test');
   const auth = new AuthService(await gateway());
-  const roster = new RosterService(store, auth);
-  const sessionRoster = new SessionRosterService(store, auth);
-  const teacherDevice = new ParticipantService(store, new MemoryStorage(), 'teacher', sessionRoster);
-  const records = new RecordService(store, auth, sessionRoster, roster, teacherDevice);
+  const caller = callerOf(auth);
+  const roster = new RosterService(store, caller);
+  const sessionRoster = new SessionRosterService(store, caller);
+  const teacherDevice = new ParticipantService(store, callerOf(auth), sessionRoster);
+  const records = new RecordService(store, caller, sessionRoster, roster, teacherDevice);
   return {
     store,
     auth,
-    admission: new AdmissionService(store, auth, sessionRoster, sessionRoster),
-    sessions: new SessionService(store, auth, roster, sessionRoster, records),
+    admission: new AdmissionService(store, caller, sessionRoster, sessionRoster),
+    sessions: new SessionService(store, caller, roster, sessionRoster, records),
     records,
     sessionRoster,
-    answers: new AnswerService(store, auth, teacherDevice, sessionRoster, sessionRoster),
-    lessons: new LessonService(store, auth),
+    answers: new AnswerService(store, caller, teacherDevice, sessionRoster, sessionRoster),
+    lessons: new LessonService(store, caller),
     roster,
-    teachers: new TeacherService(store, auth),
-    rewards: new RewardService(store, auth, teacherDevice, sessionRoster),
-    participants: (deviceKey: string) => new ParticipantService(store, new MemoryStorage(), deviceKey, sessionRoster),
+    teachers: new TeacherService(store, caller),
+    rewards: new RewardService(store, caller, teacherDevice, sessionRoster),
+    participants: (deviceName: string) => new ParticipantService(store, callerOf(auth, `${deviceName}-${newId()}`), sessionRoster),
     /** One student device: its own seat memory, and the services that act through that seat. */
-    device: (deviceKey: string) => {
-      const participants = new ParticipantService(store, new MemoryStorage(), deviceKey, sessionRoster);
+    device: (deviceName: string) => {
+      const participants = new ParticipantService(store, callerOf(auth, `${deviceName}-${newId()}`), sessionRoster);
       return {
         participants,
-        answers: new AnswerService(store, auth, participants, sessionRoster, sessionRoster),
-        rewards: new RewardService(store, auth, participants, sessionRoster),
-        records: new RecordService(store, auth, sessionRoster, roster, participants),
+        answers: new AnswerService(store, caller, participants, sessionRoster, sessionRoster),
+        rewards: new RewardService(store, caller, participants, sessionRoster),
+        records: new RecordService(store, caller, sessionRoster, roster, participants),
       };
     },
   };
@@ -515,7 +522,7 @@ describe('a live class', () => {
       remove: (collection, id) => store.remove(collection, id),
       watch: (collection, where, listener) => store.watch(collection, where, listener),
     };
-    await new AdmissionService(losing, auth, ctx.sessionRoster, ctx.sessionRoster).admit(waiting.id, 's1');
+    await new AdmissionService(losing, callerOf(auth), ctx.sessionRoster, ctx.sessionRoster).admit(waiting.id, 's1');
     expect(await holder.participants.admittedSeat(session.id)).not.toBeNull();
   });
 
@@ -1009,7 +1016,7 @@ describe('a live class', () => {
       remove: (collection, id) => store.remove(collection, id),
       watch: (collection, where, listener) => store.watch(collection, where, listener),
     };
-    await new AdmissionService(switching, auth, ctx.sessionRoster, ctx.sessionRoster).admit(waiting.id, 's1');
+    await new AdmissionService(switching, callerOf(auth), ctx.sessionRoster, ctx.sessionRoster).admit(waiting.id, 's1');
     expect(await store.get('participants', waiting.id)).toMatchObject({ studentId: 's3', admitted: false });
     expect(await store.get('rosters', session.id)).toMatchObject({ present: null });
   });

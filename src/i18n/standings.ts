@@ -1,12 +1,8 @@
 import { common, counted } from './common';
+import { dayAndMonth, monthAndYear } from './months';
 import { ROSTER_PAGE_NAME } from './shell';
 import type { OwnStanding } from '../domain/standings';
-import { periodDates, type CalendarDate, type Period } from '../domain/periods';
-
-const MONTH_NAMES = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'] as const;
-
-const dayAndMonth = ({ day, month }: CalendarDate) => `${day} ${MONTH_NAMES[month - 1]}`;
-const monthAndYear = ({ month, year }: CalendarDate) => `${MONTH_NAMES[month - 1]} ${year}`;
+import { periodDates, type Period } from '../domain/periods';
 
 /** The name of a period: a month by its name and year, a week by its first and last day, with a year on the first day only when the week spans two. */
 function periodLabel(period: Period): string {

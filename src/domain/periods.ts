@@ -5,7 +5,7 @@ export const SCHOOL_UTC_OFFSET_MS = 3 * 60 * 60 * 1000;
 /** 0 is Sunday. */
 const WEEK_START_DAY = 0;
 
-const DAY_MS = 24 * 60 * 60 * 1000;
+export const DAY_MS = 24 * 60 * 60 * 1000;
 const DAYS_PER_WEEK = 7;
 
 export type PeriodKind = 'week' | 'month';
@@ -60,7 +60,8 @@ export function inPeriod(period: Period, at: number): boolean {
   return at >= period.start && at < period.end;
 }
 
-function dateOf(at: number): CalendarDate {
+/** The day of the calendar that holds this moment on the school's clock. */
+export function dateOf(at: number): CalendarDate {
   const clock = onSchoolClock(at);
   return { year: clock.getUTCFullYear(), month: clock.getUTCMonth() + 1, day: clock.getUTCDate() };
 }
@@ -68,4 +69,29 @@ function dateOf(at: number): CalendarDate {
 /** The first and the last day of the period, for naming it. */
 export function periodDates(period: Period): { first: CalendarDate; last: CalendarDate } {
   return { first: dateOf(period.start), last: dateOf(period.end - 1) };
+}
+
+/** How many days a month has; 29 February only in a leap year. */
+export function daysInMonth(year: number, month: number): number {
+  return new Date(Date.UTC(year, month, 0)).getUTCDate();
+}
+
+/** A real day of the calendar: whole numbers, a month from 1 to 12 and a day the month has that year. */
+export function isRealDate({ year, month, day }: CalendarDate): boolean {
+  return [year, month, day].every(Number.isInteger) && month >= 1 && month <= 12 && day >= 1 && day <= daysInMonth(year, month);
+}
+
+/** The day, or the last day of its month when the month has fewer days that year. */
+export function clampToMonth({ year, month, day }: CalendarDate): CalendarDate {
+  return { year, month, day: Math.min(day, daysInMonth(year, month)) };
+}
+
+/** The first moment of the day, on the school's clock. */
+export function startOfDay({ year, month, day }: CalendarDate): number {
+  return schoolMidnight(year, month - 1, day);
+}
+
+/** The first moment of the day after: the end of this day, exclusive. */
+export function startOfNextDay({ year, month, day }: CalendarDate): number {
+  return schoolMidnight(year, month - 1, day + 1);
 }

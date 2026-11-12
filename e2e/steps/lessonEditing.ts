@@ -42,13 +42,20 @@ export function lessonEditingSteps(world: World): void {
     const path = join(folder, 'chosen.txt');
     writeFileSync(path, FILE_TEXT);
     const textarea = () => world.admin.page.$eval(DIALOG_TEXT, (element) => (element as HTMLTextAreaElement).value);
-    const choose = async () => {
+    const clickChooseButton = async () => {
       const button = await world.admin.page.evaluate((label) => {
         const box = [...document.querySelectorAll<HTMLElement>('dialog[open] label')].find((candidate) => candidate.innerText.trim().includes(label))?.getBoundingClientRect();
         return box ? { x: box.x + box.width / 2, y: box.y + box.height / 2 } : null;
       }, t.common.chooseFile);
       if (!button) throw new Error('The file button is not in the import dialog.');
-      const [chooser] = await Promise.all([world.admin.page.waitForFileChooser(), world.admin.page.mouse.click(button.x, button.y)]);
+      await world.admin.page.mouse.click(button.x, button.y);
+    };
+    const choose = async () => {
+      // Puppeteer turns on file-chooser interception when the wait starts, and the browser handles
+      // mouse input on another path. A click sent right behind it could open a chooser nobody
+      // intercepts, which the browser cancels at once. The measuring round trip inside
+      // `clickChooseButton` is answered only after the interception is on, so it orders the two.
+      const [chooser] = await Promise.all([world.admin.page.waitForFileChooser(), clickChooseButton()]);
       await chooser.accept([path]);
     };
     try {

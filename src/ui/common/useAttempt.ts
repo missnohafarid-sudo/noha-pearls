@@ -1,12 +1,13 @@
 import { useCallback, useState } from 'react';
 import { t } from '../../i18n';
+import { FolderError } from '../../services/FolderService';
 import { LessonError } from '../../services/LessonService';
 import { NameError } from '../../services/requireName';
 import { RosterError } from '../../services/RosterService';
 import { TeacherError } from '../../services/TeacherService';
 
 function serviceErrorMessage(error: unknown): string {
-  if (error instanceof LessonError) return t.lesson.errors[error.code];
+  if (error instanceof LessonError || error instanceof FolderError) return t.lesson.errors[error.code];
   return error instanceof RosterError || error instanceof TeacherError || error instanceof NameError ? t.roster.errors[error.code] : t.roster.errors.unknown;
 }
 

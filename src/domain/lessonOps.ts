@@ -4,8 +4,8 @@ import { slideKindSpec } from './slideKinds';
 
 /** Pure edits on a lesson. Each returns a new lesson; nothing is persisted here. */
 
-export function createLesson(title: string, now = Date.now()): Lesson {
-  return { id: newId(), title, subject: '', grade: '', published: false, slides: [], updatedAt: now };
+export function createLesson(title: string, folderId: Id | null, now = Date.now()): Lesson {
+  return { id: newId(), folderId, title, subject: '', grade: '', published: false, slides: [], updatedAt: now };
 }
 
 /** Unpublished lessons exist for the admin only. */

@@ -84,7 +84,7 @@ function HomeAdminPanels({ site }: { site: SiteContent }) {
   const [importing, setImporting] = useState(false);
 
   const create = async () => {
-    const lesson = await lessons.create(th.panel.newLessonTitle);
+    const lesson = await lessons.create(th.panel.newLessonTitle, null);
     navigate({ name: 'lesson', lessonId: lesson.id, slideIndex: 0 });
   };
 

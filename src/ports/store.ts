@@ -1,4 +1,4 @@
-import type { Answer, ClassRecord, Group, Id, Lesson, Participant, Reward, SchoolClass, Session, SessionRoster, SiteContent, Student, Teacher } from '../domain/models';
+import type { Answer, ClassRecord, Group, Id, Lesson, LessonFolder, Participant, Reward, SchoolClass, Session, SessionRoster, SiteContent, Student, Teacher } from '../domain/models';
 
 /**
  * The database as the application sees it: typed collections of documents with
@@ -13,6 +13,7 @@ export interface Collections {
   teachers: Teacher;
   groups: Group;
   students: Student;
+  folders: LessonFolder;
   lessons: Lesson;
   sessions: Session;
   rosters: SessionRoster;
@@ -31,6 +32,7 @@ const COLLECTION_FLAGS: Record<CollectionName, true> = {
   teachers: true,
   groups: true,
   students: true,
+  folders: true,
   lessons: true,
   sessions: true,
   rosters: true,

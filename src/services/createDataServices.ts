@@ -3,6 +3,7 @@ import type { DocumentStore } from '../ports/store';
 import { AdmissionService } from './AdmissionService';
 import { AnswerService } from './AnswerService';
 import { ContentService } from './ContentService';
+import { FolderService } from './FolderService';
 import { LessonService } from './LessonService';
 import { ParticipantService } from './ParticipantService';
 import { RecordService } from './RecordService';
@@ -19,11 +20,13 @@ export function createDataServices(store: DocumentStore, caller: Caller): DataSe
   const roster = new RosterService(store, caller);
   const participants = new ParticipantService(store, caller, sessionRoster);
   const records = new RecordService(store, caller, sessionRoster, roster, participants);
+  const lessons = new LessonService(store, caller);
   return {
     content: new ContentService(store, caller),
     roster,
     teachers: new TeacherService(store, caller),
-    lessons: new LessonService(store, caller),
+    folders: new FolderService(store, caller, lessons),
+    lessons,
     sessions: new SessionService(store, caller, roster, sessionRoster, records),
     sessionRoster,
     participants,

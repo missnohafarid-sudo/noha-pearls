@@ -1,6 +1,6 @@
 import type { Id } from './models';
 
-/** Lessons and their slides. Pure data, like `models.ts`, which re-exports all of it. */
+/** Lessons, their slides and the folders they sit in. Pure data, like `models.ts`, which re-exports all of it. */
 
 export type SlideKind = 'content' | 'choice' | 'text' | 'media';
 
@@ -59,8 +59,19 @@ export interface MediaSlide extends SlideBase {
 export type Slide = ContentSlide | ChoiceSlide | TextSlide | MediaSlide;
 export type QuestionSlide = ChoiceSlide | TextSlide;
 
+/** A folder of lessons. Folders nest: `parentId` null is the top level. */
+export interface LessonFolder {
+  id: Id;
+  name: string;
+  parentId: Id | null;
+  /** Position among its siblings; lower comes first. */
+  order: number;
+}
+
 export interface Lesson {
   id: Id;
+  /** The folder the lesson sits in; null is the top level. */
+  folderId: Id | null;
   title: string;
   subject: string;
   grade: string;

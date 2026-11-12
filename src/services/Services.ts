@@ -3,6 +3,7 @@ import type { AdmissionService } from './AdmissionService';
 import type { AnswerService } from './AnswerService';
 import type { AuthService } from './AuthService';
 import type { ContentService } from './ContentService';
+import type { FolderService } from './FolderService';
 import type { LessonService } from './LessonService';
 import type { ParticipantService } from './ParticipantService';
 import type { RecordService } from './RecordService';
@@ -22,6 +23,7 @@ export interface DataServices {
   content: Api<ContentService>;
   roster: Api<RosterService>;
   teachers: Api<TeacherService>;
+  folders: Api<FolderService>;
   lessons: Api<LessonService>;
   sessions: Api<SessionService>;
   sessionRoster: Api<SessionRosterService>;

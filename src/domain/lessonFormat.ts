@@ -91,6 +91,7 @@ export function importLesson(text: string, now = Date.now()): ImportResult {
     ok: true,
     lesson: {
       id: newId(),
+      folderId: null,
       title,
       subject: textOf(file.subject),
       grade: textOf(file.grade),

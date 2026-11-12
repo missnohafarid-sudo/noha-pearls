@@ -33,7 +33,7 @@ const groupText: TextSlide = {
   id: 'q2', kind: 'text', title: 'ن', tag: '', prompt: '؟', placeholder: '', scope: 'group', points: 3,
 };
 const lesson: Lesson = {
-  id: 'l1', title: 'درس', subject: '', grade: '', published: true, slides: [choice, groupText], updatedAt: 0,
+  id: 'l1', folderId: null, title: 'درس', subject: '', grade: '', published: true, slides: [choice, groupText], updatedAt: 0,
 };
 const groups: Group[] = [
   { id: 'g1', classId: 'c1', name: 'أ', color: '#000', order: 1 },
@@ -422,7 +422,7 @@ describe('zooming a PDF frame', () => {
 
 describe('lesson editing', () => {
   it('adds, moves and removes slides without touching the original', () => {
-    const empty = createLesson('جديد', 0);
+    const empty = createLesson('جديد', null, 0);
     const first = addSlide(empty, 'content', -1);
     const second = addSlide(first.lesson, 'choice', 0);
     expect(empty.slides).toHaveLength(0);

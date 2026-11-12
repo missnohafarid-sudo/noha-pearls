@@ -13,6 +13,7 @@ import { MemoryStorage } from '../infrastructure/storage';
 import { AdmissionService } from './AdmissionService';
 import { AnswerService } from './AnswerService';
 import { AuthService, NotAuthorizedError } from './AuthService';
+import { FolderError, FolderService } from './FolderService';
 import { LessonError, LessonService } from './LessonService';
 import { ParticipantService } from './ParticipantService';
 import { RecordService } from './RecordService';
@@ -31,7 +32,7 @@ const groupQuestion: TextSlide = {
   id: 'q2', kind: 'text', title: 'ن', tag: '', prompt: '؟', placeholder: '', scope: 'group', points: 1,
 };
 const lesson: Lesson = {
-  id: 'l1', title: 'درس', subject: '', grade: '', published: true, slides: [question, groupQuestion], updatedAt: 0,
+  id: 'l1', folderId: null, title: 'درس', subject: '', grade: '', published: true, slides: [question, groupQuestion], updatedAt: 0,
 };
 
 const TOTP_SECRET = 'JBSWY3DPEHPK3PXP';
@@ -60,6 +61,7 @@ async function setup() {
   const sessionRoster = new SessionRosterService(store, caller);
   const teacherDevice = new ParticipantService(store, callerOf(auth), sessionRoster);
   const records = new RecordService(store, caller, sessionRoster, roster, teacherDevice);
+  const lessons = new LessonService(store, caller);
   return {
     store,
     auth,
@@ -68,9 +70,10 @@ async function setup() {
     records,
     sessionRoster,
     answers: new AnswerService(store, caller, teacherDevice, sessionRoster, sessionRoster),
-    lessons: new LessonService(store, caller),
+    lessons,
     roster,
     teachers: new TeacherService(store, caller),
+    folders: new FolderService(store, caller, lessons),
     rewards: new RewardService(store, caller, teacherDevice, sessionRoster),
     participants: (deviceName: string) => new ParticipantService(store, callerOf(auth, `${deviceName}-${newId()}`), sessionRoster),
     /** One student device: its own seat memory, and the services that act through that seat. */
@@ -110,7 +113,7 @@ describe('admin access', () => {
     expect(await auth.signIn({ password: 'wrong', code: await validCode() })).toBe(false);
     expect(auth.isAdmin()).toBe(false);
     await expect(sessions.start('l1', 'c1', 't1')).rejects.toBeInstanceOf(NotAuthorizedError);
-    await expect(lessons.create('x')).rejects.toBeInstanceOf(NotAuthorizedError);
+    await expect(lessons.create('x', null)).rejects.toBeInstanceOf(NotAuthorizedError);
     expect(await auth.signIn({ password: 'secret', code: await validCode() })).toBe(true);
     await auth.signOut();
     expect(auth.isAdmin()).toBe(false);
@@ -579,8 +582,8 @@ describe('a live class', () => {
   it('imports a valid lesson file and saves nothing for a broken one', async () => {
     const { lessons, store } = ctx;
     const text = lessons.exportToText(lesson);
-    expect((await lessons.importFromText(text)).ok).toBe(true);
-    expect((await lessons.importFromText('{"format":"spectrum-lesson","version":1,"title":"","slides":[]}')).ok).toBe(false);
+    expect((await lessons.importFromText(text, null)).ok).toBe(true);
+    expect((await lessons.importFromText('{"format":"spectrum-lesson","version":1,"title":"","slides":[]}', null)).ok).toBe(false);
     expect(await store.list('lessons')).toHaveLength(2);
   });
 
@@ -1268,5 +1271,125 @@ describe('the kept record of an ended class', () => {
     await ctx.sessions.end(session.id);
     await ctx.store.remove('participants', mine.id);
     expect(await device.records.ownStandingIn(session.id, periodAt('month', session.startedAt))).toBeNull();
+  });
+});
+
+describe('lesson folders', () => {
+  const signedIn = async () => {
+    const ctx = await setup();
+    await ctx.auth.signIn({ password: 'secret', code: await validCode() });
+    return ctx;
+  };
+  const folderIds = async (store: DocumentStore) => (await store.list('folders')).map((f) => f.id).sort();
+
+  it('refuses every folder command and lesson move to a signed-out caller', async () => {
+    const { folders, lessons } = await setup();
+    await expect(folders.add('a', null)).rejects.toBeInstanceOf(NotAuthorizedError);
+    await expect(folders.rename('a', 'b')).rejects.toBeInstanceOf(NotAuthorizedError);
+    await expect(folders.move('a', null)).rejects.toBeInstanceOf(NotAuthorizedError);
+    await expect(folders.remove('a')).rejects.toBeInstanceOf(NotAuthorizedError);
+    await expect(lessons.moveToFolder('l', null)).rejects.toBeInstanceOf(NotAuthorizedError);
+    await expect(lessons.moveLessons('a', null)).rejects.toBeInstanceOf(NotAuthorizedError);
+  });
+
+  it('adds nested folders and refuses a blank name or an unknown parent', async () => {
+    const { folders, store } = await signedIn();
+    const outer = await folders.add('  خارجي ', null);
+    const inner = await folders.add('داخلي', outer.id);
+    expect(outer.name).toBe('خارجي');
+    expect(inner.parentId).toBe(outer.id);
+    await expect(folders.add('  ', null)).rejects.toBeInstanceOf(NameError);
+    await expect(folders.rename(outer.id, ' ')).rejects.toBeInstanceOf(NameError);
+    await expect(folders.add('x', 'gone')).rejects.toMatchObject({ code: 'folder-missing' });
+    expect(await store.list('folders')).toHaveLength(2);
+    await folders.rename(outer.id, 'جديد');
+    expect((await store.get('folders', outer.id))?.name).toBe('جديد');
+  });
+
+  it('refuses to move a folder into itself or a descendant, and changes nothing', async () => {
+    const { folders, store } = await signedIn();
+    const a = await folders.add('a', null);
+    const b = await folders.add('b', a.id);
+    const c = await folders.add('c', b.id);
+    const before = await store.list('folders');
+    for (const target of [a.id, b.id, c.id]) {
+      await expect(folders.move(a.id, target)).rejects.toMatchObject({ code: 'folder-inside-itself' });
+    }
+    await expect(folders.move(a.id, 'gone')).rejects.toBeInstanceOf(FolderError);
+    await expect(folders.move('gone', null)).rejects.toMatchObject({ code: 'folder-missing' });
+    expect(await store.list('folders')).toEqual(before);
+  });
+
+  it('re-parents on a valid move', async () => {
+    const { folders, store } = await signedIn();
+    const a = await folders.add('a', null);
+    const b = await folders.add('b', null);
+    await folders.move(b.id, a.id);
+    expect((await store.get('folders', b.id))?.parentId).toBe(a.id);
+    await folders.move(b.id, null);
+    expect((await store.get('folders', b.id))?.parentId).toBeNull();
+  });
+
+  it('removes a folder by moving its subfolders and lessons to its parent first', async () => {
+    const { folders, lessons, store } = await signedIn();
+    const top = await folders.add('top', null);
+    const mid = await folders.add('mid', top.id);
+    const sub = await folders.add('sub', mid.id);
+    const inMid = await lessons.create('م', mid.id);
+    await folders.remove(mid.id);
+    expect(await folderIds(store)).toEqual([sub.id, top.id].sort());
+    expect((await store.get('folders', sub.id))?.parentId).toBe(top.id);
+    expect((await store.get('lessons', inMid.id))?.folderId).toBe(top.id);
+    const inTop = await lessons.create('ع', top.id);
+    await folders.remove(top.id);
+    expect((await store.get('folders', sub.id))?.parentId).toBeNull();
+    expect((await store.get('lessons', inTop.id))?.folderId).toBeNull();
+    expect((await store.get('lessons', inMid.id))?.folderId).toBeNull();
+    expect(await store.list('lessons')).toHaveLength(2);
+  });
+
+  it('does nothing when removing an unknown folder', async () => {
+    const { folders, store } = await signedIn();
+    const a = await folders.add('a', null);
+    await folders.remove('gone');
+    expect(await folderIds(store)).toEqual([a.id]);
+  });
+
+  it('puts a created or imported lesson in the folder', async () => {
+    const { folders, lessons, store } = await signedIn();
+    const a = await folders.add('a', null);
+    const made = await lessons.create('x', a.id);
+    expect((await store.get('lessons', made.id))?.folderId).toBe(a.id);
+    const result = await lessons.importFromText(lessons.exportToText({ ...made, slides: [question] }), a.id);
+    expect(result.ok).toBe(true);
+    const stored = await store.list('lessons', { folderId: a.id });
+    expect(stored).toHaveLength(2);
+  });
+
+  it('refuses an unknown folder for create, import and move, and stores nothing', async () => {
+    const { lessons, store } = await signedIn();
+    const made = await lessons.create('x', null);
+    const text = lessons.exportToText({ ...made, slides: [question] });
+    await expect(lessons.create('y', 'gone')).rejects.toMatchObject({ code: 'folder-missing' });
+    await expect(lessons.importFromText(text, 'gone')).rejects.toBeInstanceOf(LessonError);
+    await expect(lessons.moveToFolder(made.id, 'gone')).rejects.toBeInstanceOf(LessonError);
+    expect(await store.list('lessons')).toEqual([made]);
+  });
+
+  it('moves a lesson without changing when it was edited', async () => {
+    const { folders, lessons, store } = await signedIn();
+    const a = await folders.add('a', null);
+    const made = await lessons.create('x', null);
+    await lessons.moveToFolder(made.id, a.id);
+    expect(await store.get('lessons', made.id)).toEqual({ ...made, folderId: a.id });
+  });
+
+  it('keeps a move when an older copy of the lesson is saved', async () => {
+    const { folders, lessons, store } = await signedIn();
+    const a = await folders.add('a', null);
+    const stale = await lessons.create('x', null);
+    await lessons.moveToFolder(stale.id, a.id);
+    await lessons.save({ ...stale, title: 'محرر' });
+    expect(await store.get('lessons', stale.id)).toMatchObject({ title: 'محرر', folderId: a.id });
   });
 });

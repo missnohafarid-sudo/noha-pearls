@@ -46,7 +46,7 @@ export function LessonImportDialog({ onClose }: { onClose: () => void }) {
   };
 
   const submit = async () => {
-    const result = await lessons.importFromText(text);
+    const result = await lessons.importFromText(text, null);
     if (result.ok) {
       onClose();
       navigate({ name: 'lesson', lessonId: result.lesson.id, slideIndex: 0 });

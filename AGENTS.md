@@ -46,11 +46,12 @@ A teacher. She is not a programmer and cannot judge your code.
 
 | Concern | Its one home |
 |---|---|
-| Data shapes | `domain/models.ts` |
+| Data shapes | `domain/models.ts` (lessons, slides and folders: `domain/lessonModels.ts`) |
 | Slide kinds: template, file read/write, repairs | `domain/slideKinds.ts` |
 | Slide kinds: edit fields and drawing | `ui/slides/slideUi.tsx` |
 | Lesson file format and checks | `domain/lessonFormat.ts` |
 | Lesson edits (add, move, remove slide) | `domain/lessonOps.ts` |
+| The lesson folder tree: nesting, moving, what a folder holds, removing one without losing anything | `domain/folders.ts` |
 | Who may answer what, text length limit | `domain/answering.ts` |
 | Marking and group scores | `domain/scoring.ts` |
 | Pearls a group has earned | `domain/scoring.ts` |

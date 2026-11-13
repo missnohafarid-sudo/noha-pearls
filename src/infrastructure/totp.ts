@@ -67,10 +67,18 @@ export async function verifyTotp(secretBase32: string, code: string, nowMs: numb
   const typed = code.replace(/\s+/g, '');
   if (!key || !new RegExp(`^\\d{${DIGITS}}$`).test(typed)) return false;
   const current = stepOf(nowMs);
+  let matched = 0;
   for (let step = current - WINDOW_STEPS; step <= current + WINDOW_STEPS; step++) {
-    if ((await codeForStep(key, step)) === typed) return true;
+    matched |= differences(await codeForStep(key, step), typed) === 0 ? 1 : 0;
   }
-  return false;
+  return matched === 1;
+}
+
+/** How many positions differ between two codes of the same length, counted without stopping at the first. */
+function differences(a: string, b: string): number {
+  let count = 0;
+  for (let i = 0; i < a.length; i++) count += a.charCodeAt(i) === b.charCodeAt(i) ? 0 : 1;
+  return count;
 }
 
 export function generateTotpSecret(): string {

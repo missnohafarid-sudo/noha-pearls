@@ -11,7 +11,7 @@ const LIMIT = (code: string) => ({ name: 'LimitError', code });
 
 async function classroom() {
   const harness = createHarness();
-  await harness.core.seed();
+  await harness.core.seed(true);
   const admin = connect(harness, 'laptop', FAR);
   const classId = (await harness.store.list('classes'))[0].id;
   const lessonId = (await harness.store.list('lessons'))[0].id;

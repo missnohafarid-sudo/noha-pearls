@@ -14,7 +14,7 @@ const FAR = 9_000_000_000_000;
 
 async function seeded() {
   const harness = createHarness();
-  await harness.core.seed();
+  await harness.core.seed(true);
   return harness;
 }
 
@@ -24,7 +24,7 @@ describe('the first start', () => {
     const before = JSON.stringify(await store.list('teachers'));
     expect((await store.list('lessons')).length).toBeGreaterThan(0);
     await store.put('teachers', { id: 'extra', name: 'x', order: 9 });
-    await core.seed();
+    await core.seed(true);
     expect(await store.list('teachers')).toHaveLength(2);
     expect(before).toContain('t1');
   });

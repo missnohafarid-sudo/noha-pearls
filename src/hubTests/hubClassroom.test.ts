@@ -7,7 +7,7 @@ const SCHOOL_ADDRESS = '10.20.30.40';
 
 async function classroom() {
   const harness = createHarness();
-  await harness.core.seed();
+  await harness.core.seed(true);
   const admin = connect(harness, 'laptop', FAR, SCHOOL_ADDRESS);
   const [classId, lessonId, teacherId] = await Promise.all([harness.store.list('classes'), harness.store.list('lessons'), harness.store.list('teachers')]).then((lists) => lists.map((list) => list[0].id));
   await admin.call(1, 'sessions', 'start', lessonId, classId, teacherId);

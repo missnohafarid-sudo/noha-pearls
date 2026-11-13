@@ -1,6 +1,6 @@
 import { type ChildProcess, execFileSync, spawn } from 'node:child_process';
 import { createServer } from 'node:net';
-import { LOCAL_ADMIN_SECRETS } from '../vite.config';
+import { LOCAL_ADMIN_SECRETS, LOCAL_SAMPLE_SCHOOL } from '../vite.config';
 
 /**
  * The real local server: the built site and the Worker with its hub, run by `wrangler dev` from what `vite build` made,
@@ -43,7 +43,7 @@ export interface Server {
  */
 export async function start(stateDir: string, { withSecrets, config = BUILT_WRANGLER_CONFIG }: { withSecrets: boolean; config?: string }): Promise<Server> {
   const port = await freePort();
-  const secrets = withSecrets ? Object.entries(LOCAL_ADMIN_SECRETS).flatMap(([name, value]) => ['--var', `${name}:${value}`]) : [];
+  const secrets = withSecrets ? Object.entries({ ...LOCAL_ADMIN_SECRETS, ...LOCAL_SAMPLE_SCHOOL }).flatMap(([name, value]) => ['--var', `${name}:${value}`]) : [];
   const child = spawn(
     process.execPath,
     ['node_modules/wrangler/bin/wrangler.js', 'dev', '-c', config, '--ip', HOST, '--port', String(port), '--persist-to', stateDir, ...secrets],

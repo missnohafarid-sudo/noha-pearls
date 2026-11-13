@@ -15,6 +15,7 @@ import { HubCore } from './HubCore';
 import { HubHttp } from './HubHttp';
 import { HubRequests } from './HubRequests';
 import { AdminCookie, adminSecretsOf } from './identity';
+import { wantsSampleSchool } from './sampleSchool';
 
 /**
  * The hub: the one place the school's data lives and every device connects to. This class only joins the platform to
@@ -40,7 +41,7 @@ export class SchoolHub extends DurableObject<Env> {
     );
     ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair(PING, PONG));
     ctx.blockConcurrencyWhile(async () => {
-      await this.core.seed();
+      await this.core.seed(wantsSampleSchool(env));
       for (const socket of ctx.getWebSockets()) this.restore(socket);
       if ((await ctx.storage.getAlarm()) === null) await ctx.storage.setAlarm(await this.core.nextCheckAt());
     });

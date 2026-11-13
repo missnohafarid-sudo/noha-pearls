@@ -26,7 +26,7 @@ function burnTo(harness: Harness, target: number): void {
 
 async function seeded(location?: string): Promise<Harness> {
   const harness = withScratch(location);
-  await harness.core.seed();
+  await harness.core.seed(true);
   return harness;
 }
 

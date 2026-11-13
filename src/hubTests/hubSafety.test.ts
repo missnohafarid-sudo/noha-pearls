@@ -12,7 +12,7 @@ const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 async function seeded() {
   const harness = createHarness();
-  await harness.core.seed();
+  await harness.core.seed(true);
   return harness;
 }
 

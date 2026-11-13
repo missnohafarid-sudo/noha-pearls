@@ -17,7 +17,7 @@ export const LOCAL = 'http://localhost';
 
 export async function hub(secrets: typeof SECRETS | null = SECRETS) {
   const harness = createHarness();
-  await harness.core.seed();
+  await harness.core.seed(true);
   const db = new NodeSqlDatabase();
   migrate(db);
   const admin = await AdminCookie.from(secrets);

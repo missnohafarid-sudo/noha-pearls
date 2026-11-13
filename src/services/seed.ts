@@ -25,10 +25,22 @@ const STUDENT_NAMES = [
   'جود عمر', 'شهد ماجد', 'ميار سعيد', 'تالا فهد', 'غلا ناصر', 'رزان هادي',
 ];
 
-/** Fills an empty store with the sample school and lesson: the browser-only mode and the hub's first start both call it. */
-export async function seedIfEmpty(store: DocumentStore): Promise<void> {
+/**
+ * Fills an empty store: the site's default wording and an example lesson the teacher may delete, always. The sample school
+ * (a class list, a teacher, groups and students) only when asked: the browser-only mode and a hub on this computer ask, a school's hub does not.
+ */
+export async function seedIfEmpty(store: DocumentStore, withSampleSchool: boolean): Promise<void> {
   if (await store.get('site', SITE.id)) return;
+  if (withSampleSchool) await putSampleSchool(store);
 
+  const imported = importLesson(JSON.stringify(sampleLesson));
+  if (imported.ok) await store.put('lessons', { ...imported.lesson, published: true });
+
+  // Written last: its presence marks the seed as complete.
+  await store.put('site', SITE);
+}
+
+async function putSampleSchool(store: DocumentStore): Promise<void> {
   const groups: Group[] = GROUP_NAMES.map((name, i) => ({ id: `g${i + 1}`, classId: CLASS.id, name, color: GROUP_COLORS[i], order: i + 1 }));
   const students: Student[] = STUDENT_NAMES.map((name, i) => ({
     id: `s${i + 1}`,
@@ -41,10 +53,4 @@ export async function seedIfEmpty(store: DocumentStore): Promise<void> {
   await store.put('teachers', TEACHER);
   for (const group of groups) await store.put('groups', group);
   for (const student of students) await store.put('students', student);
-
-  const imported = importLesson(JSON.stringify(sampleLesson));
-  if (imported.ok) await store.put('lessons', { ...imported.lesson, published: true });
-
-  // Written last: its presence marks the seed as complete.
-  await store.put('site', SITE);
 }

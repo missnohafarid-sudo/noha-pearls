@@ -107,7 +107,7 @@ interface PageOptions {
 
 async function page(options: PageOptions = {}) {
   const harness = options.sameHubAs?.harness ?? createHarness();
-  if (!options.sameHubAs) await harness.core.seed();
+  if (!options.sameHubAs) await harness.core.seed(true);
   const wire = new Wire(harness, options.sameHubAs?.wire.registry);
   if (options.sameHubAs) wire.identity = options.sameHubAs.wire.identity;
   wire.identity.admin = options.admin ?? wire.identity.admin;
@@ -252,7 +252,7 @@ describe('when the connection drops', () => {
 
   it('lets a call made while the socket is opening wait for it', async () => {
     const harness = createHarness();
-    await harness.core.seed();
+    await harness.core.seed(true);
     const wire = new Wire(harness);
     wire.identity.admin = true;
     const clock = new Clock();

@@ -47,7 +47,7 @@ async function createBrowserOnlyServices(): Promise<Services> {
     new StorageEventChangeBus(STORAGE_NAMESPACE, window),
     STORAGE_NAMESPACE,
   );
-  await seedIfEmpty(store);
+  await seedIfEmpty(store, true);
 
   // Per-tab memory, so each browser tab behaves as a separate classroom device.
   const tabMemory = browserStorage(sessionStorage);

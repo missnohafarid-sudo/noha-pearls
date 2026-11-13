@@ -88,10 +88,10 @@ export class HubCore {
     return wireErrorOf(error);
   }
 
-  /** Fills an empty database the way the browser does on first start. */
-  async seed(): Promise<void> {
+  /** Fills an empty database on first start: the site's wording and the example lesson, and the sample school only when `withSampleSchool`. */
+  async seed(withSampleSchool: boolean): Promise<void> {
     const unit = new UnitOfWork(this.store);
-    await seedIfEmpty(unit);
+    await seedIfEmpty(unit, withSampleSchool);
     this.commit(unit);
   }
 

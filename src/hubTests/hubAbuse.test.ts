@@ -39,7 +39,7 @@ describe('a socket that sends too fast', () => {
 
   it('answers nothing more once closed, even to a call that came in after', async () => {
     const harness = createHarness();
-    await harness.core.seed();
+    await harness.core.seed(true);
     const talker = connect(harness, 'phone');
     await chatter(talker, SOCKET_MESSAGES.max + 1);
     await talker.send({ type: 'call', id: 500, service: 'teachers', method: 'watchTeachers', args: [] });
@@ -132,7 +132,7 @@ describe('an address that is locked', () => {
 
   it('is forgotten from the database by the hub’s alarm once it has ended, and not before', async () => {
     const harness = createHarness();
-    await harness.core.seed();
+    await harness.core.seed(true);
     for (const device of ['a', 'b', 'c']) await flood(harness, device, '10.0.0.5');
     const stored = () => harness.sql.all<{ address: string }>('SELECT address FROM address_locks').map((row) => row.address);
     await harness.core.runAlarm();
@@ -188,7 +188,7 @@ describe('the sockets the hub accepts', () => {
 describe('the live reads the hub holds', () => {
   it('stops opening new ones at 20,000 on the hub, tells the page with the wire error of the watches limit, and opens again as others close', async () => {
     const harness = createHarness();
-    await harness.core.seed();
+    await harness.core.seed(true);
     const pages = Array.from({ length: Math.ceil(WATCHES_PER_HUB / 48) + 1 }, (_, n) => connect(harness, `phone-${n}`));
     let opened = 0;
     for (const page of pages) {

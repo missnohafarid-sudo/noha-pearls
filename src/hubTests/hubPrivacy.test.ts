@@ -19,7 +19,7 @@ interface TwoStudents {
 /** A class with two students from different groups in it, each on a phone of her own, both answered and given a heart. */
 async function twoStudents(): Promise<TwoStudents> {
   const harness = createHarness();
-  await harness.core.seed();
+  await harness.core.seed(true);
   const admin = connect(harness, 'laptop', FAR);
   const lesson = (await harness.store.list('lessons'))[0];
   const classId = (await harness.store.list('classes'))[0].id;

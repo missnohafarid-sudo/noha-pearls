@@ -12,7 +12,10 @@ export const SITE_ONLY_VARIABLE = 'NOHA_SITE_ONLY';
  */
 export const LOCAL_ADMIN_SECRETS = { ADMIN_PASSWORD: 'teach-2468', ADMIN_TOTP_SECRET: 'JBSWY3DPEHPK3PXP' } as const;
 
-const serverPlugins = (serving: boolean) => [cloudflare(serving ? { config: { vars: { ...LOCAL_ADMIN_SECRETS } } } : {})];
+/** Given to the hub the same way, so that a hub on this computer starts with a sample school; a school's hub has no such variable and starts with none. */
+export const LOCAL_SAMPLE_SCHOOL = { SAMPLE_SCHOOL: '1' } as const;
+
+const serverPlugins = (serving: boolean) => [cloudflare(serving ? { config: { vars: { ...LOCAL_ADMIN_SECRETS, ...LOCAL_SAMPLE_SCHOOL } } } : {})];
 
 // `base: './'` plus hash routing lets the same build run from any GitHub Pages path.
 export default defineConfig(({ command }) => ({

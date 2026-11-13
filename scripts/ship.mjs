@@ -1,8 +1,10 @@
-// `npm run ship -- "message"`: check, then commit and push everything. The only way finished work leaves this computer.
+// `npm run ship -- "message"`: quick check, then send the whole change as ONE commit on top of main to the online check.
+// The online check puts it into main when it passes. The only way finished work leaves this computer.
 import { git, npm, stop } from './lib/process.mjs';
+import { commitsAheadOfMain, commitsBehindMain, fetchMainOrStop, requireMainBranch, sendToTry, worktreeIsClean } from './lib/shipping.mjs';
 
 const MAX_MESSAGE_LENGTH = 65;
-const PUBLISH_NOTE = 'Shipped. NEXT: run `npm run deployed` and wait for its answer. It says when the site shows this change, or that the online check failed.';
+const NOTHING_TO_SHIP = 'There is nothing to ship: no file has changed since the site\'s last version.';
 
 function checkedMessage(words) {
   const message = words.join(' ').trim();
@@ -16,13 +18,21 @@ function checkedMessage(words) {
 
 const message = checkedMessage(process.argv.slice(2));
 
-if (git('rev-parse', '--abbrev-ref', 'HEAD').output !== 'main') stop('Shipping is only allowed from the main branch. Switch to it with `git switch main`, bring your work over, and try again.');
-if (git('status', '--porcelain').output === '') stop('There is nothing to ship: no file has changed since the last commit.');
+requireMainBranch();
+fetchMainOrStop();
+if (worktreeIsClean() && commitsAheadOfMain() === 0) stop(NOTHING_TO_SHIP);
 
-if (npm('run', 'check').status !== 0) stop('NOT SHIPPED: the check failed. Fix what it says, then ship again.');
+if (npm('run', 'check:quick').status !== 0) stop('NOT SHIPPED: the quick check failed. Fix what it says, then ship again.');
 
-if (git('add', '-A').status !== 0 || git('commit', '-m', message).status !== 0) stop('NOT SHIPPED: git could not make the commit.');
-process.env.CHECKED_COMMIT = git('rev-parse', 'HEAD').output;
-const pushed = git('push');
-if (pushed.status !== 0) stop(`The change is committed on this computer but the push failed:\n${pushed.output}\nAsk the maintainer for help; do not try to force it.`);
-console.log(`\n${PUBLISH_NOTE}`);
+if (!worktreeIsClean() && (git('add', '-A').status !== 0 || git('commit', '-m', message).status !== 0)) stop('NOT SHIPPED: git could not make the commit.');
+
+if (commitsBehindMain() > 0 && git('rebase', 'origin/main').status !== 0) {
+  git('rebase', '--abort');
+  stop('NOT SHIPPED: the same lines were changed somewhere else in the meantime, so the two versions cannot be joined automatically. Your change is safe on this computer. The maintainer is needed.');
+}
+
+if (git('reset', '--soft', 'origin/main').status !== 0) stop('NOT SHIPPED: git could not gather the change into one commit.');
+if (git('diff', '--cached', '--quiet').status === 0) stop(NOTHING_TO_SHIP);
+if (git('commit', '-m', message).status !== 0) stop('NOT SHIPPED: git could not make the commit.');
+
+sendToTry();

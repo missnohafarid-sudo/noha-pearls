@@ -1,11 +1,11 @@
 #!/bin/sh
-# Blocks any push (plain `git push` included) unless the whole check passes.
-# `npm run ship` and `npm run undo` have just run it on this very commit and name the commit, so it is not run a second time.
-if [ -n "$CHECKED_COMMIT" ] && [ "$CHECKED_COMMIT" = "$(git rev-parse HEAD)" ]; then
-  exit 0
-fi
-if ! npm run check; then
-  echo ""
-  echo "PUSH BLOCKED: the check failed, so nothing was sent. Fix what it says, then push again."
-  exit 1
-fi
+# A push to main (the maintainer's direct push) must pass the whole check first.
+# A push to any other branch, the `try` branch that `npm run ship` uses, passes without one: GitHub runs the whole check
+# on it before the change can reach main.
+while read -r local_ref local_sha remote_ref remote_sha; do
+  if [ "$remote_ref" = "refs/heads/main" ] && ! npm run check </dev/null; then
+    echo ""
+    echo "PUSH BLOCKED: the check failed, so nothing was sent. Fix what it says, then push again."
+    exit 1
+  fi
+done

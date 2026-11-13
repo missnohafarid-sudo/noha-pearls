@@ -1,14 +1,16 @@
-# Check, then deploy. Every push to main first runs `npm run check` (type check, unit, architecture and
-# server tests, protected files, browser walkthrough). Only if it passes is the site built and deployed
-# to Cloudflare, and a smoke test then asks the live address whether it is the real thing. A failing
-# change never reaches the live site. Locally, `npm run ship` and the pre-push hook run the same check.
+# Check, then deploy. The check (`npm run check`: type check, unit, architecture and server tests, protected files,
+# browser walkthrough) runs here and only here for a change shipped with `npm run ship`.
+# A push to `try` (what `npm run ship` and `npm run undo` send) runs the check; if it passes, this workflow
+# fast-forwards main to that commit with its own token (which does not start a second run), then builds, deploys
+# to Cloudflare and smoke-tests the live address, all in this same run. A failing change never reaches main.
+# A push to main (the maintainer's direct push, checked by the pre-push hook as well) runs the check, then the same deploy.
 # This workflow is the only deployer. It can also be run by hand (Actions > Check and deploy > Run workflow),
 # for example after replacing the admin password or the authenticator key.
 name: Check and deploy
 
 on:
   push:
-    branches: [main]
+    branches: [main, try]
   workflow_dispatch:
 
 permissions:
@@ -39,10 +41,18 @@ jobs:
 
   deploy:
     needs: check
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/try'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
+      # The publish push needs main's history; the default shallow checkout lacks it and the push is refused.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Publish the checked change to main
+        if: github.ref == 'refs/heads/try'
+        run: git push origin "$GITHUB_SHA:refs/heads/main"
       - uses: actions/setup-node@v4
         with:
           node-version: 24

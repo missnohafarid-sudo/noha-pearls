@@ -549,6 +549,35 @@ How a request is kept honest:
 - **Live queries are shared.** The hub runs each distinct query once per
   change and fans the result out, not once per connected device. This is what
   keeps a class inside the free limits, and the stress test measures it.
+  What every watcher of a class is shown alike (the board's totals, the results
+  of a card, the lesson summaries) is computed once per change and shared
+  (`services/ComputedOnce.ts`, bounded in size); the class itself is read once
+  per change for all its watchers (`services/ClassFeeds.ts`). Only what depends
+  on who asks, such as a student's own seat view, is computed per reader. The
+  real bound on what a caller costs when a class changes: a code that names no
+  class keeps no live read at all, so it costs nothing; a caller with no seat who
+  watches a real class's code costs no storage reads of its own, because the store
+  reads the class's stored row once per change and every watcher shares it (a join
+  with 500 devices watching the class's code reads 3 rows, and the number does not grow with the
+  watchers), but each such watch still takes a little processor time at every change
+  of that class, and its answer is sent only if it differs. The processor time grows with the number of
+  live reads, which the caps below hold to 48 a device and 20,000 in the hub;
+  the reads that are still worked out once per watcher are not free at the top of that range.
+- **Every answer of the server carries `X-Content-Type-Options: nosniff` and
+  `Cache-Control: no-store`.** `public/_headers` reaches only the static files,
+  so the Worker adds these to everything it or the hub answers under `/api/`
+  (`server/apiHeaders.ts`); the socket upgrade is left as it is.
+- **A school's hub starts without invented people.** On first start the hub
+  stores the site's default wording and one example lesson the teacher may
+  delete. The sample class list, teacher, groups and students (`services/seed.ts`)
+  are stored only when the hub is given the variable `SAMPLE_SCHOOL` equal to `1`,
+  which `vite` gives it when serving on this computer and the local-server test
+  gives it on its command line; a deployed hub has none. The browser-only mode
+  always has the sample school.
+- **The hub class is declared with `exports`** in `wrangler.jsonc`
+  (`"SchoolHub": { "type": "durable-object", "storage": "sqlite" }`), the
+  current form for a new Worker, not the legacy `migrations` list; the two
+  cannot be mixed, and a Worker deployed with `exports` cannot go back.
 - **One WebSocket per page.** Commands and live queries travel over it. Only
   sign-in, sign-out, a "me" call (who am I) and the backup export are plain
   requests.
@@ -567,7 +596,17 @@ deploy):
 - Durable Object: 100,000 requests a day, where an incoming WebSocket message
   counts 20 for 1; 5 million rows read and 100,000 rows written a day; no
   duration charge while the object hibernates. A hibernatable object forgets
-  its memory after about 10 idle seconds, so nothing may live only in memory.
+  its memory after about 10 idle seconds, so nothing that must last may live only in memory. What the hub
+  keeps in the database: the data itself, the teacher's sessions, the sign-in counts and locks (the school's
+  and each address's), the key that signs device cookies, and the day's count of rows written. What lives in
+  memory only, and is lost whenever the hub is sent to sleep or restarted: the counts of a device's floods,
+  messages, wrong class codes and seat changes, and the locks they make; the count of new devices given to
+  each address; the answers the store and the services remember between commands (all rebuilt from the
+  database on demand). This is acceptable because none of it protects anything a device cannot shed anyway
+  by dropping its cookie (a lock on a device ends when the device asks for a new one), because writing it
+  would cost a row for every device a script cares to make (6,000 bot devices would be 6,000 rows read at
+  every start), and because the worst a reset buys is a fresh share: a few more seat changes or new devices
+  in an hour, which the day's write limit and the budgets of 2.5 still bound.
 - The limits are hard: when one is exceeded, further operations of that kind
   fail until midnight UTC rather than costing money. A Worker request also gets
   only about 10 ms of processor time, so nothing slow (such as deliberately
@@ -615,29 +654,82 @@ ship inside the page, and all data is local anyway. Use throwaway values.
 4. At the prompt the page sends the password and the code to the server in one
    request. The server compares both in constant time and answers yes or no,
    never which one was wrong.
-5. On yes it sets a session cookie: signed with HMAC, `HttpOnly` (page
-   scripts cannot read it), `Secure`, `SameSite=Strict`, sent only to this
-   site, valid for 7 days (the owner's choice). Its signing key is derived from
-   the two admin secrets. Every admin command is checked against it on the
-   server, so a changed page can change nothing. The consequence of seven
-   days: a device left signed in stays a teacher's device for a week unless
-   she signs out, and replacing either admin secret signs everyone out.
-6. Guessing is shut out on the server: after five wrong attempts, sign-in is
-   refused for fifteen minutes for THAT NETWORK ADDRESS, not for everyone. A
-   visitor must not be able to lock every teacher out by typing wrong
-   passwords. Known and accepted: a student on the school's own network shares
-   an address with the teachers and could still lock that network. Because a
-   server request has little processor time (2.4) the password is compared, not
-   slow-hashed; its strength is its length plus the second factor plus this
-   limit.
+5. On yes the hub opens a session: a row in its own storage with a random id and an end (now plus 7 days, the owner's
+   choice), and sets a cookie that carries the signed id and nothing else: HMAC-signed, `HttpOnly` (page scripts cannot
+   read it), `Secure`, `SameSite=Strict`, sent only to this site. The cookie counts only while its row exists and has not
+   run out, so a cookie cannot name its own end, and signing out removes the row and closes every socket of that session:
+   a copy of the cookie on another device stops working too. The signing key is derived from the two admin secrets.
+   Every admin command is checked against the session on the server, so a changed page can change nothing. The
+   consequence of seven days: a device left signed in stays a teacher's device for a week unless she signs out, and
+   replacing either admin secret signs everyone out once the open sockets are dropped, because a socket never
+   changes who it is: a deploy drops them, and a replaced secret does not by itself close a socket that is
+   already open. The daily alarm forgets the rows that have run out.
+6. Guessing is shut out on the server, in two ways, both kept in the hub's storage so that a sleeping hub forgets
+   nothing. After five wrong attempts, sign-in is refused for fifteen minutes for THAT NETWORK ADDRESS, not for
+   everyone. And once the password is known, the six digits must not be ground down from many addresses: more than ten
+   wrong codes behind the RIGHT password, school-wide, close sign-in for everyone for an hour. A wrong password never
+   counts toward that, so a visitor without the password cannot close sign-in by typing. A visitor must not be able to
+   lock every teacher out by typing wrong passwords. Known and accepted: a student on the school's own network shares
+   an address with the teachers and could still lock that network. Because a server request has little processor time
+   (2.4) the password is compared, not slow-hashed; its strength is its length plus the second factor plus these limits.
 7. A code may be used more than once while it is valid (about half a minute),
    so two teachers can sign in at the same moment with the code they both see
    (decided 2026-11-11). The cost: someone who watched a code being typed
    could reuse it within that half-minute, but only together with the
    password.
-8. A device's identity is a random token the server issues in a cookie; the
-   stored device id is a hash of it. A seat id that the teacher's page shows
-   cannot therefore be used to pose as a student's phone (4, phase 1).
+8. A device's identity is a random token the server issues in a cookie, signed with a random key the hub made once
+   and keeps in its own storage (never derived from the admin secrets: replacing a secret must not unseat students,
+   and a student's cookie must not be something a password can be tried against); the stored device id is a hash of the
+   token. A seat id that the teacher's page shows cannot therefore be used to pose as a student's phone (4, phase 1).
+9. Secrets that equal a public development value (the repository states them) are honoured only for a request from
+   the computer itself. If either the password or the authenticator key is a development value, a deployed hub gives
+   no admin at all: sign-in is refused and no admin cookie counts, whatever it was signed with.
+
+**Limits on the hub** (`ports/limits.ts` holds every number; the rules are in `domain/abuse.ts`). A whole school sits
+behind one network address, so nothing is counted per address except two things: the sign-in lock above, and the
+budget of new devices an address may be given (1,500 an hour; the teacher is always given a device, whatever the
+budget). Everything else is counted per DEVICE: a script spends one device's share, but it may make devices, up to
+1,500 an hour from one address, and a locked device escapes its lock by dropping its cookie and asking for a new
+one, so the shares of a script add up to the budget of new devices, not to one device's share:
+
+- A device that sends more than 120 messages in 10 seconds, counted over all its sockets together, has the socket
+  that sent the last one closed; three such floods in ten minutes lock that device out (no hello, no socket) for ten
+  minutes. The teacher's socket is closed when it floods but is never counted and never locked. These device locks
+  are kept in memory only (2.4).
+- A device that looks up 21 wrong class codes in ten minutes is refused further lookups for ten minutes. The teacher
+  and a device that was let in to the class it names are not counted. A class code has 31^6 possibilities and opens the
+  board, a request to join, and the class's list of names to choose from, so no limit per address or for the school
+  is kept for it. Card numbers are not
+  rationed either (2.8).
+- A device holds at most 6 sockets and 48 live reads summed across its sockets. Beyond that, 400 sockets per address,
+  3,000 sockets and 20,000 live reads in the hub are shared caps that refuse visitors only: the teacher is held to
+  none of them, and a student let in to a running class is held only to her device's own.
+- A device may change its seat (a join or a leave that writes) 6 times an hour. Asking again for the seat it already
+  holds, with the same group and name, writes nothing and costs nothing.
+- A socket opened by a teacher's session is checked against the session's row once more at the instant it is
+  accepted, so a sign-out that arrives while the socket is being opened leaves a visitor's socket, never a
+  teacher's. When sign-in is closed for everyone the page says so, in its own words (the hour's closure and the
+  clock of the phone), apart from the line for one locked address.
+- When the day's writes pass 80,000 only the essential writes (answering, joining, leaving) and reads run for anyone but
+  the teacher; above 95,000 no write does, and reads still run. Which calls are which is tagged with the surface
+  (`services/surfaceEffects.ts`).
+
+**Risks accepted on the free plan.** The free plan's limits are hard, and the hub cannot tell a script from a
+school, so these are known and left open:
+
+- R1. Anyone can use up the day's 100,000 requests; a script at school can do it in minutes with traffic every
+  rule permits. The site is then down for everyone until 00:00 UTC.
+- R2. A script at school can hold the address's 400 visitor sockets. Students who are not yet let in then cannot
+  join, while the teacher and the students already let in keep working.
+- R3. A script at school can use up the hour's 1,500 new devices, so brand-new phones are refused for up to an hour
+  (the teacher is not refused).
+- R4. The waiting seats of a class can be filled by scripted devices until the teacher removes them.
+- R5. A student on the school's network can lock that network's teacher sign-in for 15 minutes at a time; teachers
+  already signed in are unaffected for 7 days.
+- R6. The public board shows a card's results to anyone who holds the live class code and a card number (2.8).
+
+The remedy for all of them is the same and is not on the free plan: a paid plan, or a domain of the school's own
+with rate-limit rules in front of the Worker, which can count per address before a request costs anything.
 
 What a shared second factor does and does not do:
 
@@ -1014,8 +1106,8 @@ server can build them). In this order, structure before behaviour:
    without a server.
 2. The store over the hub's SQLite storage, passing the same store tests as the
    browser store, tested in Node.
-3. The hub: command transport, live queries, sign-in, cookies, the attempt
-   limit per network address, and the alarm (2.4, 2.5).
+3. The hub: command transport, live queries, sign-in, cookies, the sign-in
+   limits and the per-device limits, and the alarm (2.4, 2.5).
 4. The browser side: service stubs in `app/container.ts`; the admin secrets
    and the browser-storage adapters leave the shipped page.
 5. The walkthrough and the stress test run against the local server, so the
@@ -1202,12 +1294,14 @@ Settled:
 17. **The address:** `https://noha-pearls.miss-noha-farid.workers.dev`. The
     Pages site only forwards to it (2.4).
 18. **The private repository:** `missnohafarid-sudo/noha-pearls-ops` (2.7).
-19. **Sign-in lasts 7 days** (the owner's choice) in a cookie; a device left
-    signed in stays a teacher's for that week, and replacing an admin secret
-    signs everyone out (2.5).
-20. **Sign-in lock per network address:** five wrong attempts lock that
-    address for 15 minutes, not everyone; a student on the school's network
-    could lock that network, which is accepted (2.5).
+19. **Sign-in lasts 7 days** (the owner's choice) as a session on the hub, named by
+    a signed cookie; a device left signed in stays a teacher's for that week
+    unless she signs out (which ends the session everywhere), and replacing an
+    admin secret signs everyone out once the open sockets are dropped, which a deploy does (2.5).
+20. **Sign-in locks:** five wrong attempts lock that network address for 15
+    minutes, not everyone; a student on the school's network could lock that
+    network, which is accepted. More than ten wrong codes behind the right
+    password close sign-in for everyone for an hour (2.5).
 21. **Capacity bar:** 4 teachers, 4 classes each, 35 students, up to 4 classes
     at once, inside the free plan, proven by a stress test with every daily
     limit well under half (2.4).

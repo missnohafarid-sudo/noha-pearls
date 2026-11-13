@@ -1,8 +1,15 @@
 import type { DetectedMarker } from '../domain/cards';
 
+/** A camera frame: what `ImageData` holds, named here so the ports need no browser types. */
+export interface CameraFrame {
+  readonly data: Uint8ClampedArray;
+  readonly width: number;
+  readonly height: number;
+}
+
 /** Finds answer cards in a camera frame. */
 export interface MarkerDetector {
-  detect(frame: ImageData): DetectedMarker[];
+  detect(frame: CameraFrame): DetectedMarker[];
 }
 
 /** Draws the printable marker for a card number, as an SVG string. */

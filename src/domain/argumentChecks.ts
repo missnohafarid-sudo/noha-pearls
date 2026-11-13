@@ -32,16 +32,15 @@ export const number = (min: number, max: number): Check => (value) => typeof val
 export const oneOf = (...allowed: readonly unknown[]): Check => (value) => allowed.includes(value);
 export const isBoolean: Check = (value) => typeof value === 'boolean';
 export const nullable = (check: Check): Check => (value) => value === null || check(value);
+/** A field added after records were already stored: old records do not have it. */
+export const optional = (check: Check): Check => (value) => value === undefined || check(value);
 export const listOf = (check: Check, max = MAX_LIST_LENGTH): Check => (value) => Array.isArray(value) && value.length <= max && value.every(check);
 
-/** An object with exactly these fields, each of the kind given. */
+/** An object with only these fields, each accepting the value found there; a missing field is found as `undefined`, so it passes only through `optional(...)`. */
 export const shape =
   (fields: Record<string, Check>): Check =>
-  (value) => {
-    if (!isRecord(value)) return false;
-    const keys = Object.keys(value);
-    return keys.length === Object.keys(fields).length && keys.every((key) => Object.hasOwn(fields, key) && fields[key](value[key]));
-  };
+  (value) =>
+    isRecord(value) && Object.keys(value).every((key) => Object.hasOwn(fields, key)) && Object.entries(fields).every(([key, check]) => check(value[key]));
 
 export const isId: Check = nonEmptyText(MAX_ID_LENGTH);
 export const isName: Check = text(MAX_NAME_LENGTH);

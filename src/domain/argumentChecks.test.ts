@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { integer, isAnswerValue, isCard, isClassCode, isId, isPeriod, listOf, nullable, oneOf, shape, text } from './argumentChecks';
+import { integer, isAnswerValue, isCard, isClassCode, isId, isPeriod, listOf, nullable, oneOf, optional, shape, text } from './argumentChecks';
 import { isDateRange, isGroup, isLesson, isSiteContent, isStudent, isSubject, isYearEnd } from './entityChecks';
 import { addSlide, createLesson } from './lessonOps';
 import { periodAt } from './periods';
@@ -42,6 +42,8 @@ describe('the small checkers', () => {
     expect([listOf(isId, 2)(['a', 'b']), listOf(isId, 2)(['a', 'b', 'c']), listOf(isId)('a')]).toEqual([true, false, false]);
     expect([nullable(isId)(null), nullable(isId)(3), oneOf('a', 'b')('c'), text(3)('abcd')]).toEqual([true, false, false, false]);
     const point = shape({ x: integer(0, 5) });
+    const later = shape({ x: integer(0, 5), y: optional(integer(0, 5)) });
+    expect([later({ x: 1 }), later({ x: 1, y: 2 }), later({ x: 1, y: 'a' }), later({ y: 2 }), later({ x: 1, z: 1 }), later({ x: 1, y: null })]).toEqual([true, true, false, false, false, false]);
     expect([point({ x: 1 }), point({ x: 1, y: 2 }), point({}), point(null), point([])]).toEqual([true, false, false, false, false]);
   });
 });

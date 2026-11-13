@@ -88,7 +88,7 @@ A teacher. She is not a programmer and cannot judge your code.
 | Addresses and links | `ui/routing/routes.ts` |
 | Whether the edit panel shows | `ui/shell/AdminPanel.tsx` |
 | The pearl and its panel over the slide's corner (groups, answered marks, hearts) | `ui/session/pearlPanel/`; how a teacher's heart is given: `ui/hooks/useTeacherHearts.ts` |
-| Settings (password hash, authenticator key) | `app/config.ts` |
+| Settings (the page's storage name and the browser-only switch; the real admin password and key are Worker secrets, never in the page) | `app/config.ts` |
 | When students' data is cleared at the end of the school year (the setting) | `services/RetentionService.ts`, edited on the results page |
 | Colours, fonts, radii | `ui/styles/tokens.css` |
 | Shared controls | `ui/styles/base.css` |
@@ -114,7 +114,7 @@ A teacher. She is not a programmer and cannot judge your code.
 12. No dead code, no commented-out code, no comments that restate the code.
 13. Keep it simple: no option, flag, layer or abstraction nobody asked for. One reason to change per module. Add by adding (a registry entry, a field in a list), not by editing every caller. A unit asks its direct collaborator, never reaches through it (`a.b.c.d`).
 14. A change of structure (moving code, renaming) and a change of behaviour are separate: separate `ship`s.
-15. There is no backend yet. Requests about backup, restore or the database go to the maintainer.
+15. The site runs on a server that the maintainer looks after. Requests about backup, restore, the database or the server go to the maintainer.
 
 ## 5. Finishing a change
 

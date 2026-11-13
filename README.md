@@ -1,14 +1,18 @@
-# Noha's Pearls (prototype)
+# Noha's Pearls
 
 An Arabic classroom platform: the teacher prepares or imports lessons, presents
 them live, and student groups follow on their devices and answer from the device
 or with printed answer cards. The full plan, including how the reference site
 works, is in [docs/PLAN.md](docs/PLAN.md).
 
-This prototype has **no backend**. Data lives in the browser, and every tab of
-the same browser shares it live, so **each tab stands in for one device**. Use
-ordinary tabs or windows of one browser profile (a private window is a separate,
-empty world).
+## How it runs
+
+One Cloudflare Worker, named `noha-pearls`, serves the site and answers `/api/*`.
+One Durable Object, the hub, holds all the data in its own SQLite storage (no
+other database). It runs on Cloudflare's free plan. The public address is
+<https://noha-pearls.miss-noha-farid.workers.dev>. Data is saved on the server
+and every device sees the same school. A device is told apart by a cookie, so a
+second browser (or a private window) is a second device.
 
 ## Run
 
@@ -17,12 +21,18 @@ npm install
 npm run dev        # open the address it prints
 ```
 
+`npm run dev` runs the site with a local hub and a sample school. The local
+sign-in is the public development pair below; it works only on `localhost`, and
+a deployed site refuses it.
+
 | Command | Does |
 |---|---|
-| `npm run dev` | Development server |
+| `npm run dev` | Development server with a local hub and a sample school |
 | `npm test` | Unit tests (rules, services, card read/print round trip) |
 | `npm run typecheck` | TypeScript check |
-| `npm run build` | Production build into `dist/` |
+| `npm run build` | Production build into `dist/` (the site in `dist/client`, the Worker in `dist/noha_pearls`) |
+| `npm run check` | Everything the deploy checks: types, tests, protected files, browser walkthrough |
+| `npm run ship -- "message"` / `npm run undo` | Check and publish one change / take the last one back |
 | `npm run admin:2fa` | Make (or show) the authenticator key and its QR code for the admin sign-in |
 | `npm run vendor:aruco` | Rebuild the vendored marker library after upgrading `js-aruco2` |
 
@@ -50,7 +60,7 @@ belong in the git-ignored `private/` folder, never in the repository.
 
 **3. Start a class.** Open a lesson → *بدء حصة مباشرة بهذا الدرس*. On the
 session page press *إظهار رموز الانضمام*: one QR per group. Each card also has
-the link *فتح كجهاز طالب*; open it in a **new tab** to act as a student device,
+the link *فتح كجهاز طالب*; open it in a **private window or another browser** to act as a student device,
 and choose a name. A device without a camera can instead type the session code
 (shown in the teacher's side panel) on the home page and pick its group. The
 device then waits: let it in from the *الانضمام* section of the side panel,
@@ -58,13 +68,13 @@ with *إدخال* beside its name or by scanning the student's answer card.
 
 **4. Teach.** Move through slides with the buttons, the arrow keys or a clicker
 (left arrow is "next", as the interface is right-to-left). On a question slide,
-answer from the student tab and watch the tally on the teacher's screen; press
+answer from the student device and watch the tally on the teacher's screen; press
 *إظهار الإجابة* to reveal it, which locks the question and shows each student
 their result.
 
 **5. Pace the groups.** In the side panel set a group to *يتبع المعلّم*
 (follow), *يتنقّل بحرية* (free), *إيقاف* (hold) or *تثبيت* (pinned to the
-current slide), and watch the student tab.
+current slide), and watch the student device.
 
 **6. Answer cards.** *بطاقات الإجابة* prints one card per student. On an
 individual multiple-choice slide press *مسح بطاقات الإجابة*, allow the camera,
@@ -75,25 +85,17 @@ read, tap the student's name in the scanner to enter the answer by hand.
 *لوحة التعزيز* shows scores and hearts. Give hearts from either page; students
 give hearts to classmates in other groups from their own device.
 
-To start over, clear the site's data in the browser (DevTools → Application →
-Storage → Clear site data).
+To start over locally, stop `npm run dev` and delete the `.wrangler` folder
+(the local hub's data).
 
-## Deploying to GitHub Pages
+## Deploying
 
-`.github/workflows/deploy.yml` tests, builds and publishes on every push to
-`main`. It has not run yet (this folder is not a repository). Before the first
-push:
-
-1. Repository → Settings → Pages → Source: **GitHub Actions**.
-2. Repository → Settings → Secrets and variables → Actions → add two secrets:
-   **`ADMIN_PASSWORD`** (8 characters or more) and **`ADMIN_TOTP_SECRET`**
-   (make it with `npm run admin:2fa`, which also prints the QR code every
-   teacher scans once). The build refuses to run without them.
-
-Until the hosted backend of phase 1 exists, a deployed copy is a demo only:
-each visitor's data stays in their own browser, and the password and code gate hides the
-admin tools without protecting anything (see "Admin access, honestly" in the
-plan).
+Every push to `main` runs `.github/workflows/deploy.yml`: **check** (`npm run
+check`), then **deploy** (build, then `wrangler deploy` with the admin secrets
+as the Worker's secrets), then a **smoke test** (`scripts/smoke.mjs`) that asks
+the live address whether it is the real site. If any step fails, nothing newer
+goes out. The workflow can also be run by hand from the Actions tab. The
+secrets and the maintainer's tasks are in [docs/HANDOVER.md](docs/HANDOVER.md).
 
 ## Where things are
 
@@ -105,6 +107,7 @@ src/infrastructure/  adapters: browser storage, auth, markers, QR
 src/app/             composition root, config, sample data
 src/i18n/            all interface text
 src/ui/              React pages and components
+src/server/          the Worker and the hub (runs on Cloudflare only)
 ```
 
 The table "Where each rule lives" in the plan maps every concern to its file.

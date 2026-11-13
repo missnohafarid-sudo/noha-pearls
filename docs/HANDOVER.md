@@ -8,7 +8,7 @@ For the technically able person who sets up the teacher's laptop once. Everythin
 - [ ] Create an SSH key, add the public key to her GitHub account (Settings > SSH and GPG keys).
 - [ ] Clone the repository over SSH into a folder she will keep.
 - [ ] `npm install` in the folder. This also installs the git hook. Check that it succeeded without errors.
-- [ ] Install the GitHub CLI and run `gh auth login`. An SSH key does not sign the CLI in. It is needed later for the backend commands.
+- [ ] Install the GitHub CLI and run `gh auth login`. An SSH key does not sign the CLI in. It is needed later for the operations commands.
 
 ## 2. Antigravity
 
@@ -24,9 +24,46 @@ For the technically able person who sets up the teacher's laptop once. Everythin
 
 ## 4. Deployment
 
-- [ ] Repository > Settings > Pages > Source: GitHub Actions.
-- [ ] Repository > Settings > Secrets and variables > Actions: add `ADMIN_PASSWORD` (8 characters or more) and `ADMIN_TOTP_SECRET` (make it with `npm run admin:2fa`, which also prints the QR code every teacher scans once). See `README.md`, "Deploying to GitHub Pages". The build refuses to run without them.
+The site runs as one Cloudflare Worker (`noha-pearls`) at `https://noha-pearls.miss-noha-farid.workers.dev`. GitHub Actions is the only deployer: every push to `main` runs `.github/workflows/deploy.yml` (check, deploy, smoke test). Nobody deploys by hand from a laptop.
+
+Repository secrets (Settings > Secrets and variables > Actions):
+
+| Secret | What it is for |
+|---|---|
+| `CLOUDFLARE_API_TOKEN` | Lets the workflow deploy the Worker to the Cloudflare account. |
+| `CLOUDFLARE_ACCOUNT_ID` | Says which Cloudflare account. |
+| `ADMIN_PASSWORD` | The teachers' password (8 characters or more). The deploy gives it to the Worker as a Worker secret. |
+| `ADMIN_TOTP_SECRET` | The authenticator key every teacher scans once. Make one with `npm run admin:2fa`. The deploy gives it to the Worker as a Worker secret. |
+
+The deploy refuses to run if the password is short, the key is not valid, or either is the public development value (`scripts/worker-secrets.mjs`). A Worker without the two admin secrets refuses every sign-in.
+
+- [ ] Add the four secrets. Never put them in a file, an issue or a chat.
 - [ ] Give her the password and the authenticator QR on paper, stored somewhere safe.
+- [ ] After the first deploy, open the Actions tab and confirm all three stages are green, including "Smoke test the live site".
+
+### Changing the admin password or the authenticator key
+
+1. Change the repository secret (`ADMIN_PASSWORD`, or `ADMIN_TOTP_SECRET` made with `npm run admin:2fa`).
+2. Run the workflow by hand: Actions > Check and deploy > Run workflow.
+3. Every teacher is signed out once, because the deploy drops the open connections. If the key changed, every teacher scans the new QR. Students' devices are not affected.
+
+### "The day's limit is reached"
+
+The free plan allows 100,000 requests a day. When the site says the limit is reached, it comes back by itself at 00:00 UTC. Nothing needs to be done; the accepted risks of the free plan are listed in `docs/PLAN.md` 2.5.
+
+### Where the data lives
+
+All data is in the hub's own storage inside the Cloudflare account (a Durable Object with SQLite). There is no D1 or KV. **Backups are not built yet.** The plan (`docs/PLAN.md` 2.7) is a weekly encrypted backup to a private repository. Until then, backup and restore requests have no command.
+
+The D1 database created earlier is unused. It can be deleted in the Cloudflare dashboard.
+
+### The old Pages site
+
+The old GitHub Pages site was a browser-only prototype whose files carried the password's hash and the authenticator key. A workflow cannot unpublish a Pages site, so `.github/workflows/retire-pages.yml` replaces its last deployment with a page that forwards to the new address. It runs once when it lands. After that:
+
+- [ ] Repository > Settings > Pages: switch Pages off (unpublish the site).
+- [ ] Delete `.github/workflows/retire-pages.yml` and `.github/pages-forward/`.
+- [ ] The old bundle was public. If the current `ADMIN_PASSWORD` or `ADMIN_TOTP_SECRET` was ever used to build a Pages version, replace it (see "Changing the admin password" above).
 
 ## 5. Five-minute smoke test
 
@@ -41,9 +78,9 @@ For the technically able person who sets up the teacher's laptop once. Everythin
 - [ ] On GitHub: Settings > Branches > add a rule for `main` and block force pushes (exact labels may differ). Git history is the safety net: as long as nobody force-pushes, every earlier version can be brought back.
 - [ ] On the repository page: use Watch > All Activity (exact labels may differ). Make sure her GitHub notification email reaches whoever supports her. Each push to `main` then produces an email. Read the changed files; protected files changing without you is a warning.
 
-## 7. Not in place until the backend phase
+## 7. Not in place yet
 
-- There is no backend. Data lives in each browser, so nothing is shared between devices and there are no backups. Backup and restore requests go to the maintainer, who has no command for them yet.
+- There are no backups. Backup and restore requests go to the maintainer, who has no command for them yet.
 - `npm run ops ...` commands do not exist yet.
 - The daily comparison of protected-file fingerprints by a private operations repository is not set up. Until it is, watch the repository (section 6).
-- The admin password and code are checked in the page itself and protect nothing against a determined visitor (see "Admin access, honestly" in `docs/PLAN.md`).
+- Sign-in lasts 7 days on a device. Both secrets are checked on the server, and the page holds none (see "Admin access, honestly" in `docs/PLAN.md`).

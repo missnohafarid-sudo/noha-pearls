@@ -139,6 +139,7 @@ function BoardView({ session }: { session: Session }) {
             <OwnResults
               session={session}
               lesson={lesson}
+              roster={roster}
               answers={answers}
               student={identified}
               group={groupById(groups, identified.groupId)}

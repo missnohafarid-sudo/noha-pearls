@@ -1,4 +1,4 @@
-import { canAnswer, findAnswer } from './answering';
+import { canAnswer, effectiveAnswer, isAnswered } from './answering';
 import { isPresent } from './attendance';
 import type { Answer, AttendedRoster, Id, Lesson, QuestionSlide, Session } from './models';
 import { questionSlides } from './scoring';
@@ -17,13 +17,9 @@ export function individualQuestions(lesson: Lesson): QuestionSlide[] {
   return questionSlides(lesson).filter((slide) => slide.scope === 'individual');
 }
 
-function answeredByAStudent(answers: readonly Answer[], slide: QuestionSlide): boolean {
-  return answers.some((answer) => answer.slideId === slide.id && answer.subject.kind === 'student');
-}
-
 /** The individual questions that count in this session, in lesson order. */
 export function countingQuestions(session: Session, lesson: Lesson, answers: readonly Answer[]): QuestionSlide[] {
-  return individualQuestions(lesson).filter((slide) => canAnswer(session, slide) || answeredByAStudent(answers, slide));
+  return individualQuestions(lesson).filter((slide) => canAnswer(session, slide) || isAnswered(slide, answers));
 }
 
 export function possibleInteractions(session: Session, lesson: Lesson, answers: readonly Answer[]): number {
@@ -57,9 +53,8 @@ export function withMinInteractions(session: Session, lesson: Lesson, answers: r
 }
 
 /** How many individual questions this student has answered, from any source. */
-export function interactionsOf(lesson: Lesson, answers: readonly Answer[], studentId: Id): number {
-  const subject = { kind: 'student', id: studentId } as const;
-  return individualQuestions(lesson).filter((slide) => findAnswer(answers, slide.id, subject) !== null).length;
+export function interactionsOf(lesson: Lesson, roster: AttendedRoster, answers: readonly Answer[], studentId: Id): number {
+  return individualQuestions(lesson).filter((slide) => effectiveAnswer(roster, answers, slide, studentId) !== null).length;
 }
 
 /**
@@ -69,7 +64,6 @@ export function interactionsOf(lesson: Lesson, answers: readonly Answer[], stude
  */
 export function isUnresponsive(session: Session, lesson: Lesson, roster: AttendedRoster, answers: readonly Answer[], studentId: Id): boolean {
   if (!isPresent(roster, studentId)) return false;
-  const subject = { kind: 'student', id: studentId } as const;
-  const reachable = countingQuestions(session, lesson, answers).filter((slide) => findAnswer(answers, slide.id, subject) !== null || canAnswer(session, slide));
+  const reachable = countingQuestions(session, lesson, answers).filter((slide) => effectiveAnswer(roster, answers, slide, studentId) !== null || canAnswer(session, slide));
   return reachable.length < minInteractions(session, lesson, answers);
 }

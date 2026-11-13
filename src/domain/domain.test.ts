@@ -1022,7 +1022,7 @@ describe('student report', () => {
     const own: Lesson = { ...lesson, slides: [choice, second, third] };
     const revealed: Session = { ...session, reveals: { q1: { correctIndex: 1, explanation: '' } } };
     const given = [answer('q1', 'student', 's1', 1), answer('q3', 'student', 's1', 1)];
-    const report = studentReport(own, revealed, students[0], given);
+    const report = studentReport(own, revealed, everyone, students[0], given);
     expect(report.results.map((r) => r.verdict)).toEqual(['correct', 'pending', 'none']);
     expect(report.points).toBe(choice.points);
   });
@@ -1449,8 +1449,8 @@ describe('engagement', () => {
   });
 
   it('counts individual questions only in what a student answered, not the group ones', () => {
-    expect(interactionsOf(lessonOf(3), [...given('s1', ['i0', 'i2']), answer('q2', 'group', 'g1', 'ن')], 's1')).toBe(2);
-    expect(interactionsOf(lessonOf(3), [answer('i0', 'group', 's1', 0)], 's1')).toBe(0);
+    expect(interactionsOf(lessonOf(3), everyone, [...given('s1', ['i0', 'i2']), answer('q2', 'group', 'g1', 'ن')], 's1')).toBe(2);
+    expect(interactionsOf(lessonOf(3), everyone, [answer('i0', 'group', 's1', 0)], 's1')).toBe(0);
   });
 
   it('keeps the chosen minimum within zero and the counting questions', () => {

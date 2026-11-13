@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { RewardIndex } from '../../domain/analytics';
 import { isAdmitted } from '../../domain/admission';
-import type { Group, Participant, Session, Student } from '../../domain/models';
+import type { Participant, Session, SessionRoster } from '../../domain/models';
 import { t } from '../../i18n';
 import { groupById, studentById } from '../../domain/roster';
 import { OwnResults } from '../board/OwnResults';
@@ -12,14 +12,14 @@ import { StatusMessage } from './StatusMessage';
 
 interface EndedScreenProps {
   session: Session;
-  groups: readonly Group[];
   /** This device's seat; only a named, admitted one has results to show. */
   seat: Participant | null | undefined;
-  students: readonly Student[];
+  roster: SessionRoster;
 }
 
 /** What a device shows once the class has ended: thanks, and her own results if she was in under her name. */
-export function EndedScreen({ session, groups, seat, students }: EndedScreenProps) {
+export function EndedScreen({ session, seat, roster }: EndedScreenProps) {
+  const { groups, students } = roster;
   const lesson = useLesson(session.lessonId);
   const answers = useAnswers(session.id);
   const rewards = useRewards(session.id);
@@ -45,6 +45,7 @@ export function EndedScreen({ session, groups, seat, students }: EndedScreenProp
         <OwnResults
           session={session}
           lesson={lesson}
+          roster={roster}
           answers={answers}
           student={student}
           group={group}

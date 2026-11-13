@@ -78,6 +78,7 @@ export function DeviceScreen({ session, group, participant, roster, onChooseName
     <OwnResults
       session={session}
       lesson={lesson}
+      roster={roster}
       answers={answers}
       student={student}
       group={group}

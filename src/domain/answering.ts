@@ -64,6 +64,29 @@ export function subjectKindOf(scope: AnswerScope): SubjectRef['kind'] {
   return scope === 'group' ? 'group' : 'student';
 }
 
+/** Where the answer that counts for a student came from. */
+export type AnswerFrom = 'own' | 'group';
+
+export interface EffectiveAnswer {
+  answer: Answer;
+  from: AnswerFrom;
+}
+
+/**
+ * The answer that counts for a student on an individual question. The one place that decides which answer that is;
+ * every reader of individual answers asks it.
+ */
+export function effectiveAnswer(
+  _roster: AttendedRoster,
+  answers: readonly Answer[],
+  slide: QuestionSlide,
+  studentId: Id,
+): EffectiveAnswer | null {
+  if (slide.scope !== 'individual') return null;
+  const own = findAnswer(answers, slide.id, { kind: 'student', id: studentId });
+  return own && { answer: own, from: 'own' };
+}
+
 export interface AnswerTally {
   answered: number;
   /** The present students, or the groups that count for a group question. */
@@ -72,16 +95,34 @@ export interface AnswerTally {
   waiting: { id: Id; name: string }[];
 }
 
-/** The people a question counts: the present students, or for a group question the groups `countedGroups` names. */
-export function countedSubjects(
+export interface CountedAnswer {
+  id: Id;
+  name: string;
+  /** What counts for her (or for the group): null while nothing does. */
+  answer: Answer | null;
+}
+
+/** Whether some student has an answer to the individual question: the one rule `tallyAnswerers` and the interactions both ask. */
+export function isAnswered(slide: QuestionSlide, answers: readonly Answer[]): boolean {
+  return answers.some((answer) => answer.slideId === slide.id && answer.subject.kind === 'student');
+}
+
+/** The people a question counts, each with the answer that counts for her: the present students, or for a group question the groups `countedGroups` names. */
+export function countedAnswers(
   slide: QuestionSlide,
   roster: AttendedRoster,
   participants: readonly Participant[],
   answers: readonly Answer[],
-): { id: Id; name: string }[] {
-  if (slide.scope === 'individual') return presentStudents(roster);
+): CountedAnswer[] {
+  if (slide.scope === 'individual') {
+    return presentStudents(roster).map(({ id, name }) => ({ id, name, answer: effectiveAnswer(roster, answers, slide, id)?.answer ?? null }));
+  }
   const answered = new Set(answers.filter((a) => a.slideId === slide.id && a.subject.kind === 'group').map((a) => a.subject.id));
-  return countedGroups(roster, participants, answered);
+  return countedGroups(roster, participants, answered).map(({ id, name }) => ({
+    id,
+    name,
+    answer: findAnswer(answers, slide.id, { kind: 'group', id }),
+  }));
 }
 
 /** How far a question has been answered by the people who count. */
@@ -91,9 +132,8 @@ export function tallyAnswerers(
   participants: readonly Participant[],
   answers: readonly Answer[],
 ): AnswerTally {
-  const counted = countedSubjects(slide, roster, participants, answers);
-  const kind = subjectKindOf(slide.scope);
-  const waiting = counted.filter(({ id }) => findAnswer(answers, slide.id, { kind, id }) === null);
+  const counted = countedAnswers(slide, roster, participants, answers);
+  const waiting = counted.filter(({ answer }) => answer === null).map(({ id, name }) => ({ id, name }));
   return { answered: counted.length - waiting.length, expected: counted.length, waiting };
 }
 
@@ -124,10 +164,12 @@ export function answerStatusByGroup(
 ): GroupAnswerStatus[] {
   const question = slide && isQuestion(slide) ? slide : null;
   const kind = question && subjectKindOf(question.scope);
-  const counted = question ? new Set(countedSubjects(question, roster, participants, answers).map(({ id }) => id)) : new Set<Id>();
+  const counted = new Map<Id, Answer | null>(
+    question ? countedAnswers(question, roster, participants, answers).map(({ id, answer }) => [id, answer] as const) : [],
+  );
   const markOf = (subjectKind: SubjectRef['kind'], id: Id): AnswerMark | null => {
-    if (!question || kind !== subjectKind || !counted.has(id)) return null;
-    return findAnswer(answers, question.id, { kind: subjectKind, id }) ? 'answered' : 'waiting';
+    if (kind !== subjectKind || !counted.has(id)) return null;
+    return counted.get(id) ? 'answered' : 'waiting';
   };
   return roster.groups.map((group) => ({
     group,

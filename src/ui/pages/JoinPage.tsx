@@ -31,7 +31,7 @@ export function JoinPage({ code, groupId }: { code: string; groupId: string }) {
   } else if (roster === undefined) {
     content = <Loading />;
   } else if (!isLive(session)) {
-    content = <EndedScreen session={session} groups={roster.groups} seat={participant} students={roster.students} />;
+    content = <EndedScreen session={session} roster={roster} seat={participant} />;
   } else {
     const { groups, students } = roster;
     const group = groupById(groups, groupId);

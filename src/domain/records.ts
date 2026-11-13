@@ -22,8 +22,8 @@ export function classRecord(session: Session, lesson: Lesson, roster: AttendedRo
         name: student.name,
         groupId: student.groupId,
         present,
-        answered: interactionsOf(lesson, answers, student.id),
-        points: present ? studentPoints(lesson, student.id, answers, keys) : 0,
+        answered: interactionsOf(lesson, roster, answers, student.id),
+        points: present ? studentPoints(lesson, roster, student.id, answers, keys) : 0,
         unresponsive: isUnresponsive(session, lesson, roster, answers, student.id),
       };
     }),

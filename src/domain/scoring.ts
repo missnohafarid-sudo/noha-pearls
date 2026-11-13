@@ -1,6 +1,6 @@
-import { findAnswer, isQuestion, subjectKindOf } from './answering';
+import { effectiveAnswer, findAnswer, isQuestion } from './answering';
 import { presentStudents } from './attendance';
-import type { Answer, AnswerKey, AttendedRoster, Id, Lesson, QuestionSlide, Session, SubjectRef } from './models';
+import type { Answer, AnswerKey, AnswerScope, AttendedRoster, Id, Lesson, QuestionSlide, Session } from './models';
 import { membersOf } from './roster';
 
 /** The single home for marking answers and scoring groups. */
@@ -64,17 +64,18 @@ export function questionSlides(lesson: Lesson): QuestionSlide[] {
   return lesson.slides.filter(isQuestion);
 }
 
-function earned(slides: readonly QuestionSlide[], answers: readonly Answer[], subject: SubjectRef, keys: KeySource): number {
+function earned(slides: readonly QuestionSlide[], scope: AnswerScope, answerOf: (slide: QuestionSlide) => Answer | null, keys: KeySource): number {
   return slides
-    .filter((slide) => subjectKindOf(slide.scope) === subject.kind)
+    .filter((slide) => slide.scope === scope)
     .reduce((sum, slide) => {
-      const answer = findAnswer(answers, slide.id, subject);
+      const answer = answerOf(slide);
       return answer ? sum + pointsFor(slide, answer, keys) : sum;
     }, 0);
 }
 
-export function studentPoints(lesson: Lesson, studentId: Id, answers: readonly Answer[], keys: KeySource): number {
-  return earned(questionSlides(lesson), answers, { kind: 'student', id: studentId }, keys);
+/** A student's points from the answers that count for her (`effectiveAnswer`). */
+export function studentPoints(lesson: Lesson, roster: AttendedRoster, studentId: Id, answers: readonly Answer[], keys: KeySource): number {
+  return earned(questionSlides(lesson), 'individual', (slide) => effectiveAnswer(roster, answers, slide, studentId)?.answer ?? null, keys);
 }
 
 export interface GroupScore {
@@ -95,9 +96,9 @@ export function scoreboard(
   const here = presentStudents(roster);
   return roster.groups.map((group) => {
     const members = membersOf(group.id, here);
-    const individual = members.reduce((sum, s) => sum + earned(slides, answers, { kind: 'student', id: s.id }, keys), 0);
+    const individual = members.reduce((sum, s) => sum + studentPoints(lesson, roster, s.id, answers, keys), 0);
     const average = members.length > 0 ? individual / members.length : 0;
-    const shared = earned(slides, answers, { kind: 'group', id: group.id }, keys);
+    const shared = earned(slides, 'group', (slide) => findAnswer(answers, slide.id, { kind: 'group', id: group.id }), keys);
     return { groupId: group.id, score: roundToTenth(average + shared), max };
   });
 }

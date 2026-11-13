@@ -1,6 +1,6 @@
 import { admittedDevices } from './admission';
 import { isPresent } from './attendance';
-import { countedSubjects, findAnswer, subjectKey } from './answering';
+import { countedAnswers, effectiveAnswer, findAnswer, subjectKey } from './answering';
 import { individualQuestions, interactionsOf, isUnresponsive } from './engagement';
 import type {
   Answer,
@@ -37,10 +37,9 @@ export function answersForSlide(answers: readonly Answer[], slideId: Id): Answer
 
 /** Number of answers per option, in option order, from the people the question counts (so the bars add up to the total shown). */
 export function tallyChoices(slide: ChoiceSlide, roster: AttendedRoster, participants: readonly Participant[], answers: readonly Answer[]): number[] {
-  const counted = new Set(countedSubjects(slide, roster, participants, answers).map(({ id }) => id));
   const counts = slide.options.map(() => 0);
-  for (const answer of answersForSlide(answers, slide.id)) {
-    if (counted.has(answer.subject.id) && typeof answer.value === 'number' && answer.value in counts) counts[answer.value] += 1;
+  for (const { answer } of countedAnswers(slide, roster, participants, answers)) {
+    if (answer && typeof answer.value === 'number' && answer.value in counts) counts[answer.value] += 1;
   }
   return counts;
 }
@@ -74,8 +73,7 @@ export interface MonitorGroup {
   groupCells: MonitorCell[];
 }
 
-function cell(slide: QuestionSlide, answers: readonly Answer[], subject: SubjectRef, keys: KeySource): MonitorCell {
-  const answer = findAnswer(answers, slide.id, subject);
+function cell(slide: QuestionSlide, answer: Answer | null, keys: KeySource): MonitorCell {
   return { slide, answer, verdict: answer ? verdictFor(slide, answer, keys) : 'none' };
 }
 
@@ -102,12 +100,12 @@ export function buildMonitor(
         student,
         joined: joined.has(student.id),
         present: isPresent(roster, student.id),
-        points: studentPoints(lesson, student.id, answers, keys),
-        answered: interactionsOf(lesson, answers, student.id),
+        points: studentPoints(lesson, roster, student.id, answers, keys),
+        answered: interactionsOf(lesson, roster, answers, student.id),
         unresponsive: isUnresponsive(session, lesson, roster, answers, student.id),
-        cells: individual.map((slide) => cell(slide, answers, { kind: 'student', id: student.id }, keys)),
+        cells: individual.map((slide) => cell(slide, effectiveAnswer(roster, answers, slide, student.id)?.answer ?? null, keys)),
       })),
-    groupCells: shared.map((slide) => cell(slide, answers, { kind: 'group', id: group.id }, keys)),
+    groupCells: shared.map((slide) => cell(slide, findAnswer(answers, slide.id, { kind: 'group', id: group.id }), keys)),
   }));
 }
 
@@ -124,18 +122,18 @@ export interface StudentReport {
   results: StudentResult[];
 }
 
-/** What a student may see of her own results. */
+/** What a student may see of her own results, over the answers that count for her. */
 export function studentReport(
   lesson: Lesson,
   session: Session,
+  roster: AttendedRoster,
   student: Student,
   answers: readonly Answer[],
 ): StudentReport {
-  const subject: SubjectRef = { kind: 'student', id: student.id };
   const keys = publishedKeys(session);
   let points = 0;
   const results = individualQuestions(lesson).map((slide): StudentResult => {
-    const answer = findAnswer(answers, slide.id, subject);
+    const answer = effectiveAnswer(roster, answers, slide, student.id)?.answer ?? null;
     if (!answer) return { slide, answer, verdict: 'none' };
     points += pointsFor(slide, answer, keys);
     return { slide, answer, verdict: verdictFor(slide, answer, keys) };

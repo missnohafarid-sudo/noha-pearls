@@ -57,3 +57,16 @@ export function typeaheadIndex(labels: readonly string[], current: number, query
   }
   return -1;
 }
+
+/**
+ * The tab a key moves to in a right-to-left row of `count` tabs, or null when the key does not move between tabs.
+ * The first tab is at the right edge, so the left arrow goes on to the next one and the right arrow back; the ends wrap.
+ */
+export function movedTabIndex(key: string, current: number, count: number): number | null {
+  if (count === 0) return null;
+  if (key === 'Home') return 0;
+  if (key === 'End') return count - 1;
+  if (key === 'ArrowLeft') return (current + 1) % count;
+  if (key === 'ArrowRight') return (current - 1 + count) % count;
+  return null;
+}

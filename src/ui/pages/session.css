@@ -19,9 +19,8 @@
   min-block-size: 0;
 }
 
-/* The stage, with the pearl button and its panel floating over its end-side bottom corner. */
+/* The stage: the class code row, then the frame of the slide. */
 .presenter__main {
-  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   min-block-size: 0;
@@ -38,19 +37,27 @@
   display: none;
 }
 
-.presenter__content {
+/* The frame is the size of the slide card's visible area: the pearl and its panel are pinned to it while the slide scrolls inside. */
+.presenter__frame {
+  position: relative;
   min-block-size: 0;
-  overflow-y: auto;
-  padding: 4px;
-  padding-block-end: 80px;
 }
 
-/* On wide screens the pearl sits in the stage's own end-side gutter instead of over the slide. */
-@media (min-width: 901px) {
-  .presenter__content {
-    padding-block-end: 4px;
-    padding-inline-end: 80px;
-  }
+.presenter__content {
+  block-size: 100%;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  padding: 4px;
+}
+
+/* The card fills the frame, and keeps the room under its last line that the pearl would cover. */
+.presenter__content > .slide {
+  min-block-size: max(280px, 100%);
+  padding-block-end: 84px;
+}
+
+.presenter__content > :not(.slide) {
+  margin-block-end: 84px;
 }
 
 .class-code {

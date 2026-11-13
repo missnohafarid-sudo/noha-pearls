@@ -21,7 +21,7 @@
 
 .btn.pearl-toggle {
   position: absolute;
-  inset-inline-end: 12px;
+  inset-inline-end: 16px;
   inset-block-end: 12px;
   z-index: 2;
   inline-size: 56px;
@@ -59,17 +59,17 @@
   cursor: pointer;
 }
 
-/* The panel grows from the pearl's corner over the slide: up to two thirds of the stage's width, the whole stage on a phone. */
+/* The panel grows from the pearl's corner over the slide: up to two thirds of the frame's width, the whole frame on a phone. */
 .pearl-panel {
   position: absolute;
-  inset-block: 0 80px;
+  inset-block: 0 84px;
   inset-inline-end: 12px;
   z-index: 1;
   inline-size: min(66%, 780px);
   transform-origin: 0 100%;
   animation: pearl-panel-in 0.2s ease-out;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr);
   gap: 6px;
   min-block-size: 0;
   padding: 10px 12px;
@@ -85,60 +85,10 @@
   gap: 8px;
 }
 
-.pearl-panel__groups {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr));
-  gap: 10px;
-  align-content: start;
+.pearl-panel__body {
   min-block-size: 0;
   padding: 2px;
   overflow-y: auto;
-}
-
-.pearl-card {
-  display: grid;
-  gap: 4px;
-  align-content: start;
-  padding: 12px;
-  padding-block-start: 22px;
-}
-
-.pearl-card__head,
-.pearl-card__pearls {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-}
-
-.pearl-card__name {
-  margin: 0;
-  font-size: 1rem;
-  font-weight: var(--weight-label);
-}
-
-.pearl-card__students {
-  display: grid;
-}
-
-.pearl-student {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  border-block-start: 1px solid var(--line-soft);
-}
-
-.pearl-student__name {
-  flex: 1;
-  min-inline-size: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.pearl-student--absent {
-  color: var(--muted);
-  opacity: 0.75;
 }
 
 .pearl-panel .chip {
@@ -156,25 +106,6 @@
   .pearl-panel .btn--small {
     min-block-size: 44px;
   }
-}
-
-.pearl-mark--answered {
-  background: var(--ok-soft);
-  color: var(--ok);
-}
-
-.pearl-mark--answered::before {
-  content: '\2713';
-}
-
-.pearl-mark--waiting {
-  background: transparent;
-  box-shadow: inset 0 0 0 1.5px var(--edge-soft);
-  color: var(--muted);
-}
-
-.pearl-mark--waiting::before {
-  content: '\25CB';
 }
 
 @keyframes pearl-panel-in {

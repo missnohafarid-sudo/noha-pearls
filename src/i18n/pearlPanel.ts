@@ -10,4 +10,8 @@ export const pearlPanel = {
   /** The quiet button on the stage that opens the panel. */
   notAnsweredCount: (waiting: number) => `${session.notAnswered}: ${waiting}`,
   answered: 'أجابت',
+  /** The first tab, which lists every group. */
+  all: 'الكل',
+  /** What the row of tabs is called. */
+  tabs: 'المجموعات',
 } as const;

@@ -3,6 +3,7 @@ import { t } from '../../src/i18n';
 import { choiceLetter } from '../../src/i18n/common';
 import { admitWaitingDevice, groupNames, numbersShown, openRunningClass, removeAdmittedDevice, scannerRow, setPresentOnMonitor } from '../actions';
 import { Device, PHONE } from '../device';
+import { readPearlPanel } from '../pearlPanelRead';
 import { SAMPLE, SLIDE, slideText } from '../sample';
 import { CAMERA_CARD_NUMBER, type World } from '../world';
 import { answersOn, countedFor, expectedAnswered, expectedTally, groupScore, here, individualSlides, loadClass, maxScore, ownAnswer, sortedEntries, studentPoints, type Data, type Mark, type StoredStudent } from './groupAnswersExpected';
@@ -26,7 +27,7 @@ const GROUP_POLL_OPTION = 1;
  * of a group. Every later lane reads only the closing slide, the scores of the questions it answers itself and the roll, none of these three slides,
  * so the lane puts back what a screen can put back: the shared device and the classmate's device are sent out, and the roll is returned to what it was.
  * That roll holds only the students whose own devices were let in: the shared devices of the earlier lanes put her group on it too, so the lane first
- * takes her groupmates off it, which is also what the attendance lane expects when it counts who has not answered.
+ * takes her groupmates off it.
  */
 export function groupAnswersSteps(world: World): void {
   let shared: Device;
@@ -58,15 +59,8 @@ export function groupAnswersSteps(world: World): void {
   };
   const shownAnswered = async () => numbersShown(await world.admin.text(), t.common.answeredCount, 2);
   const pressOption = (device: Device, index: number) => device.page.$$eval('.slide-option', (options, at) => (options[at] as HTMLButtonElement).click(), index);
-  const panelMarks = (): Promise<Record<string, Mark>> =>
-    world.admin.page.evaluate(() =>
-      Object.fromEntries(
-        [...document.querySelectorAll('.pearl-panel .pearl-student')].map((row) => [
-          row.querySelector('.pearl-student__name')?.textContent ?? '',
-          row.querySelector('.pearl-mark--answered') ? 'answered' : row.querySelector('.pearl-mark--waiting') ? 'waiting' : null,
-        ]),
-      ) as Record<string, Mark>,
-    );
+  const panelMarks = async (): Promise<Record<string, Mark>> =>
+    Object.fromEntries((await readPearlPanel(world.admin)).flatMap((group) => group.students).map((student) => [student.name, student.mark]));
   /** The monitor's rows: each cell's text, and how many of the row's marks name an answer as the group's. */
   const monitorRows = () =>
     world.admin.page.evaluate(

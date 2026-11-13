@@ -6,7 +6,8 @@ import { answersForWholeGroup, answerStatusByGroup, canAnswer, canScanCards, dev
 import { CardReadStabilizer, choiceFromCorners, presenceReadings, type Point } from './cards';
 import { toAsciiDigits } from './digits';
 import { removeOption } from './choices';
-import { isMoveKey, listKeyEffect, movedIndex, typeaheadIndex } from './listNavigation';
+import { studentProgress } from './answerProgress';
+import { isMoveKey, listKeyEffect, movedIndex, movedTabIndex, typeaheadIndex } from './listNavigation';
 import { exportLesson, importLesson, lessonFileText } from './lessonFormat';
 import { addSlide, createLesson, duplicateSlide, indexAfterRemoval, moveSlide, normalizeSlide, removeSlide, slideHasProblem, updateSlide } from './lessonOps';
 import { picturesOf, storedPictures } from './slideFields';
@@ -1501,6 +1502,16 @@ describe('who has answered the slide, group by group', () => {
     }
   });
 
+  it('counts how many students of a group answered and names the present ones who did not', () => {
+    const statuses = answerStatusByGroup(choice, { ...everyone, present: ['s1', 's3'] }, [], [answer('q1', 'student', 's3', 0)]);
+    expect(studentProgress(statuses[0])).toMatchObject({ answered: 0, expected: 1, waiting: [{ id: 's1' }] });
+    expect(studentProgress(statuses[1])).toMatchObject({ answered: 1, expected: 1, waiting: [] });
+  });
+
+  it('counts no student of a group question', () => {
+    expect(studentProgress(answerStatusByGroup(groupText, everyone, [], [])[0])).toEqual({ answered: 0, expected: 0, waiting: [] });
+  });
+
   it('lists students in card order and every student, absent or not', () => {
     const shuffled: AttendedRoster = { ...everyone, students: [students[1], students[0], students[2]] };
     expect(answerStatusByGroup(choice, shuffled, [], [])[0].students.map((s) => s.student.id)).toEqual(['s1', 's2']);
@@ -1866,6 +1877,22 @@ describe('standings over a period', () => {
 
   it('is empty when no class ended in the period', () => {
     expect(standings([outside], [heart('c', 'student', 's1')], period, listed)).toEqual({ classes: 0, students: [], groups: [] });
+  });
+});
+
+describe('moving between tabs with the keyboard in a right-to-left row', () => {
+  it('goes on to the next tab with the left arrow and back with the right, wrapping at the ends', () => {
+    expect(movedTabIndex('ArrowLeft', 0, 3)).toBe(1);
+    expect(movedTabIndex('ArrowLeft', 2, 3)).toBe(0);
+    expect(movedTabIndex('ArrowRight', 1, 3)).toBe(0);
+    expect(movedTabIndex('ArrowRight', 0, 3)).toBe(2);
+  });
+
+  it('jumps to the ends with Home and End, and leaves other keys alone', () => {
+    expect(movedTabIndex('Home', 2, 3)).toBe(0);
+    expect(movedTabIndex('End', 0, 3)).toBe(2);
+    expect(movedTabIndex('ArrowDown', 0, 3)).toBeNull();
+    expect(movedTabIndex('ArrowLeft', 0, 0)).toBeNull();
   });
 });
 

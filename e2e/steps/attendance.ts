@@ -1,6 +1,7 @@
 import { expect, it } from 'vitest';
 import { t } from '../../src/i18n';
 import { openAdmissionScanner, openGroupsToday, openRunningClass, setPresentToday } from '../actions';
+import { waitingNamesShown } from '../pearlPanelRead';
 import { CAMERA_CARD_NUMBER, storedRecords, type World } from '../world';
 
 interface StoredRoster {
@@ -43,10 +44,8 @@ export function attendanceSteps(world: World): void {
     const answers = await storedRecords<StoredAnswer>(world.admin, 'answers');
     return answers.filter((answer) => answer.slideId === slideId).length;
   };
-  const waitingNames = () =>
-    world.admin.page.evaluate(() =>
-      [...document.querySelectorAll('.pearl-panel .pearl-student')].filter((row) => row.querySelector('.pearl-mark--waiting')).map((row) => row.querySelector('.pearl-student__name')?.textContent ?? ''),
-    );
+
+  const waitingNames = () => waitingNamesShown(world.admin);
 
   it('the lane sets the roll its story needs from the «طالبات الحصة» list: only the two students whose devices it follows are on it', async () => {
     await openRunningClass(world.admin, world.firstClassCode);

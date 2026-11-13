@@ -13,6 +13,7 @@ import { ClassCodeChip } from './ClassCodeChip';
 import { ClassPanel } from './ClassPanel';
 import { JoinCodes } from './JoinCodes';
 import { PearlCorner } from './pearlPanel/PearlCorner';
+import { usePearlPanel } from './pearlPanel/usePearlPanel';
 import { MessagePanel } from './MessagePanel';
 import { PacingPanel } from './PacingPanel';
 import { PresenterBar } from './PresenterBar';
@@ -33,7 +34,7 @@ export function LiveSession({ session }: { session: Session }) {
   const [admitting, setAdmitting] = useState(false);
   const [regrouping, setRegrouping] = useState(false);
   const [scanSlideId, setScanSlideId] = useState<string | null>(null);
-  const [pearlOpen, setPearlOpen] = useState(false);
+  const pearl = usePearlPanel();
 
   const waiting = participants ? awaitingAdmission(participants).length : 0;
   const slide = lesson?.slides[session.slideIndex];
@@ -71,33 +72,37 @@ export function LiveSession({ session }: { session: Session }) {
                 <WaitingCountButton className="session__waiting" count={waiting} onPress={() => fullscreen.active && fullscreen.toggle()} />
               )}
             </div>
-            <div className="presenter__content">
-              {showCodes ? (
-                <JoinCodes session={session} groups={groups} students={students} participants={participants} />
-              ) : (
-                <PresenterStage
-                  session={session}
-                  slide={slide}
-                  answers={answers}
-                  roster={roster}
-                  participants={participants}
-                  tally={tally}
-                  onOpenPanel={pearlOpen ? null : () => setPearlOpen(true)}
-                />
-              )}
+            <div className="presenter__frame">
+              <div className="presenter__content">
+                {showCodes ? (
+                  <JoinCodes session={session} groups={groups} students={students} participants={participants} />
+                ) : (
+                  <PresenterStage
+                    session={session}
+                    slide={slide}
+                    answers={answers}
+                    roster={roster}
+                    participants={participants}
+                    tally={tally}
+                    onOpenPanel={pearl.open ? null : pearl.openOnOverview}
+                  />
+                )}
+              </div>
+              <PearlCorner
+                open={pearl.open}
+                waiting={tally?.waiting.length ?? 0}
+                onToggle={pearl.toggle}
+                tab={pearl.tab}
+                onTab={pearl.select}
+                session={session}
+                lesson={lesson}
+                slide={slide}
+                roster={roster}
+                participants={participants}
+                answers={answers}
+              />
             </div>
           </div>
-          <PearlCorner
-            open={pearlOpen}
-            waiting={tally?.waiting.length ?? 0}
-            onToggle={() => setPearlOpen(!pearlOpen)}
-            session={session}
-            lesson={lesson}
-            slide={slide}
-            roster={roster}
-            participants={participants}
-            answers={answers}
-          />
         </div>
         <PresenterBar
           session={session}

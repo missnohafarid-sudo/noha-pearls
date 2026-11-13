@@ -1,39 +1,31 @@
-import type { GroupAnswerStatus } from '../../../domain/answering';
-import type { Id, SubjectRef } from '../../../domain/models';
+import { studentProgress } from '../../../domain/answerProgress';
 import { t } from '../../../i18n';
 import { HeartButton } from '../../common/HeartButton';
 import { PearlString } from '../../common/PearlString';
 import { toneStyle } from '../../common/tone';
 import { AnswerMarkChip } from './AnswerMarkChip';
+import type { PearlGroupProps } from './pearlGroupProps';
+import './pearlCards.css';
 
-interface Props {
-  entry: GroupAnswerStatus;
-  /** The pearls its score has earned, as the board shows them. */
-  pearls: number;
-  /** The group's total hearts, as the board shows them. */
-  groupHearts: number;
-  studentHearts: (studentId: Id) => number;
-  /** How a heart is given to her or the group; undefined when it may not be. */
-  giveTo: (target: SubjectRef) => (() => void) | undefined;
-}
-
-/** One group in the panel: its pearls and heart, whether it answered, and its students each with a mark and a heart. */
-export function PearlGroupCard({ entry, pearls, groupHearts, studentHearts, giveTo }: Props) {
+/** One group's tab: its pearls and heart on top, then all its students in compact rows, each with her mark and her heart. */
+export function PearlGroupTab({ entry, pearls, groupHearts, studentHearts, giveTo }: PearlGroupProps) {
   const { group, mark, students } = entry;
+  const progress = studentProgress(entry);
   return (
-    <section className="card card--tone pearl-card" style={toneStyle(group.color)}>
+    <section className="card card--tone pearl-card pearl-group" style={toneStyle(group.color)} aria-label={group.name}>
       <header className="pearl-card__head">
         <h3 className="pearl-card__name">{group.name}</h3>
+        <div className="pearl-card__pearls">
+          <PearlString earned={pearls} />
+          {mark && <AnswerMarkChip mark={mark} />}
+          {progress.expected > 0 && <span className="muted">{t.common.answeredCount(progress.answered, progress.expected)}</span>}
+        </div>
         <HeartButton owner={group.name} count={groupHearts} onGive={giveTo({ kind: 'group', id: group.id })} />
       </header>
-      <div className="pearl-card__pearls">
-        <PearlString earned={pearls} />
-        {mark && <AnswerMarkChip mark={mark} />}
-      </div>
       {students.length === 0 ? (
         <p className="muted">{t.board.noStudents}</p>
       ) : (
-        <ul className="list-reset pearl-card__students">
+        <ul className="list-reset pearl-students">
           {students.map(({ student, present, mark: studentMark }) => (
             <li key={student.id} className={present ? 'pearl-student' : 'pearl-student pearl-student--absent'}>
               <span className="pearl-student__name">{student.name}</span>

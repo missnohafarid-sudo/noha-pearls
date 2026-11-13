@@ -27,6 +27,14 @@ export function addSlide(lesson: Lesson, kind: SlideKind, afterIndex: number): {
   return { lesson: { ...lesson, slides }, slide };
 }
 
+/** Inserts an exact copy of a slide right below it, under a new id. An unknown id leaves the lesson as it was. */
+export function duplicateSlide(lesson: Lesson, slideId: Id): Lesson {
+  const at = lesson.slides.findIndex((s) => s.id === slideId);
+  if (at < 0) return lesson;
+  const copy: Slide = { ...structuredClone(lesson.slides[at]), id: newId() };
+  return { ...lesson, slides: [...lesson.slides.slice(0, at + 1), copy, ...lesson.slides.slice(at + 1)] };
+}
+
 /** Repairs fields that an edit left inconsistent (see each kind's `normalize`). */
 export function normalizeSlide(slide: Slide): Slide {
   const spec = slideKindSpec(slide.kind);

@@ -8,7 +8,7 @@ import { toAsciiDigits } from './digits';
 import { removeOption } from './choices';
 import { isMoveKey, listKeyEffect, movedIndex, typeaheadIndex } from './listNavigation';
 import { exportLesson, importLesson, lessonFileText } from './lessonFormat';
-import { addSlide, createLesson, indexAfterRemoval, moveSlide, removeSlide, slideHasProblem, updateSlide } from './lessonOps';
+import { addSlide, createLesson, duplicateSlide, indexAfterRemoval, moveSlide, removeSlide, slideHasProblem, updateSlide } from './lessonOps';
 import { isHttpsUrl, MEDIA_CHOICES, MEDIA_TYPES, mediaLink, mediaView, steppedZoom } from './media';
 import type { Answer, AttendedRoster, ClassRecord, ClassRoster, Reward, ChoiceSlide, Group, Lesson, MediaSlide, Participant, SchoolClass, Session, Student, Teacher, TextSlide } from './models';
 import { resolveStudentView } from './pacing';
@@ -443,6 +443,22 @@ describe('lesson editing', () => {
     expect(moved.slides.map((s) => s.kind)).toEqual(['choice', 'content']);
     expect(moveSlide(moved, second.slide.id, -1)).toBe(moved);
     expect(removeSlide(moved, second.slide.id).slides).toHaveLength(1);
+  });
+
+  it('copies a slide right below itself under a new id, leaving the original alone', () => {
+    const copied = duplicateSlide(lesson, choice.id);
+    expect(copied.slides).toHaveLength(lesson.slides.length + 1);
+    const [original, copy] = copied.slides;
+    expect(original).toBe(choice);
+    expect(copy.id).not.toBe(choice.id);
+    expect({ ...copy, id: '' }).toEqual({ ...choice, id: '' });
+    (copy as ChoiceSlide).options.push('z');
+    expect(choice.options).toEqual(['a', 'b', 'c']);
+    expect(lesson.slides).toHaveLength(2);
+  });
+
+  it('leaves the lesson as it was when the slide to copy is unknown', () => {
+    expect(duplicateSlide(lesson, 'nope')).toBe(lesson);
   });
 
   it('clears a correct answer that no longer exists and keeps points in range', () => {

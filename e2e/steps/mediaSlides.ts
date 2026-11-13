@@ -1,9 +1,10 @@
 import type { HTTPRequest } from 'puppeteer';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { exportLesson, importLesson, LESSON_FORMAT, LESSON_FORMAT_VERSION } from '../../src/domain/lessonFormat';
+import { exportLesson, importLesson } from '../../src/domain/lessonFormat';
 import type { Lesson, MediaSlide } from '../../src/domain/models';
 import { t } from '../../src/i18n';
 import { dropDownState, dropDownValue, pickOption, pressInDropDown } from '../actions';
+import { DIALOG_TEXT, lessonFileText, lessonIdOnPage, pasteLessonFile, PANEL, typeIntoField } from '../lessonLane';
 import { storedRecords, type World } from '../world';
 
 const LESSON_TITLE = 'Media lesson imported by the walkthrough';
@@ -17,13 +18,10 @@ const DRIVE_LINK = 'https://drive.google.com/file/d/FILE_ID_1/view?usp=drive_lin
 const DRIVE_PREVIEW = 'https://drive.google.com/file/d/FILE_ID_1/preview';
 const SLIDE_TITLE = 'Media slide';
 const BODY_TEXT = 'Text under the media';
-const PANEL = '.shell__panel';
-const DIALOG_TEXT = 'dialog[open] textarea';
 const WARNING_MARK = `.slide-row [role=img][aria-label="${t.lesson.slides.problem}"]`;
 
 const ONE_PIXEL_PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
 
-const lessonFile = (slides: object[], title = LESSON_TITLE) => JSON.stringify({ format: LESSON_FORMAT, version: LESSON_FORMAT_VERSION, title, slides });
 const MEDIA_FILE_SLIDE = { kind: 'media', title: 'Clip', tag: 'Show', url: 'https://media.test/clip.mp4', media: 'video', body: '- one\ntwo' };
 
 /** The walkthrough has no network: the made-up media host answers with a picture, a dead link answers 404, and the Drive address with an empty page. */
@@ -42,42 +40,11 @@ async function storedMediaSlide(world: World, lessonId: string): Promise<MediaSl
   return slide;
 }
 
-/** Types into the text field of the side panel with this label, the way typing does. */
-async function typeIntoField(world: World, label: string, value: string, tag: 'input' | 'textarea' = 'input'): Promise<void> {
-  const attempt = () =>
-    world.admin.page.evaluate(
-      (wanted, text, selector, panel) => {
-        const field = [...document.querySelectorAll<HTMLElement>(`${panel} label.field`)].find((candidate) => candidate.querySelector('.field__label')?.textContent?.trim() === wanted);
-        const control = field?.querySelector<HTMLInputElement | HTMLTextAreaElement>(selector);
-        if (!control) return false;
-        const prototype = selector === 'textarea' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
-        Object.getOwnPropertyDescriptor(prototype, 'value')?.set?.call(control, text);
-        control.dispatchEvent(new Event('input', { bubbles: true }));
-        return true;
-      },
-      label,
-      value,
-      tag,
-      PANEL,
-    );
-  await world.admin.until(`the field "${label}" in the side panel`, attempt);
-}
-
 const imageLoaded = (world: World) =>
   world.admin.page.evaluate(() => {
     const image = document.querySelector<HTMLImageElement>('.slide img.media__image');
     return image !== null && image.complete && image.naturalWidth > 0;
   });
-
-async function pasteFile(world: World, text: string): Promise<void> {
-  await world.admin.goto('#/');
-  await world.admin.click(t.home.panel.importLesson);
-  await world.admin.until('the import dialog', () => world.admin.exists(DIALOG_TEXT));
-  await world.admin.paste(DIALOG_TEXT, text);
-  await world.admin.click(t.lesson.import.importButton, 'dialog[open]');
-}
-
-const lessonIdOnPage = (world: World) => decodeURIComponent(world.admin.page.url().split('#/lesson/')[1].split('/')[0]);
 
 /** A slide that shows something from a pasted link: the picture, the notices that tell the teacher what is wrong, the frame, and the lesson file. */
 export function mediaSlidesSteps(world: World): void {
@@ -95,7 +62,7 @@ export function mediaSlidesSteps(world: World): void {
     });
 
     it('the teacher imports a small lesson and adds a media slide to it', async () => {
-      await pasteFile(world, lessonFile([{ kind: 'content', title: 'Opening', body: 'x' }]));
+      await pasteLessonFile(world, lessonFileText([{ kind: 'content', title: 'Opening', body: 'x' }], LESSON_TITLE));
       await world.admin.until('the lesson editor address', async () => world.admin.page.url().includes('#/lesson/'));
       lessonId = lessonIdOnPage(world);
       await world.admin.click(t.lesson.slides.add(t.slides.kind.media), PANEL);
@@ -193,9 +160,9 @@ export function mediaSlidesSteps(world: World): void {
     });
 
     it('a lesson file with a media slide imports and exports back unchanged', async () => {
-      const original = importLesson(lessonFile([MEDIA_FILE_SLIDE], COPY_TITLE));
+      const original = importLesson(lessonFileText([MEDIA_FILE_SLIDE], COPY_TITLE));
       if (!original.ok) throw new Error('The media test file was refused by the importer.');
-      await pasteFile(world, exportLesson(original.lesson));
+      await pasteLessonFile(world, exportLesson(original.lesson));
       await world.admin.waitFor(COPY_TITLE);
       await world.admin.until('the lesson editor address', async () => lessonIdOnPage(world) !== lessonId);
       const copyId = lessonIdOnPage(world);
@@ -207,15 +174,15 @@ export function mediaSlidesSteps(world: World): void {
     });
 
     it('a file whose link is not https is refused with the new message', async () => {
-      const refused = importLesson(lessonFile([{ ...MEDIA_FILE_SLIDE, url: 'http://media.test/clip.mp4' }]));
+      const refused = importLesson(lessonFileText([{ ...MEDIA_FILE_SLIDE, url: 'http://media.test/clip.mp4' }], LESSON_TITLE));
       if (refused.ok) throw new Error('A media slide with an http link was accepted.');
-      await pasteFile(world, lessonFile([{ ...MEDIA_FILE_SLIDE, url: 'http://media.test/clip.mp4' }]));
+      await pasteLessonFile(world, lessonFileText([{ ...MEDIA_FILE_SLIDE, url: 'http://media.test/clip.mp4' }], LESSON_TITLE));
       for (const issue of refused.issues) await world.admin.waitFor(t.lessonFile.describeIssue(issue));
       expect(refused.issues.map((issue) => issue.code)).toEqual(['bad-url']);
     });
 
     it('a file whose media slide has no link imports, and the slide carries the warning mark', async () => {
-      await world.admin.paste(DIALOG_TEXT, lessonFile([{ ...MEDIA_FILE_SLIDE, url: '' }], NO_LINK_TITLE));
+      await world.admin.paste(DIALOG_TEXT, lessonFileText([{ ...MEDIA_FILE_SLIDE, url: '' }], NO_LINK_TITLE));
       await world.admin.click(t.lesson.import.importButton, 'dialog[open]');
       await world.admin.waitFor(NO_LINK_TITLE);
       await world.admin.until('the warning mark in the slide list', () => world.admin.exists(WARNING_MARK));

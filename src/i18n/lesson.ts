@@ -29,6 +29,7 @@ export const lesson = {
   slides: {
     moveUp: 'نقل لأعلى',
     moveDown: 'نقل لأسفل',
+    copy: 'نسخ الشريحة',
     delete: 'حذف',
     untitled: 'بلا عنوان',
     addTitle: 'إضافة شريحة',

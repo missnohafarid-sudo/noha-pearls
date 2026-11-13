@@ -1,6 +1,6 @@
 import type { Lesson, Slide } from '../../domain/models';
 import { LESSON_FILE } from '../../domain/lessonFormat';
-import { addSlide, indexAfterRemoval, moveSlide, normalizeSlide, removeSlide, slideHasProblem, updateSlide } from '../../domain/lessonOps';
+import { addSlide, duplicateSlide, indexAfterRemoval, moveSlide, normalizeSlide, removeSlide, slideHasProblem, updateSlide } from '../../domain/lessonOps';
 import { SLIDE_KIND_NAMES } from '../../domain/slideKinds';
 import { t } from '../../i18n';
 import { ConfirmButton } from '../common/ConfirmButton';
@@ -81,6 +81,15 @@ function SlideRow({ lesson, slide, index, currentIndex, save }: { lesson: Lesson
         </button>
         <button type="button" className="btn btn--small" disabled={index === lesson.slides.length - 1} onClick={() => move(1)}>
           {tl.slides.moveDown}
+        </button>
+        <button
+          type="button"
+          className="btn btn--small"
+          onClick={() => {
+            void save(duplicateSlide(lesson, slide.id)).then((saved) => saved && goTo(lesson.id, index + 1));
+          }}
+        >
+          {tl.slides.copy}
         </button>
         <ConfirmButton
           className="btn btn--small btn--danger"

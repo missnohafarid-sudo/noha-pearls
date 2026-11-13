@@ -1,4 +1,5 @@
 import type { MarkerDetector, MarkerRenderer, QrRenderer } from '../ports/codes';
+import type { AllowanceService } from './AllowanceService';
 import type { AdmissionService } from './AdmissionService';
 import type { AnswerService } from './AnswerService';
 import type { AuthService } from './AuthService';
@@ -27,6 +28,7 @@ export interface ServiceClasses {
   folders: FolderService;
   lessons: LessonService;
   sessions: SessionService;
+  allowance: AllowanceService;
   classLookup: ClassLookupService;
   sessionRoster: SessionRosterService;
   participants: ParticipantService;
@@ -51,6 +53,7 @@ export const UI_SURFACE = {
   folders: ['watchFolders', 'add', 'rename', 'move', 'remove'],
   lessons: ['watchLessons', 'watchLesson', 'create', 'save', 'moveToFolder', 'remove', 'importFromText', 'exportToText'],
   sessions: ['watchAll', 'start', 'end', 'goTo', 'reveal', 'setPacing', 'sendMessage', 'clearMessage', 'setMinInteractions'],
+  allowance: ['watchLevel'],
   classLookup: ['watchAnyLive', 'watchByCode'],
   sessionRoster: ['watchRoster', 'watchSeen', 'moveStudent', 'addStudent', 'renameGroup', 'markPresent', 'markAbsent'],
   participants: ['watchParticipants', 'watchMine', 'watchNameClaims', 'join', 'leave'],

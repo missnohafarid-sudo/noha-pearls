@@ -91,6 +91,7 @@ const ADMIN_ONLY: Record<string, unknown[]> = {
   'answers.clearForStudent': ['x', 'q1', 's1'],
   'rewards.watchRewards': ['x', listener],
   'rewards.giveAsTeacher': ['x', { kind: 'student', id: 's1' }],
+  'allowance.watchLevel': [listener],
   'records.standingsOf': ['c1', { kind: 'week', start: 0, end: 1 }],
   'retention.watchSettings': [listener],
   'retention.watchNotices': [listener],

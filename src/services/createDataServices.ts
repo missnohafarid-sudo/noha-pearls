@@ -1,5 +1,6 @@
 import type { Caller } from '../ports/caller';
 import type { DocumentStore } from '../ports/store';
+import { AllowanceService } from './AllowanceService';
 import { AdmissionService } from './AdmissionService';
 import { AnswerService } from './AnswerService';
 import { BoardService } from './BoardService';
@@ -17,9 +18,10 @@ import type { ServiceClasses } from './Services';
 import { SessionRosterService } from './SessionRosterService';
 import { SessionService } from './SessionService';
 import { TeacherService } from './TeacherService';
+import { unlimitedRuntime, type ServiceRuntime } from './runtime';
 
 /** The one place the data services are wired together, for every place they run. */
-export function createDataServices(store: DocumentStore, caller: Caller): ServiceClasses {
+export function createDataServices(store: DocumentStore, caller: Caller, runtime: ServiceRuntime = unlimitedRuntime()): ServiceClasses {
   const sessionRoster = new SessionRosterService(store, caller);
   const roster = new RosterService(store, caller);
   const participants = new ParticipantService(store, caller, sessionRoster);
@@ -32,6 +34,7 @@ export function createDataServices(store: DocumentStore, caller: Caller): Servic
     folders: new FolderService(store, caller, lessons),
     lessons,
     sessions: new SessionService(store, caller, roster, sessionRoster, records),
+    allowance: new AllowanceService(caller, runtime.allowance),
     classLookup: new ClassLookupService(store, participants, sessionRoster),
     sessionRoster,
     participants,

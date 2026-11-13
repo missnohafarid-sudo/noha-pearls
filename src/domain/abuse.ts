@@ -61,10 +61,13 @@ export function socketAdmitted(open: SocketCounts, caps: SocketCaps): boolean {
   return open.ofDevice < caps.perDevice && open.ofAddress < caps.perAddress && open.inHub < caps.perHub;
 }
 
+/** Whether the limits of this module hold the caller: the admin is the one caller they never hold. */
+export const isHeldToLimits = (isAdmin: boolean): boolean => !isAdmin;
+
 /** Whether a lock that runs until `lockedUntil` still holds at `now`. */
 export const isLockedAt = (lockedUntil: number | undefined, now: number): boolean => lockedUntil !== undefined && lockedUntil > now;
 
-/** How far the day's allowance of writes has gone. */
+/** How far the day's allowance of writes has gone: 'answers-only' lets only the essential writes (answering, joining, leaving) through. */
 export type DayLevel = 'open' | 'answers-only' | 'closed';
 
 export interface DayThresholds {
@@ -77,12 +80,13 @@ export function dayLevel(rowsToday: number, { answersOnlyAbove, closedAbove }: D
   return rowsToday > answersOnlyAbove ? 'answers-only' : 'open';
 }
 
-const ANSWERING: Readonly<Record<string, readonly string[]>> = { answers: ['submitFromDevice'] };
+/** What a call does, which is a property of the surface (`services/surfaceEffects.ts`): it only reads, it is a write the school cannot do without, or an ordinary write. */
+export type CallEffect = 'read' | 'essential' | 'ordinary';
 
-/** Whether a command may run at this level. The admin is never refused; a student's answer outlives every level but the last. */
-export function commandAllowed(level: DayLevel, isAdmin: boolean, service: string, method: string): boolean {
-  if (isAdmin || level === 'open') return true;
-  return level === 'answers-only' && (ANSWERING[service] ?? []).includes(method);
+/** Whether a call may run at this level. The admin is never refused, nor is a read; above the first level only the essential writes run, above the second no write does. */
+export function commandAllowed(level: DayLevel, isAdmin: boolean, effect: CallEffect): boolean {
+  if (!isHeldToLimits(isAdmin) || effect === 'read' || level === 'open') return true;
+  return level === 'answers-only' && effect === 'essential';
 }
 
 /** The UTC day a moment falls on, as a number of days. */

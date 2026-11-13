@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import type { DayLevel } from '../domain/abuse';
 import { utcDayOf } from '../domain/abuse';
 import { DAY_ROWS_ANSWERS_ONLY, DAY_ROWS_CLOSED, DAY_ROWS_FLUSH_MS } from '../ports/limits';
+import { classroom } from './classKit';
 import { connect, createHarness, type Harness } from './hubHarness';
 
 const FAR = 9_000_000_000_000;
@@ -39,17 +40,39 @@ describe('the day’s allowance of writes', () => {
     expect(await visitor.call(1, 'teachers', 'add', 'x')).toMatchObject({ ok: false, error: { name: 'NotAuthorizedError' } });
   });
 
-  it('is answers-only above 80,000: a visitor’s command is refused with the day-used limit, the teacher’s runs, and an answer still gets in', async () => {
+  it('is answers-only above 80,000: a visitor’s ordinary write is refused with the day-used limit, the essential ones (joining, answering) and every read still run, and the teacher’s runs', async () => {
     const harness = await seeded();
     burnTo(harness, DAY_ROWS_ANSWERS_ONLY + 1);
     expect(harness.breaker.level()).toBe('answers-only');
     const visitor = connect(harness, 'phone');
     expect(await visitor.call(1, 'teachers', 'add', 'x')).toMatchObject({ ok: false, error: DAY_LIMIT_ERROR });
-    expect(await visitor.call(2, 'participants', 'join', 's', 'g', 'st')).toMatchObject({ ok: false, error: DAY_LIMIT_ERROR });
+    expect(await visitor.call(2, 'participants', 'join', 's', 'g', 'st')).toMatchObject({ ok: true, value: null });
+    expect(await visitor.call(4, 'participants', 'leave', 'no-such-session')).toMatchObject({ ok: true });
     const answer = await visitor.call(3, 'answers', 'submitFromDevice', 'no-such-session', 'no-such-slide', 0);
     expect(answer.ok === false && answer.error).not.toMatchObject(DAY_LIMIT_ERROR);
+    expect(await visitor.call(5, 'records', 'groupStandingsOf', 'ABC234', 'week')).toMatchObject({ ok: true, value: [] });
     const admin = connect(harness, 'laptop', FAR);
     expect(await admin.call(1, 'teachers', 'add', 'Huda')).toMatchObject({ ok: true });
+  });
+
+  it('lets a student still join, be let in, answer and read her own standings above 80,000', async () => {
+    const { harness, admin, session, students, lessonId } = await classroom();
+    harness.sql.run('CREATE TABLE IF NOT EXISTS scratch (n INTEGER)');
+    burnTo(harness, DAY_ROWS_ANSWERS_ONLY + 1);
+    const student = students[0];
+    const lesson = (await harness.store.get('lessons', lessonId))!;
+    const slide = lesson.slides.find((candidate) => candidate.kind === 'choice' && candidate.scope === 'individual')!;
+    const phone = connect(harness, 'phone', null, '10.3.0.1');
+    expect(await phone.call(1, 'participants', 'join', session.code, student.groupId, student.id)).toMatchObject({ ok: true });
+    expect((await harness.store.list('participants')).length).toBe(1);
+    const seat = (await harness.store.list('participants'))[0];
+    expect(await admin.call(2, 'admission', 'admit', seat.id, student.id)).toMatchObject({ ok: true });
+    expect(await admin.call(3, 'sessions', 'goTo', session.id, lesson.slides.indexOf(slide))).toMatchObject({ ok: true });
+    expect(await phone.call(4, 'answers', 'submitFromDevice', session.id, slide.id, 0)).toMatchObject({ ok: true, value: true });
+    expect(await phone.call(5, 'records', 'ownStandingIn', session.id, 'week')).toMatchObject({ ok: true });
+    expect(await phone.call(6, 'records', 'groupStandingsOf', session.code, 'week')).toMatchObject({ ok: true });
+    expect(await phone.call(7, 'rewards', 'giveAsPeer', session.id, students[1].id)).toMatchObject({ ok: false, error: DAY_LIMIT_ERROR });
+    expect(await phone.call(8, 'participants', 'leave', session.id)).toMatchObject({ ok: true });
   });
 
   it('is closed above 95,000: even an answer is refused, and the teacher is never refused', async () => {
@@ -60,6 +83,11 @@ describe('the day’s allowance of writes', () => {
     expect(harness.breaker.level()).toBe('closed');
     const visitor = connect(harness, 'phone');
     expect(await visitor.call(1, 'answers', 'submitFromDevice', 's', 'q', 0)).toMatchObject({ ok: false, error: DAY_LIMIT_ERROR });
+    expect(await visitor.call(3, 'participants', 'join', 's', 'g', 'st')).toMatchObject({ ok: false, error: DAY_LIMIT_ERROR });
+    expect(await visitor.call(4, 'participants', 'leave', 's')).toMatchObject({ ok: false, error: DAY_LIMIT_ERROR });
+    expect(await visitor.call(5, 'records', 'groupStandingsOf', 'ABC234', 'week')).toMatchObject({ ok: true, value: [] });
+    await visitor.watch(6, 'teachers', 'watchTeachers');
+    expect(visitor.socket.refusal(6)).toBeUndefined();
     const admin = connect(harness, 'laptop', FAR);
     expect(await admin.call(1, 'teachers', 'add', 'Huda')).toMatchObject({ ok: true });
     expect(await admin.call(2, 'sessions', 'end', 'nothing')).not.toMatchObject({ error: DAY_LIMIT_ERROR });

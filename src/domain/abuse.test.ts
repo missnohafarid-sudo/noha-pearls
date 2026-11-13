@@ -5,6 +5,7 @@ import {
   commandAllowed,
   dayLevel,
   hasRoom,
+  isHeldToLimits,
   isLockedAt,
   isOverLimit,
   socketAdmitted,
@@ -88,6 +89,15 @@ describe('a lock that runs until a moment', () => {
   });
 });
 
+describe('who the limits hold', () => {
+  it('names the admin as the one caller no limit holds, and the day’s allowance asks it', () => {
+    expect(isHeldToLimits(true)).toBe(false);
+    expect(isHeldToLimits(false)).toBe(true);
+    expect(commandAllowed('closed', true, 'ordinary')).toBe(true);
+    expect(commandAllowed('closed', false, 'ordinary')).toBe(false);
+  });
+});
+
 describe('how far the day’s allowance of writes has gone', () => {
   it('is open up to 80,000 rows, answers-only above that, and closed above 95,000', () => {
     expect(dayLevel(0, DAY)).toBe('open');
@@ -97,13 +107,16 @@ describe('how far the day’s allowance of writes has gone', () => {
     expect(dayLevel(95_001, DAY)).toBe('closed');
   });
 
-  it('refuses a student’s command by level, lets a student’s answer through until closed, and never refuses the teacher', () => {
-    expect(commandAllowed('open', false, 'participants', 'join')).toBe(true);
-    expect(commandAllowed('answers-only', false, 'participants', 'join')).toBe(false);
-    expect(commandAllowed('answers-only', false, 'answers', 'submitFromDevice')).toBe(true);
-    expect(commandAllowed('answers-only', false, 'answers', 'submitForStudent')).toBe(false);
-    expect(commandAllowed('closed', false, 'answers', 'submitFromDevice')).toBe(false);
-    for (const level of ['open', 'answers-only', 'closed'] as const) expect(commandAllowed(level, true, 'sessions', 'end')).toBe(true);
+  it('refuses a student’s write by level, lets the essential ones through until closed, never refuses a read, and never refuses the teacher', () => {
+    expect(commandAllowed('open', false, 'ordinary')).toBe(true);
+    expect(commandAllowed('answers-only', false, 'ordinary')).toBe(false);
+    expect(commandAllowed('answers-only', false, 'essential')).toBe(true);
+    expect(commandAllowed('closed', false, 'essential')).toBe(false);
+    expect(commandAllowed('closed', false, 'ordinary')).toBe(false);
+    for (const level of ['open', 'answers-only', 'closed'] as const) {
+      expect(commandAllowed(level, false, 'read')).toBe(true);
+      for (const effect of ['read', 'essential', 'ordinary'] as const) expect(commandAllowed(level, true, effect)).toBe(true);
+    }
   });
 
   it('tells the teacher once it is nearly used', () => {

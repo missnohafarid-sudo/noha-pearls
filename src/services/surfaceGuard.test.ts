@@ -7,6 +7,7 @@ import type { CollectionName } from '../ports/store';
 import { NotAuthorizedError } from './AuthService';
 import { createDataServices } from './createDataServices';
 import { UI_SURFACE } from './Services';
+import { effectsOf, SURFACE_EFFECTS } from './surfaceEffects';
 
 /** Every method of the surface is public by design, listed here with the reason, or admin only, listed here with harmless arguments. */
 const PUBLIC_BY_DESIGN: Record<string, string> = {
@@ -141,6 +142,20 @@ describe('the surface of the services', () => {
     expect(surface.filter((method) => !classified.includes(method))).toEqual([]);
     expect(classified.filter((method) => !surface.includes(method))).toEqual([]);
     expect(Object.keys(PUBLIC_BY_DESIGN).filter((method) => method in ADMIN_ONLY)).toEqual([]);
+  });
+});
+
+describe('what each method of the surface does', () => {
+  it('tags every method with exactly one effect (a read, an essential write or an ordinary write), and tags none the surface does not have', () => {
+    expect(surface.filter((method) => effectsOf(...(method.split('.') as [string, string])).length !== 1)).toEqual([]);
+    const tagged = Object.values(SURFACE_EFFECTS).flatMap((lists) => Object.entries(lists).flatMap(([service, names]) => (names as readonly string[]).map((name) => `${service}.${name}`)));
+    expect(tagged.filter((method) => !surface.includes(method))).toEqual([]);
+  });
+
+  it('calls only the live reads and the questions that read reads, and the essential writes are answering, joining and leaving', () => {
+    const reads = Object.entries(SURFACE_EFFECTS.read).flatMap(([service, names]) => names.map((name) => `${service}.${name}`));
+    expect(reads.filter((method) => !method.split('.')[1].startsWith('watch'))).toEqual(['roster.exportToText', 'lessons.exportToText', 'records.currentPeriod', 'records.standingsOf', 'records.groupStandingsOf', 'records.ownStandingIn', 'retention.rangeLimits', 'retention.classesToRemove']);
+    expect(SURFACE_EFFECTS.essential).toEqual({ participants: ['join', 'leave'], answers: ['submitFromDevice'] });
   });
 });
 

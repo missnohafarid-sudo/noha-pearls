@@ -16,6 +16,7 @@ import type { ServiceClasses } from '../services/Services';
 import { ClassFeeds } from '../services/ClassFeeds';
 import { ComputedOnce } from '../services/ComputedOnce';
 import { StandingsCache } from '../services/StandingsCache';
+import { effectOf } from '../services/surfaceEffects';
 import { SurfaceDispatcher } from '../services/surfaceDispatch';
 import type { ConnectionLimits } from './ConnectionLimits';
 import type { DayBreaker } from './DayBreaker';
@@ -62,10 +63,10 @@ export class HubCore {
   /**
    * Runs a command for a caller over a unit of work: applied together when it succeeds, not at all when it throws.
    * Once the unit has committed the caller is told it succeeded, whatever happens to a watcher afterwards.
-   * Once the day's allowance of writes is used up, only what that level allows is run (see `commandAllowed`).
+   * Once the day's allowance of writes is used up, only what that level allows is run (see `commandAllowed`; what a call does is `effectOf`).
    */
   async command(caller: Caller, guard: AbuseGuard, service: string, method: string, args: readonly unknown[]): Promise<CommandOutcome> {
-    if (!commandAllowed(this.allowance.level(), caller.isAdmin(), service, method)) return { ok: false, error: this.describe(new LimitError('day-used')) };
+    if (!commandAllowed(this.allowance.level(), caller.isAdmin(), effectOf(service, method))) return { ok: false, error: this.describe(new LimitError('day-used')) };
     const unit = new UnitOfWork(this.store);
     try {
       const value = await new SurfaceDispatcher(createDataServices(unit, caller, this.runtime(guard))).call(service, method, args);

@@ -15,6 +15,8 @@ export const common = {
   next: 'التالي',
   chooseFile: 'اختيار ملف',
   noFile: 'لم يُختر ملف',
+  showPassword: 'إظهار كلمة المرور',
+  hidePassword: 'إخفاء كلمة المرور',
   decrease: 'إنقاص',
   increase: 'زيادة',
   hearts: 'قلوب',

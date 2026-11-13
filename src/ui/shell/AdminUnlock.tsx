@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { t } from '../../i18n';
+import { PasswordField } from '../forms/PasswordField';
 import { useServices } from '../ServicesContext';
+import '../forms/forms.css';
 
 /**
  * The teacher's sign-in prompt. The parent renders it only while it is open,
@@ -10,6 +12,7 @@ export function AdminUnlock({ onClose }: { onClose: () => void }) {
   const { auth } = useServices();
   const dialog = useRef<HTMLDialogElement>(null);
   const [password, setPassword] = useState('');
+  const [passwordShown, setPasswordShown] = useState(false);
   const [code, setCode] = useState('');
   const [status, setStatus] = useState<'idle' | 'checking' | 'wrong'>('idle');
   /** Set once the prompt is closed, so the answer to an attempt made before that is ignored. */
@@ -35,6 +38,7 @@ export function AdminUnlock({ onClose }: { onClose: () => void }) {
       close();
     } else {
       setCode('');
+      setPasswordShown(false);
       setStatus('wrong');
     }
   };
@@ -50,17 +54,14 @@ export function AdminUnlock({ onClose }: { onClose: () => void }) {
     >
       <form className="stack" onSubmit={submit}>
         <h2 className="dialog__title">{t.shell.unlock.title}</h2>
-        <label className="field">
-          <span className="field__label">{t.shell.unlock.password}</span>
-          <input
-            className="input"
-            type="password"
-            autoComplete="off"
-            autoFocus
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-          />
-        </label>
+        <PasswordField
+          label={t.shell.unlock.password}
+          value={password}
+          onChange={setPassword}
+          shown={passwordShown}
+          onShownChange={setPasswordShown}
+          autoFocus
+        />
         <label className="field">
           <span className="field__label">{t.shell.unlock.code}</span>
           <input
@@ -74,7 +75,7 @@ export function AdminUnlock({ onClose }: { onClose: () => void }) {
             onChange={(event) => setCode(event.target.value)}
           />
         </label>
-        <p className="muted" role="status">
+        <p className="muted form-status" role="status">
           {status === 'checking' ? t.shell.unlock.checking : status === 'wrong' ? t.shell.unlock.wrong : ''}
         </p>
         <div className="row">

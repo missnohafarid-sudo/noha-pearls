@@ -42,3 +42,9 @@
   inline-size: auto;
   min-inline-size: 5.5rem;
 }
+
+/* The line under a form's fields that says how the attempt went. It always holds one line, so the form does not jump when the message appears. */
+.form-status {
+  min-block-size: calc(1em * var(--leading));
+  margin: 0;
+}

@@ -467,10 +467,9 @@ is built yet.
 One Cloudflare Worker, `noha-pearls`, on the free plan is the whole
 deployment: it serves the built site and answers `/api/*`, at one address,
 `https://noha-pearls.miss-noha-farid.workers.dev`. GitHub Actions is the only
-thing that deploys it. GitHub Pages is no longer used; the workflow's last
-Pages deployment is a small page that forwards to the new address, because a
-workflow cannot unpublish a Pages site. The teacher never sees Cloudflare; it
-is set up once by the maintainer.
+thing that deploys it. GitHub Pages is no longer used: the maintainer
+unpublishes the old site in the repository settings. The teacher never sees
+Cloudflare; it is set up once by the maintainer.
 
 Why this and not Supabase, which the plan named first:
 
@@ -1119,8 +1118,7 @@ server can build them). In this order, structure before behaviour:
    worst day (4 teachers, 4 classes each, 35 students, 4 classes at once) and
    must show every daily limit used well under half (2.4).
 6. Deployment: one workflow that checks, deploys the Worker with its secrets,
-   then smoke-tests the live address; its last Pages deployment becomes the
-   forwarding page.
+   then smoke-tests the live address.
 7. Backups and the private repository: the weekly encrypted export, the
    one-button restore (2.7), the `npm run ops` commands and the daily check of
    the protected files (2.9). A restore is rehearsed once before the first
@@ -1292,7 +1290,7 @@ Settled:
     per day were considered and left out (2.4).
 16. **Controls:** the site's own, not the browser's (2.4).
 17. **The address:** `https://noha-pearls.miss-noha-farid.workers.dev`. The
-    Pages site only forwards to it (2.4).
+    old Pages site is unpublished (2.4).
 18. **The private repository:** `missnohafarid-sudo/noha-pearls-ops` (2.7).
 19. **Sign-in lasts 7 days** (the owner's choice) as a session on the hub, named by
     a signed cookie; a device left signed in stays a teacher's for that week

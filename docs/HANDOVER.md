@@ -59,10 +59,10 @@ The D1 database created earlier is unused. It can be deleted in the Cloudflare d
 
 ### The old Pages site
 
-The old GitHub Pages site was a browser-only prototype whose files carried the password's hash and the authenticator key. A workflow cannot unpublish a Pages site, so `.github/workflows/retire-pages.yml` replaces its last deployment with a page that forwards to the new address. It runs once when it lands. After that:
+The old GitHub Pages site was a browser-only prototype whose files carried the password's hash and the authenticator key. Nothing in this repository deploys to Pages any more. Switch it off once:
 
-- [ ] Repository > Settings > Pages: switch Pages off (unpublish the site).
-- [ ] Delete `.github/workflows/retire-pages.yml` and `.github/pages-forward/`.
+- [ ] Repository > Settings > Pages: next to "Your site is live at", open the "..." menu and choose "Unpublish site".
+- [ ] Repository > Settings > Environments: delete the `github-pages` environment.
 - [ ] The old bundle was public. If the current `ADMIN_PASSWORD` or `ADMIN_TOTP_SECRET` was ever used to build a Pages version, replace it (see "Changing the admin password" above).
 
 ## 5. Five-minute smoke test

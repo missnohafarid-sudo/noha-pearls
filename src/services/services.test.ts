@@ -625,6 +625,19 @@ describe('a live class', () => {
     expect(await store.list('lessons')).toHaveLength(2);
   });
 
+  it('lists lessons as summaries, newest first, with their slide and question counts', async () => {
+    const { lessons, store } = ctx;
+    await store.put('lessons', { ...lesson, id: 'l2', title: 'أحدث', updatedAt: 5, slides: [question, { ...question, id: 'q9' }, { id: 'c1', kind: 'content', title: 'م', tag: '', body: '', images: [], hidden: '' }] });
+    let seen: unknown[] = [];
+    const stop = lessons.watchLessons((list) => (seen = list));
+    await vi.waitFor(() => expect(seen).toHaveLength(2));
+    stop();
+    expect(seen).toEqual([
+      { id: 'l2', folderId: null, title: 'أحدث', subject: '', grade: '', published: true, updatedAt: 5, slideCount: 3, questionCount: 2 },
+      { id: 'l1', folderId: null, title: 'درس', subject: '', grade: '', published: true, updatedAt: 0, slideCount: 2, questionCount: 2 },
+    ]);
+  });
+
   it('imports a class list as the admin only, keeping card numbers and changing nothing on a bad list', async () => {
     const { roster, store } = ctx;
     const visitor = await setup();

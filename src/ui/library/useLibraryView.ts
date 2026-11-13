@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import type { FolderTree } from '../../domain/folders';
 import { canViewLesson } from '../../domain/lessonOps';
-import type { Id, Lesson } from '../../domain/models';
+import type { Id, LessonSummary } from '../../domain/models';
 import { useAdmin, useFolderTree, useLessons } from '../hooks/data';
 
 /** Everything a library screen asks about, worked out once per change of folders, lessons or reader. */
@@ -9,9 +9,9 @@ export interface LibraryView {
   tree: FolderTree;
   admin: boolean;
   /** The lessons the reader may view. */
-  lessons: readonly Lesson[];
+  lessons: readonly LessonSummary[];
   /** Those lessons by the folder they show in. */
-  lessonsByFolder: ReadonlyMap<Id | null, readonly Lesson[]>;
+  lessonsByFolder: ReadonlyMap<Id | null, readonly LessonSummary[]>;
   /** Lessons held by each folder, at any depth. */
   counts: ReadonlyMap<Id, number>;
   /** The folders shown to the reader. */
@@ -26,7 +26,7 @@ export interface LibraryView {
  */
 export type LibraryMode = 'browse' | 'pick';
 
-function buildView(tree: FolderTree, all: readonly Lesson[], admin: boolean, mode: LibraryMode): LibraryView {
+function buildView(tree: FolderTree, all: readonly LessonSummary[], admin: boolean, mode: LibraryMode): LibraryView {
   const lessons = all.filter((lesson) => canViewLesson(lesson, admin));
   const visible = mode === 'pick' ? tree.holdingIds(lessons) : tree.visibleIds(all, admin);
   return {

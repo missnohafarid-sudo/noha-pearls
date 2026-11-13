@@ -4,6 +4,9 @@ import { acceptsChanges, isLive } from './sessions';
 
 /** The single home for who is let into a class: a device asks for a seat, the teacher lets it in. */
 
+/** What a seat needs to know of a student to find her group; the roll and card numbers are not needed. */
+type SeatStudent = Pick<Student, 'id' | 'groupId'>;
+
 export function isAdmitted(participant: Participant): boolean {
   return participant.admitted;
 }
@@ -68,12 +71,12 @@ export function canClaimSeat(session: Session | null, roster: ClassRoster, group
  * The group a seat sits in right now. A named seat follows her student, who may have been moved since she joined;
  * a shared group device keeps the group it joined.
  */
-export function seatGroupId(seat: Pick<Participant, 'groupId' | 'studentId'>, students: readonly Student[]): Id {
+export function seatGroupId(seat: Pick<Participant, 'groupId' | 'studentId'>, students: readonly SeatStudent[]): Id {
   return studentById(students, seat.studentId)?.groupId ?? seat.groupId;
 }
 
 /** Who a seat answers for right now: her student (none for a shared device) in the group that student is in now. */
-export function seatAnswerer(seat: Participant, students: readonly Student[]): { groupId: Id; studentId: Id | null } {
+export function seatAnswerer(seat: Participant, students: readonly SeatStudent[]): { groupId: Id; studentId: Id | null } {
   return { groupId: seatGroupId(seat, students), studentId: seat.studentId };
 }
 
@@ -86,7 +89,7 @@ export function studentsJoiningRoll(seat: Participant, students: readonly Studen
 }
 
 /** Whether a page addressed to `groupId` is this seat's own: the group it joined, or the one her student is in now. */
-export function isSeatOfGroupPage(seat: Participant, groupId: Id, students: readonly Student[]): boolean {
+export function isSeatOfGroupPage(seat: Participant, groupId: Id, students: readonly SeatStudent[]): boolean {
   return seat.groupId === groupId || seatGroupId(seat, students) === groupId;
 }
 
@@ -113,7 +116,7 @@ export function seatsNeedingTap(participants: readonly Participant[]): Participa
  * The group page a device that comes back to a class belongs on: the group of the seat it still holds, waiting or let in,
  * or none when it holds no seat and must pick a group.
  */
-export function returnGroupId(seat: Participant | null, students: readonly Student[]): Id | null {
+export function returnGroupId(seat: Participant | null, students: readonly SeatStudent[]): Id | null {
   return seat && seatGroupId(seat, students);
 }
 
@@ -123,7 +126,7 @@ type JoinLanding = { to: 'group'; groupId: Id } | { to: 'choose' } | { to: 'ende
  * Where a device that types a class's code lands: on the group page of the seat it holds (an ended class shows her results there),
  * else on the group choices of a live class, else on the message that the class has ended.
  */
-export function joinLanding(session: Session, seat: Participant | null, students: readonly Student[]): JoinLanding {
+export function joinLanding(session: Session, seat: Participant | null, students: readonly SeatStudent[]): JoinLanding {
   const groupId = returnGroupId(seat, students);
   if (groupId) return { to: 'group', groupId };
   return isLive(session) ? { to: 'choose' } : { to: 'ended' };

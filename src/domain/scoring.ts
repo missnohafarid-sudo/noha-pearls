@@ -109,7 +109,7 @@ export interface RankedScore extends GroupScore {
 }
 
 /** Highest score first. */
-export function rankScores(scores: readonly GroupScore[]): RankedScore[] {
+export function rankScores<S extends GroupScore>(scores: readonly S[]): (S & { rank: number })[] {
   const sorted = [...scores].sort((a, b) => b.score - a.score);
   return sorted.map((entry) => ({ ...entry, rank: sorted.findIndex((other) => other.score === entry.score) + 1 }));
 }

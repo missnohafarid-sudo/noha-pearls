@@ -65,7 +65,7 @@ export function cardLabel(students: readonly Student[], marker: DetectedMarker):
 }
 
 /** The student with this id, if she is on the roster; null for no id (a shared device). */
-export function studentById(students: readonly Student[], id: Id | null): Student | null {
+export function studentById<S extends Pick<Student, 'id'>>(students: readonly S[], id: Id | null): S | null {
   return id === null ? null : (students.find((s) => s.id === id) ?? null);
 }
 

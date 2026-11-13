@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, useSyncExternalStore, type DependencyList } from 'react';
 import type { CardCodec } from '../../services/Services';
 import { FolderTree } from '../../domain/folders';
-import type { Answer, ClassRoster, Id, Lesson, LessonFolder, Participant, Reward, RetentionSettings, SchoolClass, Session, SessionRoster, SiteContent, Teacher } from '../../domain/models';
+import type { Answer, ClassRoster, Id, Lesson, LessonFolder, LessonSummary, Participant, Reward, RetentionSettings, SchoolClass, Session, SessionRoster, SiteContent, Teacher } from '../../domain/models';
 import { liveSessions } from '../../domain/sessions';
 import type { ClearingNotices } from '../../services/RetentionService';
 import { useServices } from '../ServicesContext';
@@ -64,7 +64,7 @@ export function useSessionRoster(session: Session | null | undefined): SessionRo
   return useLive(sessionId ? (listener) => sessionRoster.watchRoster(sessionId, listener) : null, [sessionRoster, sessionId]);
 }
 
-export function useLessons(): Lesson[] | undefined {
+export function useLessons(): LessonSummary[] | undefined {
   const { lessons } = useServices();
   return useLive((listener) => lessons.watchLessons(listener), [lessons]);
 }

@@ -1,5 +1,5 @@
 import { Fragment, type ReactNode } from 'react';
-import type { Id, Lesson, LessonFolder } from '../../domain/models';
+import type { Id, LessonFolder, LessonSummary } from '../../domain/models';
 import { t } from '../../i18n';
 import { focusKey, useFocusTarget } from './focus';
 import { FolderTile } from './FolderTile';
@@ -13,7 +13,7 @@ interface LibraryBrowserProps {
   openId: Id | null;
   onOpen: (folderId: Id | null) => void;
   /** One lesson of the open folder. */
-  renderLesson: (lesson: Lesson) => ReactNode;
+  renderLesson: (lesson: LessonSummary) => ReactNode;
   /** One folder of the open folder, and the one after it; plain tiles when absent. */
   renderFolder?: (folder: LessonFolder, next: LessonFolder | undefined) => ReactNode;
   /** After the folder tiles, in the same grid. */

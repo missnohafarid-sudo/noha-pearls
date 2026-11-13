@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { SeatLoss } from '../../domain/admission';
-import type { Group, Session, Student } from '../../domain/models';
+import type { Group, Session } from '../../domain/models';
+import type { SeenStudent } from '../../domain/visibility';
 import { t } from '../../i18n';
 import posterLight from '../assets/brand/poster-light.jpg';
 import { toneStyle } from '../common/tone';
@@ -11,7 +12,7 @@ interface NamePickerProps {
   session: Session;
   /** This device had a seat a moment ago and lost it: say why above the names. */
   lost: SeatLoss | null;
-  students: readonly Student[];
+  students: readonly SeenStudent[];
   /** Students whose names another device already holds. */
   heldIds: ReadonlySet<string>;
   /** `null` joins as the shared device of the whole group. */

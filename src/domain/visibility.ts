@@ -25,7 +25,7 @@ export interface Reader {
 }
 
 /** The roster's students decide her group now: a student moved to another group reads as a member of it. */
-export function readerOf(isAdmin: boolean, seat: Participant | null, students: readonly Student[]): Reader {
+export function readerOf(isAdmin: boolean, seat: Participant | null, students: readonly Pick<Student, 'id' | 'groupId'>[]): Reader {
   return { isAdmin, seat: seat && isAdmitted(seat) ? seatAnswerer(seat, students) : null };
 }
 

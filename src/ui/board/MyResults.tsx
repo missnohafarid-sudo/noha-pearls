@@ -9,7 +9,7 @@ import { toneStyle } from '../common/tone';
 import './board.css';
 
 interface MyResultsProps {
-  student: Student;
+  student: Pick<Student, 'name'>;
   group: Group | null;
   report: StudentReport;
   hearts: RewardTally;

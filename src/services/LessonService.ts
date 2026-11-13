@@ -1,6 +1,7 @@
 import { importLesson, lessonFileText, type ImportResult } from '../domain/lessonFormat';
 import { createLesson } from '../domain/lessonOps';
-import type { Id, Lesson } from '../domain/models';
+import type { Id, Lesson, LessonSummary } from '../domain/models';
+import { lessonSummaries } from '../domain/visibility';
 import { canRemoveLesson } from '../domain/sessions';
 import type { DocumentStore, Unsubscribe } from '../ports/store';
 import type { Caller } from '../ports/caller';
@@ -23,8 +24,8 @@ export class LessonService implements LessonMover {
   ) {}
 
   /** Newest first. */
-  watchLessons(listener: (lessons: Lesson[]) => void): Unsubscribe {
-    return this.store.watch('lessons', {}, (lessons) => listener([...lessons].sort((a, b) => b.updatedAt - a.updatedAt)));
+  watchLessons(listener: (lessons: LessonSummary[]) => void): Unsubscribe {
+    return this.store.watch('lessons', {}, (lessons) => listener(lessonSummaries(lessons)));
   }
 
   watchLesson(lessonId: Id, listener: (lesson: Lesson | null) => void): Unsubscribe {

@@ -48,6 +48,19 @@ export function attendanceSteps(world: World): void {
       [...document.querySelectorAll('.pearl-panel .pearl-student')].filter((row) => row.querySelector('.pearl-mark--waiting')).map((row) => row.querySelector('.pearl-student__name')?.textContent ?? ''),
     );
 
+  it('the lane sets the roll its story needs from the «طالبات الحصة» list: only the two students whose devices it follows are on it', async () => {
+    await openRunningClass(world.admin, world.firstClassCode);
+    await openGroupsToday(world.admin);
+    const story = [sure().name, cameraStudent().name];
+    for (const student of (await storedRoster()).students) await setPresentToday(world.admin, student.name, story.includes(student.name));
+    await world.admin.page.keyboard.press('Escape');
+    const roster = await storedRoster();
+    await world.admin.until('the stored roll holding only those two', async () => {
+      const { present } = await storedRoster();
+      return JSON.stringify([...(present ?? [])].sort()) === JSON.stringify(roster.students.filter((student) => story.includes(student.name)).map((student) => student.id).sort());
+    });
+  });
+
   it('the devices let in put their students on the roll, and the panel counts them', async () => {
     await openRunningClass(world.admin, world.firstClassCode);
     const roster = await storedRoster();

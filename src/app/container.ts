@@ -6,7 +6,7 @@ import { browserStorage } from '../infrastructure/storage';
 import { AuthService } from '../services/AuthService';
 import { createDataServices } from '../services/createDataServices';
 import type { CardCodec, Services } from '../services/Services';
-import sampleLesson from '../i18n/sampleLesson.json';
+import sampleLesson from '../domain/sampleLesson.json';
 import { ADMIN_PASSWORD_SHA256, ADMIN_TOTP_SECRET, STORAGE_NAMESPACE } from './config';
 import { seedIfEmpty } from './seed';
 

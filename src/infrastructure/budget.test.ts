@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import sampleLesson from '../i18n/sampleLesson.json';
+import sampleLesson from '../domain/sampleLesson.json';
 import { importLesson } from '../domain/lessonFormat';
 import type { Group, Lesson, Session, Student } from '../domain/models';
 import type { Caller } from '../ports/caller';

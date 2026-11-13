@@ -3,7 +3,7 @@ import { LESSON_FORMAT, LESSON_FORMAT_VERSION } from '../domain/lessonFormat';
 import { MEDIA_CHOICES } from '../domain/media';
 import type { FileFieldName } from '../domain/slideFile';
 import { MAX_POINTS, MIN_POINTS, SLIDE_KIND_NAMES, slideKindSpec } from '../domain/slideKinds';
-import sampleLesson from './sampleLesson.json';
+import sampleLesson from '../domain/sampleLesson.json';
 import { slides } from './slides';
 
 const FIELD_HELP: Record<FileFieldName, string> = {

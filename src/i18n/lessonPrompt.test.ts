@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import sampleLesson from './sampleLesson.json';
+import sampleLesson from '../domain/sampleLesson.json';
 import { LESSON_FORMAT, importLesson } from '../domain/lessonFormat';
 import { SLIDE_KIND_NAMES, slideKindSpec } from '../domain/slideKinds';
 import { lessonPrompt } from './lessonPrompt';

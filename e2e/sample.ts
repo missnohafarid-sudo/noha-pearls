@@ -1,4 +1,4 @@
-import sampleLesson from '../src/i18n/sampleLesson.json';
+import sampleLesson from '../src/domain/sampleLesson.json';
 
 /** The lesson the app seeds on first run, and the slide numbers (0-based) the walkthrough uses. */
 export const SAMPLE = sampleLesson;

@@ -44,7 +44,7 @@ export const session = {
   noLessons: 'لا توجد دروس بعد. أنشئي درسًا أولًا.',
   start: 'ابدئي الحصة',
   showJoinCodes: 'إظهار رموز الانضمام',
-  showSlide: 'إظهار الشريحة',
+  hideJoinCodes: 'إخفاء رموز الانضمام',
   reveal: 'إظهار الإجابة',
   scan: 'مسح بطاقات الإجابة',
   closeScan: 'إغلاق الماسح',

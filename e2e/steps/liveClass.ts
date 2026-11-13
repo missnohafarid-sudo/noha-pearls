@@ -35,7 +35,7 @@ export function liveClassSteps(world: World): void {
     await world.admin.until('the join link of the first group', async () => (await joinLink()) !== '');
     world.joinUrl = await joinLink();
     expect(await world.admin.count('.qr svg')).toBe(new Set(world.roster.map((student) => student.groupId)).size);
-    await world.admin.click(t.session.showSlide);
+    await world.admin.click(t.session.hideJoinCodes);
     world.stageSlide = SLIDE.opening;
   });
 

@@ -1,17 +1,96 @@
-.session__stage:fullscreen {
-  background: var(--bg-wash);
-  padding: 32px;
-  overflow: auto;
+/* The presenter is one block: the stage and, docked under it, the presenting bar. Outside full screen it fits the window under the site's top bar (6rem is the page's top and bottom padding), so the bar never leaves the screen; the stage scrolls inside itself. */
+.presenter {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 12px;
+  block-size: max(22rem, calc(100dvh - var(--bar-offset) - 6rem));
 }
 
-.session__stage > .session__waiting {
+.presenter:fullscreen {
+  block-size: 100dvh;
+  padding: 16px;
+  background: var(--bg-wash);
+}
+
+.session__stage {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 8px;
+  min-block-size: 0;
+}
+
+.presenter__corner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.presenter__corner:empty {
+  display: none;
+}
+
+.presenter__content {
+  min-block-size: 0;
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.class-code {
+  gap: 8px;
+  font-size: 1.1rem;
+}
+
+.class-code__value {
+  color: var(--ink);
+  font-weight: 700;
+  letter-spacing: 0.2em;
+}
+
+.session__stage .session__waiting {
   display: flex;
   inline-size: fit-content;
   margin-inline-start: auto;
 }
 
-.session__controls {
-  justify-content: space-between;
+.presenter__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+/* The end of the bar: a separate group that can hold more buttons. */
+.presenter__end {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-inline-start: auto;
+  padding-inline-start: 12px;
+  border-inline-start: 1px solid var(--line-soft);
+}
+
+@media (max-width: 600px) {
+  .presenter__bar {
+    padding: 8px 10px;
+    gap: 6px 8px;
+  }
+
+  .presenter__bar .btn {
+    min-block-size: 40px;
+    padding-inline: 12px;
+    font-size: 0.9rem;
+  }
+
+  .presenter__end {
+    margin-inline-start: 0;
+    padding-inline-start: 0;
+    border-inline-start: 0;
+  }
 }
 
 .wall {

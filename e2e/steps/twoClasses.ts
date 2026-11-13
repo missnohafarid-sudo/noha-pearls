@@ -54,7 +54,7 @@ export function twoClassesSteps(world: World): void {
     await second.click(t.session.showJoinCodes);
     await second.until('one join code', async () => (await second.count('.qr svg')) === 1);
     await second.waitFor(SECOND_CLASS.groupName);
-    await second.click(t.session.showSlide);
+    await second.click(t.session.hideJoinCodes);
   });
 
   it('a phone that types the second class\'s code is offered only its group and its students', async () => {

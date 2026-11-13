@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { awaitingAdmission } from '../../domain/admission';
-import { canScanCards, isQuestion, isRevealed } from '../../domain/answering';
+import { canScanCards, isRevealed } from '../../domain/answering';
 import type { Session } from '../../domain/models';
 import { t } from '../../i18n';
 import { Loading } from '../common/PageState';
@@ -8,26 +8,25 @@ import { useAdmin, useAnswers, useLesson, useParticipants, useSessionRoster } fr
 import { useFullscreen } from '../hooks/useFullscreen';
 import { AdmissionScanner } from '../scanner/AdmissionScanner';
 import { CardScanner } from '../scanner/CardScanner';
-import { useServices } from '../ServicesContext';
-import { SlideNav } from '../slides/SlideNav';
 import { AdmissionPanel } from './AdmissionPanel';
+import { ClassCodeChip } from './ClassCodeChip';
 import { ClassPanel } from './ClassPanel';
 import { JoinCodes } from './JoinCodes';
 import { MessagePanel } from './MessagePanel';
 import { PacingPanel } from './PacingPanel';
+import { PresenterBar } from './PresenterBar';
 import { PresenterStage } from './PresenterStage';
 import { SessionGroups } from './SessionGroups';
 import { WaitingCountButton } from './WaitingCountButton';
 
 /** The presenter and control console for a live class. */
 export function LiveSession({ session }: { session: Session }) {
-  const { sessions } = useServices();
   const lesson = useLesson(session.lessonId);
   const roster = useSessionRoster(session);
   const answers = useAnswers(session.id);
   const participants = useParticipants(session.id);
-  const stageRef = useRef<HTMLDivElement>(null);
-  const fullscreen = useFullscreen(stageRef);
+  const presenterRef = useRef<HTMLDivElement>(null);
+  const fullscreen = useFullscreen(presenterRef);
   const admin = useAdmin();
   const [showCodes, setShowCodes] = useState(false);
   const [admitting, setAdmitting] = useState(false);
@@ -60,40 +59,36 @@ export function LiveSession({ session }: { session: Session }) {
 
   return (
     <div className="page session">
-      <div ref={stageRef} className="session__stage">
-        {admin && waiting > 0 && (
-          <WaitingCountButton className="session__waiting" count={waiting} onPress={() => fullscreen.active && fullscreen.toggle()} />
-        )}
-        {showCodes ? (
-          <JoinCodes session={session} groups={groups} students={students} participants={participants} />
-        ) : (
-          <PresenterStage session={session} slide={slide} answers={answers} roster={roster} participants={participants} />
+      <div ref={presenterRef} className="presenter">
+        <div className="session__stage">
+          <div className="presenter__corner">
+            {!showCodes && <ClassCodeChip code={session.code} />}
+            {admin && waiting > 0 && (
+              <WaitingCountButton className="session__waiting" count={waiting} onPress={() => fullscreen.active && fullscreen.toggle()} />
+            )}
+          </div>
+          <div className="presenter__content">
+            {showCodes ? (
+              <JoinCodes session={session} groups={groups} students={students} participants={participants} />
+            ) : (
+              <PresenterStage session={session} slide={slide} answers={answers} roster={roster} participants={participants} />
+            )}
+          </div>
+        </div>
+        <PresenterBar
+          session={session}
+          slide={slide}
+          slideCount={lesson.slides.length}
+          keyboard={!scanning && !admitting && !regrouping}
+          codesShown={showCodes}
+          onToggleCodes={() => setShowCodes(!showCodes)}
+          scan={scannable ? { on: scanning, toggle: () => setScanSlideId(scanning ? null : scannable.id) } : null}
+          fullscreen={fullscreen}
+        />
+        {scanning && scannable && (
+          <CardScanner session={session} slide={scannable} roster={roster} participants={participants} answers={answers} onClose={() => setScanSlideId(null)} />
         )}
       </div>
-
-      <div className="row session__controls">
-        <SlideNav index={session.slideIndex} count={lesson.slides.length} onGo={(i) => void sessions.goTo(session.id, i)} keyboard={!scanning && !admitting && !regrouping} />
-        {slide && isQuestion(slide) && (
-          <button type="button" className="btn" disabled={revealed} onClick={() => void sessions.reveal(session.id, slide.id)}>
-            {t.session.reveal}
-          </button>
-        )}
-        {scannable && (
-          <button type="button" className="btn" aria-pressed={scanning} onClick={() => setScanSlideId(scanning ? null : scannable.id)}>
-            {scanning ? t.session.closeScan : t.session.scan}
-          </button>
-        )}
-        <button type="button" className="btn" onClick={fullscreen.toggle}>
-          {fullscreen.active ? t.common.exitFullscreen : t.common.fullscreen}
-        </button>
-        <button type="button" className="btn" aria-pressed={showCodes} onClick={() => setShowCodes(!showCodes)}>
-          {showCodes ? t.session.showSlide : t.session.showJoinCodes}
-        </button>
-      </div>
-
-      {scanning && scannable && (
-        <CardScanner session={session} slide={scannable} roster={roster} participants={participants} answers={answers} onClose={() => setScanSlideId(null)} />
-      )}
 
       {regroupOverlay}
 

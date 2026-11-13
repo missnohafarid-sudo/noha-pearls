@@ -15,17 +15,19 @@ interface SlideNavProps {
   onGo: (index: number) => void;
   /** Also listen for the arrow, page and space keys anywhere on the page. */
   keyboard?: boolean;
+  /** Moving is not possible right now: both buttons are off and the keys do nothing. */
+  disabled?: boolean;
 }
 
 /** Previous/next controls with the slide counter. Every slideshow in the app uses this one. */
-export function SlideNav({ index, count, onGo, keyboard = false }: SlideNavProps) {
+export function SlideNav({ index, count, onGo, keyboard = false, disabled = false }: SlideNavProps) {
   const go = (delta: number) => {
     const target = clampIndex(index + delta, count);
     if (target !== index) onGo(target);
   };
 
   useEffect(() => {
-    if (!keyboard) return undefined;
+    if (!keyboard || disabled) return undefined;
     const onKeyDown = (event: KeyboardEvent) => {
       const target = event.target instanceof HTMLElement ? event.target : null;
       const typing = target?.closest('input, textarea, select, dialog, [role="combobox"]');
@@ -43,11 +45,11 @@ export function SlideNav({ index, count, onGo, keyboard = false }: SlideNavProps
 
   return (
     <div className="row slide-nav">
-      <button type="button" className="btn" disabled={index <= 0} onClick={() => go(-1)}>
+      <button type="button" className="btn" disabled={disabled || index <= 0} onClick={() => go(-1)}>
         {t.common.previous}
       </button>
       <span className="muted">{t.common.slideOf(count === 0 ? 0 : index + 1, count)}</span>
-      <button type="button" className="btn btn--primary" disabled={index >= count - 1} onClick={() => go(1)}>
+      <button type="button" className="btn btn--primary" disabled={disabled || index >= count - 1} onClick={() => go(1)}>
         {t.common.next}
       </button>
     </div>

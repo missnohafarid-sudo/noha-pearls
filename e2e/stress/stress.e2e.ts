@@ -31,7 +31,7 @@ describe('cross-tab stress', () => {
     const joinLink = () => world.admin.page.evaluate((groupId) => [...document.querySelectorAll('a')].find((a) => a.href.includes('#/join/') && a.href.endsWith(`/${groupId}`))?.href ?? '', first.groupId);
     await world.admin.until('the join link', async () => (await joinLink()) !== '');
     const joinUrl = await joinLink();
-    await world.admin.click(t.session.showSlide);
+    await world.admin.click(t.session.hideJoinCodes);
     world.student = await Device.open(world.browser, 'student', joinUrl, PHONE, world.errors);
     await world.student.click(first.name);
     await admitWaitingDevice(world.admin);

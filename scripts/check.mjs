@@ -5,6 +5,7 @@ const STAGES = [
   { name: 'type check', args: ['run', 'typecheck'] },
   { name: 'unit tests and architecture rules', args: ['test'] },
   { name: 'protected files', args: ['run', 'guard:verify'] },
+  { name: 'local server (site, hub, live socket, restart)', args: ['run', 'test:server'] },
   { name: 'browser walkthrough', args: ['run', 'test:e2e'] },
 ];
 

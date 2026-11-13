@@ -59,8 +59,9 @@ const LAYERS: Record<string, { may: string[]; hint: Record<string, string> }> = 
   ports: { may: ['domain', 'ports'], hint: { '*': 'ports are interfaces and may import only domain and ports. Put the implementation in src/infrastructure instead.' } },
   services: { may: ['domain', 'ports', 'services'], hint: { '*': 'services may import only domain, ports and services. Reach storage or other adapters through an interface in src/ports.' } },
   infrastructure: { may: ['domain', 'ports', 'infrastructure'], hint: { '*': 'adapters may import only domain, ports and infrastructure. Business rules belong in src/domain.' } },
+  server: { may: ['domain', 'ports', 'services', 'infrastructure', 'server'], hint: { '*': 'the server may import only domain, ports, services, infrastructure and server. Rules belong in src/domain, never in the transport.' } },
   i18n: { may: ['domain', 'i18n'], hint: { '*': 'interface text may import only domain and i18n. Keep wording free of logic.' } },
-  app: { may: ['domain', 'ports', 'services', 'infrastructure', 'i18n', 'app'], hint: { '*': 'src/app wires things together and may not import the interface. src/main.tsx mounts the interface.' } },
+  app: { may: ['domain', 'ports', 'services', 'infrastructure', 'i18n', 'app'], hint: { server: 'src/server runs on Cloudflare and is never part of the page. Nothing outside it may import it.', '*': 'src/app wires things together and may not import the interface. src/main.tsx mounts the interface.' } },
   ui: {
     may: ['ui', 'domain', 'services', 'ports', 'i18n'],
     hint: {
@@ -103,6 +104,8 @@ const NAMED_COLOUR_VALUE = new RegExp(`:\\s*[^;{}]*\\b(?:${NAMED_COLOURS.split('
 const declarationOnly = (line: string): string =>
   line.replace(/"[^"]*"|'[^']*'/g, '""').replace(/url\([^)]*\)/g, '').replace(/var\([^)]*\)/g, '').replace(/--[\w-]+/g, '').replace(/^.*\{\s*$/, '');
 
+const CLOUDFLARE_IMPORT = /(?:from|import)\s*\(?\s*['"](?:cloudflare:|@cloudflare\/|wrangler)/;
+
 const STORAGE_API = /\b(localStorage|sessionStorage|indexedDB)\b|document\.cookie|\bfetch\(/;
 
 /** The only files that may inject generated markup; each draws an SVG made by our own code, never user text. */
@@ -130,11 +133,17 @@ const RULES: Rule[] = [
     message: (_match, file) => `${file.path} contains Arabic text. Move the text to src/i18n/<feature>.ts and use t.<feature>.<key>.`,
   },
   {
-    name: '3. No browser storage or network calls outside src/infrastructure and src/app',
-    applies: (file) => isCode(file) && !inside(file, 'infrastructure', 'app'),
+    name: '3. No browser storage or network calls outside src/infrastructure, src/app and src/server',
+    applies: (file) => isCode(file) && !inside(file, 'infrastructure', 'app', 'server'),
     pattern: STORAGE_API,
     sanitize: (line) => line.replace(CODE_COMMENT, ''),
     message: (match, file) => `${file.path} uses ${match[0]}. Storage and network code belongs in src/infrastructure behind an interface in src/ports; ask a service instead.`,
+  },
+  {
+    name: '3b. Cloudflare packages and cloudflare:* modules are imported only by src/server',
+    applies: (file) => isCode(file) && !inside(file, 'server'),
+    pattern: CLOUDFLARE_IMPORT,
+    message: (_match, file) => `${file.path} imports a Cloudflare package. Only src/server may; everything else asks a port in src/ports.`,
   },
   {
     name: '4. dangerouslySetInnerHTML only in the files that draw generated QR and marker SVG',
@@ -188,7 +197,7 @@ const EXPORTS_FUNCTION = /^export\s+(?:async\s+)?function\b|^export\s+const\s+\w
 /** Adding a library needs the maintainer's approval: change this list only when she has given it. */
 const ALLOWED_PACKAGES = {
   dependencies: ['qrcode-generator', 'react', 'react-dom'],
-  devDependencies: ['@types/node', '@types/react', '@types/react-dom', '@vitejs/plugin-react', 'js-aruco2', 'puppeteer', 'typescript', 'vite', 'vitest'],
+  devDependencies: ['@types/node', '@types/react', '@types/react-dom', '@vitejs/plugin-react', '@cloudflare/vite-plugin', 'js-aruco2', 'puppeteer', 'typescript', 'vite', 'vitest', 'wrangler'],
 };
 
 const FILE_RULES: FileRule[] = [

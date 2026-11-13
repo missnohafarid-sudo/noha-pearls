@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { build, preview, type PreviewServer } from 'vite';
 import type { TestProject } from 'vitest/node';
+import { SITE_ONLY_VARIABLE } from '../vite.config';
 import { adminBuildVariables } from './testAdmin';
 
 declare module 'vitest' {
@@ -31,7 +32,7 @@ function freePort(): Promise<number> {
  * Each run builds into a folder of its own: two runs at once must not overwrite the site the other is serving.
  */
 export default async function setup(project: TestProject): Promise<() => Promise<void>> {
-  Object.assign(process.env, adminBuildVariables());
+  Object.assign(process.env, adminBuildVariables(), { [SITE_ONLY_VARIABLE]: '1' });
   const outDir = mkdtempSync(join(tmpdir(), 'noha-pearls-e2e-'));
   await build({ logLevel: 'warn', mode: 'production', build: { outDir, emptyOutDir: true } });
   const port = await freePort();

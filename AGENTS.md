@@ -40,7 +40,8 @@ A teacher. She is not a programmer and cannot judge your code.
 | `src/ports` | Interfaces the app needs from outside (`DocumentStore`, `AuthGateway`, `Caller`, codes) | `domain` |
 | `src/services` | Use cases as classes (`LessonService`, `RosterService`, ...). Every change of stored data goes through one | `domain`, `ports` |
 | `src/infrastructure` | Adapters that implement ports: browser storage, auth, markers, QR | `domain`, `ports` |
-| `src/app` | `container.ts` (the only file naming concrete adapters), `config.ts`, `seed.ts` | everything |
+| `src/server` | The Worker and the hub: the server's composition root and transport. Runs on Cloudflare, never in the page; nothing imports it | `domain`, `ports`, `services`, `infrastructure` |
+| `src/app` | `container.ts` (the only file naming concrete adapters), `config.ts`, `seed.ts` | everything except `server` |
 | `src/i18n` | Every word the interface shows, one file per feature, `t` in `index.ts` | `domain` |
 | `src/ui` | React pages and components | `domain`, `i18n`, `services`, `ports` (types only), `app/config` |
 
@@ -103,7 +104,7 @@ A teacher. She is not a programmer and cannot judge your code.
 2. All interface text lives in `src/i18n`, in Arabic, feminine address. No Arabic string in any other folder. Reason: one place to read and fix wording.
 3. A rule (scoring, who may answer, pacing, limits, validation) lives only in `src/domain`, with a unit test in `src/domain/domain.test.ts` (or the service test in `src/services/services.test.ts`). Before writing one, grep for the concern and extend its home. Reason: DRY, one home each.
 4. The UI changes data only by calling a service from `useServices()`. Never write to the store directly. Reason: services check who is the admin.
-5. Browser storage and network calls exist only in `src/infrastructure` (handed in by `src/app/container.ts`). Reason: swapping the backend must touch one place.
+5. Browser storage and network calls exist only in `src/infrastructure` (handed in by `src/app/container.ts`) and, on the server, `src/server`. Only `src/server` may import a Cloudflare package or `cloudflare:*`; nothing outside it imports `src/server`. Reason: swapping the backend must touch one place.
 6. Styles use only the tokens (`var(--accent)` and the rest) in `src/ui/styles/tokens.css` (the only file where a colour literal may appear; shared building blocks live in `base.css`), and logical properties (`inline-size`, `margin-inline-start`, never `left`, `right`, `width` for layout direction). No raw colours, no inline `style` except the existing `toneStyle` and bar widths. Reason: the site is right-to-left and must look consistent.
 7. Add no dependency. Add no top-level folder. Reason: each is a long-term cost she cannot judge.
 8. Never edit a protected file: `AGENTS.md`, `CLAUDE.md`, `.agents/**`, `docs/**`, `.github/**`, `.githooks/**`, `.guard/**`, `scripts/**`, `e2e/**`, `src/architecture.test.ts`, `vite.config.ts`, `vitest.e2e.config.ts`, `tsconfig.json`, the `scripts` section of `package.json`, `src/infrastructure/vendor/**`. A check fails if they change. Never run `npm run guard:accept`: it is for the maintainer.

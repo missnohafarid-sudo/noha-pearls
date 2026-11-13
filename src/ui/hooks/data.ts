@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, useSyncExternalStore, type DependencyList } from 'react';
 import type { CardCodec } from '../../services/Services';
+import { isClassCode } from '../../domain/argumentChecks';
 import { FolderTree } from '../../domain/folders';
 import type { Answer, ClassRoster, Id, Lesson, LessonFolder, LessonSummary, Participant, Reward, RetentionSettings, SchoolClass, Session, SessionRoster, SiteContent, Teacher } from '../../domain/models';
 import type { SeatView } from '../../domain/visibility';
@@ -118,9 +119,12 @@ export function useAnyLive(): boolean | undefined {
   return useLive((listener) => classLookup.watchAnyLive(listener), [classLookup]);
 }
 
+/** The class a code opens; text that cannot be a class code (nothing typed yet, punctuation) names no class and is never asked about. */
 export function useSessionByCode(code: string | null): Session | null | undefined {
   const { classLookup } = useServices();
-  return useCallerLive(code === null ? null : (listener) => classLookup.watchByCode(code, listener), [classLookup, code]);
+  const asked = code !== null && isClassCode(code) ? code : null;
+  const session = useCallerLive<Session | null>(asked === null ? null : (listener) => classLookup.watchByCode(asked, listener), [classLookup, asked]);
+  return code !== null && asked === null ? null : session;
 }
 
 export function useAnswers(sessionId: MaybeId): Answer[] | undefined {

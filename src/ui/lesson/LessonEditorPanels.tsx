@@ -138,7 +138,7 @@ function SlideEditPanel({ lesson, slide, save }: { lesson: Lesson; slide: Slide;
     <AdminPanel title={tl.panel.editSlide}>
       <SchemaForm
         fields={slideUi(slide.kind).fields}
-        value={slide}
+        value={normalizeSlide(slide)}
         resetKey={slide.id}
         normalize={normalizeSlide}
         onChange={(next) => void save(updateSlide(lesson, next))}

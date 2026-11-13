@@ -1,5 +1,5 @@
 import { MAX_CHOICES, MIN_CHOICES } from './choices';
-import { isHttpsUrl, isMediaChoice, isMediaProblem, mediaView } from './media';
+import { isHttpsUrl, isMediaChoice, isMediaProblem, mediaView, picturesHaveProblem } from './media';
 import type { AnswerScope, ChoiceSlide, ContentSlide, MediaSlide, Slide, SlideKind, TextSlide } from './models';
 import type { FileField, IssueReporter, RawSlide, SlideKindSpec } from './slideFile';
 
@@ -19,6 +19,8 @@ function requiredText(raw: RawSlide, field: string, report: IssueReporter): stri
   if (!value) report('missing-field', field);
   return value;
 }
+
+const trimmedLinks = (links: readonly string[]) => links.map((link) => link.trim()).filter((link) => link !== '');
 
 const isAbsent = (value: unknown) => value === undefined || value === null;
 
@@ -49,6 +51,30 @@ function pointsOf(raw: RawSlide, report: IssueReporter): number {
   return DEFAULT_POINTS;
 }
 
+/** A list of photo links from a file: the new `images`, or the one `imageUrl` that older files held. Entries are trimmed, blanks dropped, and every kept link must be https. */
+function picturesOf(raw: RawSlide, report: IssueReporter): string[] {
+  const modern = !isAbsent(raw.images);
+  const field = modern ? 'images' : 'imageUrl';
+  const listed = modern ? raw.images : [raw.imageUrl];
+  if (!Array.isArray(listed) || !listed.every((link) => isAbsent(link) || typeof link === 'string')) {
+    report('bad-images', field);
+    return [];
+  }
+  const links = listed.flatMap((link: unknown) => (typeof link === 'string' && link.trim() !== '' ? [link.trim()] : []));
+  if (!links.every(isHttpsUrl)) report('bad-url', field);
+  return links;
+}
+
+/** Stored before pictures became a list: a content slide held one `imageUrl`, a text slide had no pictures. */
+interface StoredPictures {
+  images?: string[];
+  imageUrl?: string;
+}
+
+function storedPictures({ images, imageUrl }: StoredPictures): string[] {
+  return images ?? (imageUrl ? [imageUrl] : []);
+}
+
 const COMMON_FIELDS: readonly FileField[] = [
   { name: 'kind', required: true },
   { name: 'title', required: true },
@@ -63,17 +89,19 @@ const QUESTION_FIELDS: readonly FileField[] = [
 
 const content: SlideKindSpec<ContentSlide> = {
   kind: 'content',
-  create: (id) => ({ id, kind: 'content', title: '', tag: '', body: '', imageUrl: '' }),
-  fileFields: [...COMMON_FIELDS, { name: 'body', required: false }, { name: 'imageUrl', required: false }],
+  create: (id) => ({ id, kind: 'content', title: '', tag: '', body: '', images: [] }),
+  fileFields: [...COMMON_FIELDS, { name: 'body', required: false }, { name: 'images', required: false }],
   fromFile: (raw, id, report) => ({
     id,
     kind: 'content',
     title: requiredText(raw, 'title', report),
     tag: text(raw, 'tag'),
     body: text(raw, 'body'),
-    imageUrl: text(raw, 'imageUrl'),
+    images: picturesOf(raw, report),
   }),
-  toFile: ({ kind, title, tag, body, imageUrl }) => ({ kind, title, tag, body, imageUrl }),
+  toFile: ({ kind, title, tag, body, images }) => ({ kind, title, tag, body, images: trimmedLinks(images) }),
+  normalize: ({ imageUrl, ...slide }: ContentSlide & StoredPictures) => ({ ...slide, images: storedPictures({ images: slide.images, imageUrl }) }),
+  hasProblem: ({ images }) => picturesHaveProblem(images),
 };
 
 /** In files the correct option is 1-based (or null for a poll); in memory it is a 0-based index. */
@@ -151,8 +179,8 @@ const choice: SlideKindSpec<ChoiceSlide> = {
 
 const textKind: SlideKindSpec<TextSlide> = {
   kind: 'text',
-  create: (id) => ({ id, kind: 'text', title: '', tag: '', prompt: '', placeholder: '', scope: 'group', points: 1 }),
-  fileFields: [...COMMON_FIELDS, ...QUESTION_FIELDS, { name: 'placeholder', required: false }],
+  create: (id) => ({ id, kind: 'text', title: '', tag: '', prompt: '', placeholder: '', images: [], scope: 'group', points: 1 }),
+  fileFields: [...COMMON_FIELDS, ...QUESTION_FIELDS, { name: 'placeholder', required: false }, { name: 'images', required: false }],
   fromFile: (raw, id, report) => ({
     id,
     kind: 'text',
@@ -160,11 +188,13 @@ const textKind: SlideKindSpec<TextSlide> = {
     tag: text(raw, 'tag'),
     prompt: requiredText(raw, 'prompt', report),
     placeholder: text(raw, 'placeholder'),
+    images: picturesOf(raw, report),
     scope: scopeOf(raw, 'group', report),
     points: pointsOf(raw, report),
   }),
-  toFile: ({ kind, title, tag, prompt, placeholder, scope, points }) => ({ kind, title, tag, prompt, placeholder, scope, points }),
-  normalize: (slide) => ({ ...slide, points: clampPoints(slide.points) }),
+  toFile: ({ kind, title, tag, prompt, placeholder, images, scope, points }) => ({ kind, title, tag, prompt, placeholder, images: trimmedLinks(images), scope, points }),
+  normalize: (slide) => ({ ...slide, images: storedPictures(slide), points: clampPoints(slide.points) }),
+  hasProblem: ({ images }) => picturesHaveProblem(images),
 };
 
 /** A file may leave the address empty (the slide is then flagged, as the editor allows); a given one must be https. */

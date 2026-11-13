@@ -1,6 +1,8 @@
+import type { HTTPRequest } from 'puppeteer';
 import type { Lesson } from '../src/domain/models';
 import { LESSON_FORMAT, LESSON_FORMAT_VERSION } from '../src/domain/lessonFormat';
 import { t } from '../src/i18n';
+import type { Device } from './device';
 import { storedRecords, type World } from './world';
 
 /** What the lessons lanes share: a lesson file, importing one through the dialog, finding it in storage, filling a side-panel field and removing the lesson again. */
@@ -56,9 +58,59 @@ export async function typeIntoField(world: World, label: string, value: string, 
   await world.admin.until(`the field "${label}" in the side panel`, attempt);
 }
 
+/** The file the editor's export button saves, read as the browser receives it: the interface's own markdown file, not the domain's bare JSON. */
+export async function exportedFileOnPage(world: World, lessonId: string): Promise<string> {
+  await world.admin.goto(`#/lesson/${encodeURIComponent(lessonId)}/1`);
+  await world.admin.page.evaluate(() => {
+    const original = URL.createObjectURL.bind(URL);
+    const kept = window as unknown as { __savedFile?: Promise<string> };
+    URL.createObjectURL = (source: Blob | MediaSource) => {
+      if (source instanceof Blob) kept.__savedFile = source.text();
+      return original(source);
+    };
+  });
+  await world.admin.click(t.lesson.export, PANEL);
+  await world.admin.until('the saved file', () => world.admin.page.evaluate(() => (window as unknown as { __savedFile?: unknown }).__savedFile !== undefined));
+  return world.admin.page.evaluate(() => (window as unknown as { __savedFile: Promise<string> }).__savedFile);
+}
+
 export async function deleteLessonOnPage(world: World, lessonId: string): Promise<void> {
   await world.admin.goto(`#/lesson/${encodeURIComponent(lessonId)}/1`);
   await world.admin.click(t.lesson.delete, PANEL);
   await world.admin.click(t.common.confirm, PANEL);
   await world.admin.until('the lesson gone', async () => !(await storedRecords<Lesson>(world.admin, 'lessons')).some((lesson) => lesson.id === lessonId));
+}
+
+export const PICTURE_HOST = 'pictures.test';
+const PICTURE_LIST = `${PANEL} fieldset.field`;
+
+const PICTURE = `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="120"><rect width="200" height="120" fill="#888888"/></svg>`;
+
+/** The walkthrough has no network: the made-up picture host answers every address with a small drawing. */
+export function answerPictureRequest(request: HTTPRequest): void {
+  if (new URL(request.url()).hostname === PICTURE_HOST) void request.respond({ status: 200, contentType: 'image/svg+xml', body: PICTURE });
+  else void request.continue();
+}
+
+export interface Box {
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+  loaded: boolean;
+}
+
+/** Where each element matching the selector is on this device's page, and whether it is a picture that loaded. */
+export const boxesOf = (device: Device, selector: string): Promise<Box[]> =>
+  device.page.$$eval(selector, (elements) =>
+    elements.map((element) => {
+      const { left, right, top, bottom } = element.getBoundingClientRect();
+      return { left, right, top, bottom, loaded: (element as HTMLImageElement).complete && (element as HTMLImageElement).naturalWidth > 0 };
+    }),
+  );
+
+/** Adds a row to the editor's picture links and types the address into the row at `position`. */
+export async function addPictureLink(world: World, link: string, position: number): Promise<void> {
+  await world.admin.click(t.common.add, PICTURE_LIST);
+  await typeIntoField(world, t.slides.field.images, link, 'input', position);
 }

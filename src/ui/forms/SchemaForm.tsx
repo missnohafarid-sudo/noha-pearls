@@ -24,6 +24,8 @@ export type FieldSpec<T> =
   | (FieldBase<T> & { kind: 'number'; min?: number; max?: number })
   | (FieldBase<T> & { kind: 'select'; options: (value: T) => SelectOption[] })
   | (FieldBase<T> & { kind: 'list'; min: number; max: number; itemLabel: (index: number) => string;
+      /** As for `text`: the items are addresses. */
+      ltr?: true;
       /** Removes one item; use it when the record has other fields that depend on the item's position. */
       removeItem?: (record: T, index: number) => T;
     });
@@ -148,6 +150,7 @@ function Field<T extends object>({ field, record, onChange, onReplace }: FieldPr
             <div className="field__list-row" key={index}>
               <input
                 className="input"
+                dir={field.ltr ? 'ltr' : undefined}
                 aria-label={field.itemLabel(index)}
                 placeholder={field.itemLabel(index)}
                 value={item}

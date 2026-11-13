@@ -18,7 +18,8 @@ export interface ContentSlide extends SlideBase {
   kind: 'content';
   /** Plain text. Lines starting with "- " render as bullets. */
   body: string;
-  imageUrl: string;
+  /** Public https addresses of photos shown in a row; the site stores no files. */
+  images: string[];
 }
 
 export interface ChoiceSlide extends SlideBase {
@@ -36,6 +37,8 @@ export interface TextSlide extends SlideBase {
   kind: 'text';
   prompt: string;
   placeholder: string;
+  /** Public https addresses of photos shown between the prompt and the answer box. */
+  images: string[];
   scope: AnswerScope;
   points: number;
 }

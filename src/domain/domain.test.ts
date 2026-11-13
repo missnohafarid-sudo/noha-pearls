@@ -8,8 +8,8 @@ import { toAsciiDigits } from './digits';
 import { removeOption } from './choices';
 import { isMoveKey, listKeyEffect, movedIndex, typeaheadIndex } from './listNavigation';
 import { exportLesson, importLesson, lessonFileText } from './lessonFormat';
-import { addSlide, createLesson, duplicateSlide, indexAfterRemoval, moveSlide, removeSlide, slideHasProblem, updateSlide } from './lessonOps';
-import { isHttpsUrl, MEDIA_CHOICES, MEDIA_TYPES, mediaLink, mediaView, steppedZoom } from './media';
+import { addSlide, createLesson, duplicateSlide, indexAfterRemoval, moveSlide, normalizeSlide, removeSlide, slideHasProblem, updateSlide } from './lessonOps';
+import { isHttpsUrl, MEDIA_CHOICES, MEDIA_TYPES, mediaLink, mediaView, pictureSources, steppedZoom } from './media';
 import type { Answer, AttendedRoster, ClassRecord, ClassRoster, Reward, ChoiceSlide, Group, Lesson, MediaSlide, Participant, SchoolClass, Session, Student, Teacher, TextSlide } from './models';
 import { resolveStudentView } from './pacing';
 import { addStudentToRoster, cardLabel, createGroup, createSchoolClass, groupById, isCardNumberFree, isOnRoster, moveStudent, nextCardNumber, renameGroupIn, rosterOf, schoolClassForPage, studentByCard, studentById } from './roster';
@@ -30,7 +30,7 @@ const choice: ChoiceSlide = {
   correctIndex: 1, explanation: 'لأن', scope: 'individual', points: 2,
 };
 const groupText: TextSlide = {
-  id: 'q2', kind: 'text', title: 'ن', tag: '', prompt: '؟', placeholder: '', scope: 'group', points: 3,
+  id: 'q2', kind: 'text', title: 'ن', tag: '', prompt: '؟', placeholder: '', images: [], scope: 'group', points: 3,
 };
 const lesson: Lesson = {
   id: 'l1', folderId: null, title: 'درس', subject: '', grade: '', published: true, slides: [choice, groupText], updatedAt: 0,
@@ -235,6 +235,61 @@ describe('lesson file: media slides', () => {
     const result = importLesson(fileWith({ ...base, url: 'https://example.org/page' }));
     expect(result.ok).toBe(true);
     if (result.ok) expect(slideHasProblem(result.lesson.slides[0])).toBe(true);
+  });
+});
+
+describe('pictures on content slides and written questions', () => {
+  const PHOTO_A = 'https://example.org/a.png';
+  const PHOTO_B = 'https://example.org/b.jpg';
+  const fileWith = (slide: object) => JSON.stringify({ format: 'spectrum-lesson', version: 1, title: 'د', slides: [slide] });
+  const imported = (slide: object) => {
+    const result = importLesson(fileWith(slide));
+    return result.ok ? result.lesson.slides[0] : result.issues;
+  };
+  const content = { kind: 'content', title: 'ش', body: 'نص' };
+  const written = { kind: 'text', title: 'ك', prompt: '؟' };
+
+  it('survives an export/import round trip on both kinds', () => {
+    const slides: Lesson['slides'] = [
+      { id: 'c', kind: 'content', title: 'ش', tag: '', body: 'نص', images: [PHOTO_A, PHOTO_B] },
+      { ...groupText, images: [PHOTO_A] },
+    ];
+    const result = importLesson(exportLesson({ ...lesson, slides }));
+    expect(result.ok && result.lesson.slides.map(({ id: _id, ...rest }) => rest)).toEqual(slides.map(({ id: _id, ...rest }) => rest));
+  });
+
+  it('reads the single picture of an older file as a list of one, and no picture as an empty list', () => {
+    expect(imported({ ...content, imageUrl: PHOTO_A })).toMatchObject({ images: [PHOTO_A] });
+    expect(imported({ ...content, imageUrl: '' })).toMatchObject({ images: [] });
+    expect(imported(content)).toMatchObject({ images: [] });
+    expect(imported(written)).toMatchObject({ images: [] });
+    expect(imported({ ...content, images: [` ${PHOTO_A} `, '', PHOTO_B] })).toMatchObject({ images: [PHOTO_A, PHOTO_B] });
+  });
+
+  it('refuses a link that is not https, and a picture list that is not a list of texts', () => {
+    expect(imported({ ...content, images: ['http://example.org/a.png'] })).toEqual([{ code: 'bad-url', slide: 1, field: 'images' }]);
+    expect(imported({ ...written, images: [PHOTO_A, 'a.png'] })).toEqual([{ code: 'bad-url', slide: 1, field: 'images' }]);
+    expect(imported({ ...content, imageUrl: 'http://example.org/a.png' })).toEqual([{ code: 'bad-url', slide: 1, field: 'imageUrl' }]);
+    expect(imported({ ...content, images: PHOTO_A })).toEqual([{ code: 'bad-images', slide: 1, field: 'images' }]);
+    expect(imported({ ...written, images: [3] })).toEqual([{ code: 'bad-images', slide: 1, field: 'images' }]);
+  });
+
+  it('repairs a stored slide that holds the old single picture or none', () => {
+    const old = { id: 'o', kind: 'content', title: '', tag: '', body: '', imageUrl: PHOTO_A } as unknown as Lesson['slides'][number];
+    const repaired = normalizeSlide(old);
+    expect(repaired).toMatchObject({ images: [PHOTO_A] });
+    expect(repaired).not.toHaveProperty('imageUrl');
+    const none = { ...groupText, images: undefined } as unknown as Lesson['slides'][number];
+    expect(normalizeSlide(none)).toMatchObject({ images: [] });
+  });
+
+  it('flags a bad picture link and nothing else, and draws only what is a picture', () => {
+    const withImages = (images: string[]): Lesson['slides'][number] => ({ ...groupText, images });
+    expect(slideHasProblem(withImages([PHOTO_A, '']))).toBe(false);
+    expect(slideHasProblem(withImages(['http://example.org/a.png']))).toBe(true);
+    expect(slideHasProblem(withImages(['https://www.youtube.com/watch?v=abc']))).toBe(true);
+    expect(pictureSources([PHOTO_A, '', 'http://example.org/x.png', PHOTO_B])).toEqual([PHOTO_A, PHOTO_B]);
+    expect(pictureSources(['https://drive.google.com/file/d/FILE_ID_1/view'])).toEqual(['https://drive.google.com/thumbnail?id=FILE_ID_1&sz=w2000']);
   });
 });
 

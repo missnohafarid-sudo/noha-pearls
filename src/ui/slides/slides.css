@@ -101,11 +101,21 @@
   background: var(--gold);
 }
 
-.slide-content__image {
+.slide-pictures {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: calc(var(--gap) / 2);
+  min-inline-size: 0;
+}
+
+.slide-pictures__image {
+  display: block;
+  min-inline-size: 0;
   max-inline-size: 100%;
-  max-block-size: 50vh;
+  max-block-size: 40vh;
+  object-fit: contain;
   border-radius: var(--radius-small);
-  justify-self: center;
 }
 
 .slide-question {

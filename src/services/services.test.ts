@@ -32,7 +32,7 @@ const question: ChoiceSlide = {
   correctIndex: 0, explanation: 'شرح', scope: 'individual', points: 1,
 };
 const groupQuestion: TextSlide = {
-  id: 'q2', kind: 'text', title: 'ن', tag: '', prompt: '؟', placeholder: '', scope: 'group', points: 1,
+  id: 'q2', kind: 'text', title: 'ن', tag: '', prompt: '؟', placeholder: '', images: [], scope: 'group', points: 1,
 };
 const lesson: Lesson = {
   id: 'l1', folderId: null, title: 'درس', subject: '', grade: '', published: true, slides: [question, groupQuestion], updatedAt: 0,

@@ -50,7 +50,7 @@ A teacher. She is not a programmer and cannot judge your code.
 | Slide kinds: template, file read/write, repairs | `domain/slideKinds.ts` |
 | Slide kinds: edit fields and drawing | `ui/slides/slideUi.tsx` |
 | Lesson file format and checks | `domain/lessonFormat.ts` |
-| Lesson edits (add, move, remove slide) | `domain/lessonOps.ts` |
+| Lesson edits (add, copy, move, remove slide) | `domain/lessonOps.ts` |
 | The lesson folder tree: nesting, moving, what a folder holds, removing one without losing anything | `domain/folders.ts` |
 | The lesson library screen: path line, folder tiles, moving by drag or by the move dialog | `ui/library/` (words in `i18n/library.ts`) |
 | Which folders a reader sees, and the folder a page shows for a requested one | `domain/folders.ts` |
@@ -64,7 +64,7 @@ A teacher. She is not a programmer and cannot judge your code.
 | What a group's device shows | `domain/pacing.ts` |
 | Card encoding | `domain/cards.ts` |
 | Choice limits | `domain/choices.ts` |
-| What a media link shows and how: its type, its address, its frame | `domain/media.ts` |
+| What a media link shows and how: its type, its address, its frame; which photos a slide shows | `domain/media.ts` |
 | Keyboard moves through a list of options, typing to jump | `domain/listNavigation.ts` |
 | Roster rules, group colours | `domain/roster.ts` |
 | Class list format | `domain/rosterFormat.ts` |

@@ -43,7 +43,7 @@ export function normalizeSlide(slide: Slide): Slide {
 
 /** Whether the slide cannot show what it should (see each kind's `hasProblem`). */
 export function slideHasProblem(slide: Slide): boolean {
-  return slideKindSpec(slide.kind).hasProblem?.(slide) ?? false;
+  return slideKindSpec(slide.kind).hasProblem?.(normalizeSlide(slide)) ?? false;
 }
 
 export function updateSlide(lesson: Lesson, slide: Slide): Lesson {

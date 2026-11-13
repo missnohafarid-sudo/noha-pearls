@@ -5,10 +5,11 @@ import type { AnswerKey, ChoiceSlide, ContentSlide, Slide, SlideKind, TextSlide 
 import { choiceLetter, t } from '../../i18n';
 import { MAX_POINTS, MIN_POINTS } from '../../domain/slideKinds';
 import { optionMark, verdictOf } from '../../domain/scoring';
-import { MEDIA_CHOICES } from '../../domain/media';
+import { MAX_PICTURES, MEDIA_CHOICES } from '../../domain/media';
 import type { FieldSpec, SelectOption } from '../forms/SchemaForm';
 import { BodyText } from './BodyText';
 import { MediaBody } from './MediaBody';
+import { Pictures } from './Pictures';
 
 /**
  * The UI half of the slide-kind registry: for each kind, its editing fields and
@@ -52,7 +53,7 @@ function ContentBody({ slide }: SlideBodyProps<ContentSlide>) {
   return (
     <div className="slide-content">
       <BodyText text={slide.body} />
-      {slide.imageUrl && <img className="slide-content__image" src={slide.imageUrl} alt="" />}
+      <Pictures links={slide.images} />
     </div>
   );
 }
@@ -103,6 +104,7 @@ function TextBody({ slide, interaction }: SlideBodyProps<TextSlide>) {
   return (
     <div className="slide-question">
       <p className="slide-question__prompt">{slide.prompt}</p>
+      <Pictures links={slide.images} />
       {onAnswer ? (
         <form
           className="stack"
@@ -139,6 +141,17 @@ const COMMON_FIELDS = [
   { kind: 'text', key: 'tag', label: f.tag },
 ] as const;
 
+const PICTURES_FIELD = {
+  kind: 'list',
+  key: 'images',
+  label: f.images,
+  hint: f.imagesHint,
+  min: 0,
+  max: MAX_PICTURES,
+  itemLabel: (index: number) => f.image(index + 1),
+  ltr: true,
+} as const;
+
 const QUESTION_TAIL = [
   { kind: 'select', key: 'scope', label: f.scope, options: () => SCOPE_OPTIONS },
   { kind: 'number', key: 'points', label: f.points, min: MIN_POINTS, max: MAX_POINTS },
@@ -150,7 +163,7 @@ const SLIDE_UI: { [K in SlideKind]: SlideUi<Extract<Slide, { kind: K }>> } = {
     fields: [
       ...COMMON_FIELDS,
       { kind: 'textarea', key: 'body', label: f.body, hint: f.bodyHint },
-      { kind: 'text', key: 'imageUrl', label: f.imageUrl, ltr: true },
+      PICTURES_FIELD,
     ],
     Body: ContentBody,
   },
@@ -188,6 +201,7 @@ const SLIDE_UI: { [K in SlideKind]: SlideUi<Extract<Slide, { kind: K }>> } = {
       ...COMMON_FIELDS,
       { kind: 'textarea', key: 'prompt', label: f.prompt },
       { kind: 'text', key: 'placeholder', label: f.placeholder },
+      PICTURES_FIELD,
       ...QUESTION_TAIL,
     ],
     Body: TextBody,

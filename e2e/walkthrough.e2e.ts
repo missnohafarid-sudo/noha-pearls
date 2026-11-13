@@ -24,6 +24,7 @@ import { scopeBadgeSteps } from './steps/scopeBadge';
 import { shellSteps } from './steps/shell';
 import { signInSteps } from './steps/signIn';
 import { slideCopySteps } from './steps/slideCopy';
+import { slidePicturesSteps } from './steps/slidePictures';
 import { standingsSteps } from './steps/standings';
 import { twoClassesSteps } from './steps/twoClasses';
 import { twoDevicesSteps } from './steps/twoDevices';
@@ -56,6 +57,7 @@ describe('walkthrough', () => {
   foldersSteps(world);
   mediaSlidesSteps(world);
   slideCopySteps(world);
+  slidePicturesSteps(world);
   liveClassSteps(world);
   presenterBarSteps(world);
   pearlPanelSteps(world);

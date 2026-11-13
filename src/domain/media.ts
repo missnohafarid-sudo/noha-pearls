@@ -157,6 +157,28 @@ export function isMediaProblem(result: MediaView | MediaProblem): result is Medi
   return typeof result === 'string';
 }
 
+/** How many photos a slide may carry. */
+export const MAX_PICTURES = 6;
+
+/** A photo link the teacher has filled in but the slide cannot show as a photo (an empty entry is only unfinished). */
+function isPictureProblem(link: string): boolean {
+  if (link.trim() === '') return false;
+  const view = mediaView(link, 'image');
+  return isMediaProblem(view) || view.how !== 'image';
+}
+
+export function picturesHaveProblem(links: readonly string[]): boolean {
+  return links.some(isPictureProblem);
+}
+
+/** The addresses to draw for a slide's photo links, in order: each goes through the same rule as an image declared on a media slide. */
+export function pictureSources(links: readonly string[]): string[] {
+  return links.flatMap((link) => {
+    const view = mediaView(link, 'image');
+    return !isMediaProblem(view) && view.how === 'image' ? [view.src] : [];
+  });
+}
+
 /** The zoom a PDF frame may take, in percent of its box. */
 export const PDF_ZOOM_STEPS: readonly number[] = [100, 150, 200, 300];
 

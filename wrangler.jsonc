@@ -13,5 +13,5 @@
   "durable_objects": {
     "bindings": [{ "name": "HUB", "class_name": "SchoolHub" }]
   },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["SchoolHub"] }]
+  "exports": { "SchoolHub": { "type": "durable-object", "storage": "sqlite" } }
 }

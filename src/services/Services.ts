@@ -66,6 +66,15 @@ export const UI_SURFACE = {
   seatView: ['watchMine', 'watchLesson'],
 } as const satisfies { [S in keyof ServiceClasses]: readonly (keyof ServiceClasses[S])[] };
 
+/**
+ * The names of `UI_SURFACE` that read nothing stored: the page answers them itself and the hub refuses them. The one list both
+ * sides read (`surfaceDispatch.ts` for the hub, `remoteServices.ts` for the page).
+ */
+export const LOCAL_SURFACE = {
+  lessons: ['exportToText'],
+  records: ['currentPeriod'],
+} as const satisfies { [S in keyof typeof UI_SURFACE]?: readonly (typeof UI_SURFACE)[S][number][] };
+
 /** The use cases over stored data, as the interface sees them. */
 export type DataServices = { [S in keyof typeof UI_SURFACE]: Pick<ServiceClasses[S], Extract<(typeof UI_SURFACE)[S][number], keyof ServiceClasses[S]>> };
 

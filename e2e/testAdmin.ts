@@ -1,19 +1,11 @@
-import { createHash } from 'node:crypto';
 import { totpCode } from '../src/infrastructure/totp';
+import { LOCAL_ADMIN_SECRETS } from '../vite.config';
 
-/** The only home of the test sign-in: the build is made with these, and the walkthrough types them. */
-const TEST_PASSWORD = 'walkthrough-pass-2468';
-const TEST_TOTP_KEY = 'JBSWY3DPEHPK3PXP';
+/** The only home of the walkthrough's sign-in: the page's browser-only mode accepts the public development pair, and the walkthrough types it. */
+const TEST_PASSWORD = LOCAL_ADMIN_SECRETS.ADMIN_PASSWORD;
+const TEST_TOTP_KEY = LOCAL_ADMIN_SECRETS.ADMIN_TOTP_SECRET;
 
 export const WRONG_PASSWORD = 'not-the-password-0000';
-
-/** The two variables the production build reads for its admin sign-in. */
-export function adminBuildVariables(): Record<string, string> {
-  return {
-    VITE_ADMIN_PASSWORD_SHA256: createHash('sha256').update(TEST_PASSWORD).digest('hex'),
-    VITE_ADMIN_TOTP_SECRET: TEST_TOTP_KEY,
-  };
-}
 
 export const rightPassword = (): string => TEST_PASSWORD;
 

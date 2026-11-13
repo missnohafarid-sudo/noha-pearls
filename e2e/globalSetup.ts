@@ -5,7 +5,6 @@ import { join } from 'node:path';
 import { build, preview, type PreviewServer } from 'vite';
 import type { TestProject } from 'vitest/node';
 import { SITE_ONLY_VARIABLE } from '../vite.config';
-import { adminBuildVariables } from './testAdmin';
 
 declare module 'vitest' {
   export interface ProvidedContext {
@@ -28,11 +27,11 @@ function freePort(): Promise<number> {
 }
 
 /**
- * Builds the production site with the test sign-in baked in, and serves it for the walkthrough.
+ * Builds the production site in its browser-only mode, and serves it for the walkthrough.
  * Each run builds into a folder of its own: two runs at once must not overwrite the site the other is serving.
  */
 export default async function setup(project: TestProject): Promise<() => Promise<void>> {
-  Object.assign(process.env, adminBuildVariables(), { [SITE_ONLY_VARIABLE]: '1' });
+  process.env[SITE_ONLY_VARIABLE] = '1';
   const outDir = mkdtempSync(join(tmpdir(), 'noha-pearls-e2e-'));
   await build({ logLevel: 'warn', mode: 'production', build: { outDir, emptyOutDir: true } });
   const port = await freePort();

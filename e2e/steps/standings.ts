@@ -3,7 +3,9 @@ import { inPeriod, periodAt, shiftPeriod, type Period } from '../../src/domain/p
 import type { ClassRecord, Reward } from '../../src/domain/models';
 import { roundToTenth } from '../../src/domain/scoring';
 import { t } from '../../src/i18n';
+import { sessionCodeIn, startClass } from '../actions';
 import type { Device } from '../device';
+import { SAMPLE } from '../sample';
 import { storedRecords, type World } from '../world';
 
 const PAGE = 'main';
@@ -152,8 +154,21 @@ export function standingsSteps(world: World): void {
     expect(await world.visitor.has(t.standings.note)).toBe(false);
   });
 
-  it('a signed-out visitor\'s board shows the groups\' cumulative table of the class, and the month keeps the same numbers', async () => {
-    await world.visitor.goto(`#/board/${world.firstClassCode}`);
+  let laterCode = '';
+
+  it('the teacher starts another class of the same class list, whose board is the only one a visitor can open now', async () => {
+    await world.admin.goto('#/');
+    await world.admin.waitFor(SAMPLE.title);
+    await world.admin.click(SAMPLE.title);
+    await startClass(world.admin, world.firstClassName, world.firstTeacherName);
+    await world.admin.waitFor(t.session.pacingTitle);
+    laterCode = sessionCodeIn(world.admin);
+    expect(laterCode).toMatch(/^[A-Z2-9]{6}$/);
+    expect(laterCode).not.toBe(world.firstClassCode);
+  });
+
+  it('a signed-out visitor\'s board of the running class shows the groups\' cumulative table of the class list, and the month keeps the same numbers', async () => {
+    await world.visitor.goto(`#/board/${laterCode}`);
     await world.visitor.waitFor(t.standings.title);
     await expectGroupTable(world.visitor, periodAt('week', Date.now()));
     await world.visitor.click(t.standings.periodKind.month, PAGE);
@@ -162,11 +177,25 @@ export function standingsSteps(world: World): void {
     await world.visitor.waitFor(t.standings.periodLabel(periodAt('week', Date.now())));
   });
 
-  it('the visitor\'s board shows no student, no student table and no one\'s own line', async () => {
+  it('the visitor\'s board of the running class shows no student, no student table and no one\'s own line', async () => {
     const shown = await world.visitor.text();
     expect(world.roster.filter((entry) => shown.includes(entry.name))).toEqual([]);
     for (const hidden of [t.standings.students.title, t.standings.students.unresponsive, t.standings.own.periodKind.week, t.standings.own.periodKind.month]) expect(shown).not.toContain(hidden);
     expect(await world.visitor.count('main thead th')).toBe(3);
+  });
+
+  it('a signed-out visitor who types an ended class\'s code is told the code is unknown', async () => {
+    await world.visitor.goto('#/board');
+    await world.visitor.waitFor(t.board.codePrompt);
+    await world.visitor.fill('.join-code input', world.firstClassCode);
+    await world.visitor.click(t.board.showBoard);
+    await world.visitor.waitFor(t.session.unknownCode(world.firstClassCode));
+    const shown = await world.visitor.text();
+    expect(shown).not.toContain(world.firstClassName);
+    expect(shown).not.toContain(world.firstTeacherName);
+    expect(world.roster.filter((entry) => shown.includes(entry.name))).toEqual([]);
+    expect(await world.visitor.has(t.standings.title)).toBe(false);
+    expect(await world.visitor.has(t.board.leaderboard)).toBe(false);
   });
 
   it('the student\'s ended screen shows her own cumulative line for this week and this month, hearts given after the end included', async () => {

@@ -37,7 +37,8 @@ export function SlideNav({ index, count, onGo, keyboard = false, disabled = fals
       const delta = NEXT_KEYS.has(event.key) ? 1 : PREVIOUS_KEYS.has(event.key) ? -1 : 0;
       if (delta === 0) return;
       event.preventDefault();
-      go(delta);
+      // A held key moves one slide: its repeats would each send the teacher's device another move.
+      if (!event.repeat) go(delta);
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);

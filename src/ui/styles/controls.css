@@ -159,15 +159,22 @@ textarea.input {
 }
 
 /* ---- dialog ---- */
+/* A dialog is a head, a body and a foot. Only the body scrolls, so the title and the final buttons are always in view. */
 .dialog {
   inline-size: min(92vw, 420px);
+  max-block-size: calc(100dvh - 2rem);
   border: 0;
   border-block-start: 3px solid var(--gold);
   border-radius: var(--radius);
-  padding: 24px;
+  padding: 0;
   background: var(--surface);
   color: var(--ink);
   box-shadow: var(--shadow);
+}
+
+.dialog[open] {
+  display: flex;
+  flex-direction: column;
 }
 
 .dialog--wide {
@@ -178,7 +185,30 @@ textarea.input {
   background: var(--scrim);
 }
 
+.dialog__frame {
+  display: flex;
+  flex: 0 1 auto;
+  flex-direction: column;
+  min-block-size: 0;
+}
+
+.dialog__head {
+  padding: 20px 24px 12px;
+}
+
 .dialog__title {
   font-size: 1.25rem;
   color: var(--accent);
+}
+
+.dialog__body {
+  flex: 1 1 auto;
+  min-block-size: 0;
+  overflow-y: auto;
+  padding: 4px 24px;
+}
+
+.dialog__foot {
+  padding: 12px 24px 20px;
+  border-block-start: 1px solid var(--line-soft);
 }

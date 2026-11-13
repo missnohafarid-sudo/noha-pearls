@@ -52,33 +52,37 @@ export function AdminUnlock({ onClose }: { onClose: () => void }) {
         onClose();
       }}
     >
-      <form className="stack" onSubmit={submit}>
-        <h2 className="dialog__title">{t.shell.unlock.title}</h2>
-        <PasswordField
-          label={t.shell.unlock.password}
-          value={password}
-          onChange={setPassword}
-          shown={passwordShown}
-          onShownChange={setPasswordShown}
-          autoFocus
-        />
-        <label className="field">
-          <span className="field__label">{t.shell.unlock.code}</span>
-          <input
-            className="input"
-            type="text"
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            maxLength={6}
-            dir="ltr"
-            value={code}
-            onChange={(event) => setCode(event.target.value)}
+      <form className="dialog__frame" onSubmit={submit}>
+        <header className="dialog__head">
+          <h2 className="dialog__title">{t.shell.unlock.title}</h2>
+        </header>
+        <div className="dialog__body stack">
+          <PasswordField
+            label={t.shell.unlock.password}
+            value={password}
+            onChange={setPassword}
+            shown={passwordShown}
+            onShownChange={setPasswordShown}
+            autoFocus
           />
-        </label>
-        <p className="muted form-status" role="status">
-          {status === 'checking' ? t.shell.unlock.checking : status === 'wrong' ? t.shell.unlock.wrong : ''}
-        </p>
-        <div className="row">
+          <label className="field">
+            <span className="field__label">{t.shell.unlock.code}</span>
+            <input
+              className="input"
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={6}
+              dir="ltr"
+              value={code}
+              onChange={(event) => setCode(event.target.value)}
+            />
+          </label>
+          <p className="muted form-status" role="status">
+            {status === 'checking' ? t.shell.unlock.checking : status === 'wrong' ? t.shell.unlock.wrong : ''}
+          </p>
+        </div>
+        <div className="dialog__foot row">
           <button type="submit" className="btn btn--primary" disabled={status === 'checking'}>
             {t.shell.unlock.submit}
           </button>

@@ -1,10 +1,16 @@
+/* The title bar stays put; whatever fills the rest scrolls inside itself. */
 .overlay {
   position: fixed;
   inset: 0;
   z-index: 1000;
   display: grid;
-  grid-template-rows: auto 1fr;
+  grid-template-rows: auto minmax(0, 1fr);
   background: var(--bg-wash);
+}
+
+.overlay > :not(.overlay__top) {
+  min-block-size: 0;
+  overflow-y: auto;
 }
 
 .overlay__top {

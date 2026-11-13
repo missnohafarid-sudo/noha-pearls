@@ -27,6 +27,7 @@ export function LessonImportDialog({ folderId, onClose }: { folderId: Id | null;
   const { lessons } = useServices();
   const { error, attemptWith } = useAttempt();
   const dialog = useRef<HTMLDialogElement>(null);
+  const outcome = useRef<HTMLElement>(null);
   const [text, setText] = useState('');
   const [issues, setIssues] = useState<string[]>([]);
   const [fileError, setFileError] = useState(false);
@@ -37,6 +38,11 @@ export function LessonImportDialog({ folderId, onClose }: { folderId: Id | null;
     const element = dialog.current;
     if (element && !element.open) element.showModal();
   }, []);
+
+  // The import button sits in the foot, so the outcome of pressing it is brought into view in the body.
+  useEffect(() => {
+    if (error || issues.length > 0) outcome.current?.scrollIntoView({ block: 'nearest' });
+  }, [error, issues]);
 
   const changeText = (next: string) => {
     setText(next);
@@ -62,67 +68,69 @@ export function LessonImportDialog({ folderId, onClose }: { folderId: Id | null;
 
   return (
     <dialog ref={dialog} className="dialog dialog--wide" onClose={onClose}>
-      <div className="stack">
-        <h2 className="dialog__title">{tl.title}</h2>
+      <div className="dialog__frame">
+        <header className="dialog__head">
+          <h2 className="dialog__title">{tl.title}</h2>
+        </header>
 
-        <section className="stack stack--tight">
-          <h3>{tl.step1Title}</h3>
-          <p className="muted">{tl.step1Help}</p>
-          <div className="row">
-            <button type="button" className="btn" onClick={() => copyPrompt(t.lessonPrompt.build())}>
-              {tl.copyInstructions}
-            </button>
-            {promptCopied && <span className="chip chip--ok">{t.common.copied}</span>}
-          </div>
-        </section>
-
-        <section className="stack stack--tight">
-          <h3>{tl.step2Title}</h3>
-          <p className="muted">{tl.step2Help}</p>
-          <textarea
-            className="input"
-            rows={8}
-            dir="ltr"
-            aria-label={tl.pasteLabel}
-            value={text}
-            onChange={(event) => changeText(event.target.value)}
-          />
-          <div className="row">
-            <span className="muted">{tl.orFile}</span>
-            <FilePicker accept={LESSON_FILE.accept} onFile={readFile} />
-          </div>
-          {fileError && <p className="notice notice--bad">{tl.fileReadError}</p>}
-        </section>
-
-        <section className="stack stack--tight">
-          <h3>{tl.step3Title}</h3>
-          <p className="muted">{tl.step3Help}</p>
-          <p className="notice">{tl.verseNotice}</p>
-          <div className="row">
-            <button type="button" className="btn btn--primary" disabled={text.trim() === ''} onClick={() => void submit()}>
-              {tl.importButton}
-            </button>
-          </div>
-          {error && <p className="notice notice--bad">{error}</p>}
-          {issues.length > 0 && (
-            <div className="notice notice--bad stack stack--tight">
-              <strong>{tl.errorsTitle}</strong>
-              <ul>
-                {issues.map((issue, index) => (
-                  <li key={index}>{issue}</li>
-                ))}
-              </ul>
-              <div className="row">
-                <button type="button" className="btn btn--small" onClick={() => copyErrors(`${t.lessonFile.fixRequest}\n${issues.join('\n')}`)}>
-                  {tl.copyErrors}
-                </button>
-                {errorsCopied && <span className="chip chip--ok">{t.common.copied}</span>}
-              </div>
+        <div className="dialog__body stack">
+          <section className="stack stack--tight">
+            <h3>{tl.step1Title}</h3>
+            <p className="muted">{tl.step1Help}</p>
+            <div className="row">
+              <button type="button" className="btn" onClick={() => copyPrompt(t.lessonPrompt.build())}>
+                {tl.copyInstructions}
+              </button>
+              {promptCopied && <span className="chip chip--ok">{t.common.copied}</span>}
             </div>
-          )}
-        </section>
+          </section>
 
-        <div className="row">
+          <section className="stack stack--tight">
+            <h3>{tl.step2Title}</h3>
+            <p className="muted">{tl.step2Help}</p>
+            <textarea
+              className="input"
+              rows={8}
+              dir="ltr"
+              aria-label={tl.pasteLabel}
+              value={text}
+              onChange={(event) => changeText(event.target.value)}
+            />
+            <div className="row">
+              <span className="muted">{tl.orFile}</span>
+              <FilePicker accept={LESSON_FILE.accept} onFile={readFile} />
+            </div>
+            {fileError && <p className="notice notice--bad">{tl.fileReadError}</p>}
+          </section>
+
+          <section ref={outcome} className="stack stack--tight">
+            <h3>{tl.step3Title}</h3>
+            <p className="muted">{tl.step3Help}</p>
+            <p className="notice">{tl.verseNotice}</p>
+            {error && <p className="notice notice--bad">{error}</p>}
+            {issues.length > 0 && (
+              <div className="notice notice--bad stack stack--tight">
+                <strong>{tl.errorsTitle}</strong>
+                <ul>
+                  {issues.map((issue, index) => (
+                    <li key={index}>{issue}</li>
+                  ))}
+                </ul>
+                <div className="row">
+                  <button type="button" className="btn btn--small" onClick={() => copyErrors(`${t.lessonFile.fixRequest}\n${issues.join('\n')}`)}>
+                    {tl.copyErrors}
+                  </button>
+                  {errorsCopied && <span className="chip chip--ok">{t.common.copied}</span>}
+                </div>
+              </div>
+            )}
+          </section>
+        </div>
+
+        <div className="dialog__foot row">
+          <button type="button" className="btn btn--primary" disabled={text.trim() === ''} onClick={() => void submit()}>
+            {tl.importButton}
+          </button>
           <button type="button" className="btn" onClick={() => dialog.current?.close()}>
             {t.common.close}
           </button>

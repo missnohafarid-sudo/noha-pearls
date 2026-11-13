@@ -64,12 +64,16 @@ export function MoveDialog({ tree, item, name, onPick, onClose }: MoveDialogProp
 
   return (
     <dialog ref={dialog} className="dialog" onClose={onClose}>
-      <div className="stack">
-        <h2 className="dialog__title">{tm.title(name)}</h2>
-        <ul className="list-reset move-list move-list--root">
-          <Destination tree={tree} item={item} target={null} name={t.library.rootName} onPick={choose} />
-        </ul>
-        <div className="row">
+      <div className="dialog__frame">
+        <header className="dialog__head">
+          <h2 className="dialog__title">{tm.title(name)}</h2>
+        </header>
+        <div className="dialog__body">
+          <ul className="list-reset move-list move-list--root">
+            <Destination tree={tree} item={item} target={null} name={t.library.rootName} onPick={choose} />
+          </ul>
+        </div>
+        <div className="dialog__foot row">
           <button type="button" className="btn" onClick={close}>
             {t.common.close}
           </button>

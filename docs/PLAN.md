@@ -959,14 +959,20 @@ one. These do:
 2. **The browser walkthrough is a test.** The run through the whole product
    (243 steps as of 2026-11-13) lives in the repository and runs on every
    check.
-3. **One way to finish.** `npm run check` runs everything. `npm run ship` runs
-   the check and only then commits and pushes. A git hook refuses a push when
-   the check fails. `npm run deployed` then waits for the online run and says
-   whether the site shows the change; the agent asks her to keep it, undo it,
-   or keep part of it only after that.
-4. **Deploys are gated.** On every push to `main`, CI runs the same check and
-   (from phase 1; until then a push only runs the check) deploys only if it
-   passes. A failed change leaves the live site as it was.
+3. **One way to finish.** `npm run check` runs everything; it runs online,
+   because the teacher's laptop is too slow for it. `npm run ship` runs a
+   quick check (types, protected files) and sends the change, as one commit,
+   to the branch `try`. CI runs the whole check there and, only when it
+   passes, moves `main` to that commit and deploys. A failed change never
+   reaches `main`. `npm run deployed` waits for that run and says whether the
+   site shows the change or what failed; the agent asks her to keep it, undo
+   it, or keep part of it only after that. A git hook still refuses a direct
+   push to `main` (the maintainer's) when the whole check fails.
+4. **Deploys are gated.** CI runs the whole check on every push to `try` (a
+   change shipped from the teacher's laptop) and on every direct push to
+   `main` (the maintainer's), and deploys only if it passes. A failed change
+   leaves the live site as it was, and one sent through `try` never reaches
+   `main` either.
 5. **One way back.** `npm run undo` reverts the last shipped change and ships
    the revert.
 6. **Protected files.** The guidance, the checks, the workflows and the scripts

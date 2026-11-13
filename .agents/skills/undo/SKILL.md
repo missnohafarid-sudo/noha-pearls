@@ -9,7 +9,7 @@ First tell her in one plain Arabic sentence which change you mean, as what it di
 
 ## All of the last change
 
-1. Run `npm run undo`. It takes back the last shipped change and ships that.
+1. Run `npm run undo`. It takes back the last change that is on the site and sends that to the online check. If it answers that there is a change on this computer that is not on the site, run `npm run deployed` first. A change that is still being checked will reach the site: wait for `LIVE`, then undo it. Only when the online check failed did the change never reach the site: then `npm run discard` throws it away (tell her first what will be thrown away) and nothing on the site needs undoing. If it answers that this computer was behind, or that the newest change is the maintainer's, do what it says: read the log again, and take back an earlier change with the next section.
 2. Run `npm run deployed` and wait for its answer, as in AGENTS.md section 5. After `LIVE`, tell her in two or three Arabic sentences that the site is as it was before that change, and that she can ask for a different change.
 
 Running `npm run undo` again brings the change back: it undoes the undo. So when the last shipped change is itself an undo (its line in the log starts with `Revert`) and she wants to go one change further back, use the next section.

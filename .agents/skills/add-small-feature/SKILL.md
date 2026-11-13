@@ -24,7 +24,7 @@ You may build this yourself. Small means: she can see it work on one or two scre
 4. If it stores anything on the server or adds a command, rules 16 and 18 apply: a new field is optional and read with a default, the three tables name the new method, and a step in `e2e/firstRun.integration.ts` does it from the page on the real local server and checks that `t.roster.errors.unknown` does not show and that it is still there after a reload.
 5. Words go in `src/i18n`. Look goes through tokens (skill `change-look`).
 6. Add a step for it to the nearest file in `e2e/steps/` (read two steps there first; a new file is registered in `e2e/walkthrough.e2e.ts`).
-7. The steps you added are the proof, as the teacher and as a student or visitor who is not signed in. If you can open the site yourself (`npm run dev`), look at it too. Describe to her what each one sees.
+7. The steps you added are the proof, as the teacher and as a student or visitor who is not signed in; the online check runs them when you ship. If you can open the site yourself (`npm run dev`), look at it too. Describe to her what each one sees.
 8. Finish as in AGENTS.md section 5. Example message: `Let the teacher choose the site's look for everyone`.
 
 ## Worked example: looks (themes)

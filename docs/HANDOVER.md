@@ -8,7 +8,18 @@ For the technically able person who sets up the teacher's laptop once. Everythin
 - [ ] Create an SSH key, add the public key to her GitHub account (Settings > SSH and GPG keys).
 - [ ] Clone the repository over SSH into a folder she will keep.
 - [ ] `npm install` in the folder. This also installs the git hook. Check that it succeeded without errors.
+- [ ] The full check never runs on her laptop: `npm run ship` runs a quick one and GitHub runs the rest before a change can reach `main` (branch `try`, see the header of `.github/workflows/deploy.yml`). Do not ask her agent to run `npm run check`.
 - [ ] Install the GitHub CLI and run `gh auth login`. An SSH key does not sign the CLI in. It is needed later for the operations commands.
+
+### Bringing a laptop that is already set up to date
+
+After the maintainer changes the scripts or the agent's rules, her laptop gets them with one pull. Until then her agent still runs the old commands.
+
+- [ ] In the project folder: `git status` shows nothing to commit and `git log origin/main..HEAD` prints nothing. If either shows something, a change of hers is still only on this laptop: push it or sort it out by hand first.
+- [ ] `git pull --ff-only origin main`. No `npm install` is needed unless `package.json`'s dependencies changed.
+- [ ] Start a new conversation with the agent, so it reads the current `AGENTS.md`.
+
+From then on `npm run ship` fetches the maintainer's newer changes by itself and puts her change on top of them.
 
 ## 2. Antigravity
 
@@ -67,7 +78,7 @@ The old GitHub Pages site was a browser-only prototype whose files carried the p
 
 ## 5. Five-minute smoke test
 
-- [ ] Ask the agent, in Arabic: change one word on the home page's lesson heading (for example «غيّري كلمة "الدروس" إلى "دروسنا"»). Confirm it restates the request in simple Arabic, changes only the Arabic value in `src/i18n/home.ts`, runs `npm run ship -- "..."` (which runs the check), then `npm run deployed`, and only after that answers `LIVE` explains in Arabic and asks whether to keep the change, undo it, or keep part of it.
+- [ ] Ask the agent, in Arabic: change one word on the home page's lesson heading (for example «غيّري كلمة "الدروس" إلى "دروسنا"»). Confirm it restates the request in simple Arabic, changes only the Arabic value in `src/i18n/home.ts`, runs `npm run ship -- "..."` (a quick check on the laptop; the full check runs online before the change can reach `main`), then `npm run deployed`, and only after that answers `LIVE` explains in Arabic and asks whether to keep the change, undo it, or keep part of it.
 - [ ] Confirm the deploy ran on GitHub (Actions tab) and the site shows the change.
 - [ ] Ask it «تراجعي عن آخر تغيير». Confirm it runs `npm run undo`, then `npm run deployed`, and the site returns to the old word.
 - [ ] Ask it for something small and new (for example «أضيفي زرًّا يغيّر مظهر الموقع»). Confirm it asks who the choice is for and builds it, instead of sending her to the maintainer. What it may do alone and what it must hand over is in `AGENTS.md` section 6.

@@ -7,6 +7,7 @@ export const monitor = {
   joinedCount: (joined: number, total: number) => `انضمت ${joined} من ${total}`,
   card: 'البطاقة',
   student: 'الطالبة',
+  presence: 'الحضور',
   joined: 'منضمة',
   notJoined: 'لم تنضمّ',
   points: 'النقاط',

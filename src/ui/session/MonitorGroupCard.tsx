@@ -47,6 +47,7 @@ export function MonitorGroupCard({ entry, rewards, possible, onGive, onSetPresen
               <tr>
                 <th>{t.monitor.card}</th>
                 <th>{t.monitor.student}</th>
+                <th>{t.monitor.presence}</th>
                 <th>{t.monitor.joined}</th>
                 {columns.map((cell) => (
                   <th key={cell.slide.id}>{cell.slide.title}</th>
@@ -60,15 +61,13 @@ export function MonitorGroupCard({ entry, rewards, possible, onGive, onSetPresen
               {rows.map((row) => (
                 <tr key={row.student.id}>
                   <td>{row.student.cardNumber}</td>
+                  <td>{row.student.name}</td>
                   <td>
-                    <div className="stack stack--tight">
-                      {row.student.name}
-                      <StudentStatus
-                        present={row.present}
-                        unresponsive={row.unresponsive}
-                        onSetPresent={onSetPresent && ((present) => onSetPresent(row.student.id, present))}
-                      />
-                    </div>
+                    <StudentStatus
+                      present={row.present}
+                      unresponsive={row.unresponsive}
+                      onSetPresent={onSetPresent && ((present) => onSetPresent(row.student.id, present))}
+                    />
                   </td>
                   <td>
                     <span className={row.joined ? "chip chip--ok" : "chip"}>

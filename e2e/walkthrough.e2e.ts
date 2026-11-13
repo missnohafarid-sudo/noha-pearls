@@ -15,6 +15,7 @@ import { liveClassSteps } from './steps/liveClass';
 import { mediaSlidesSteps } from './steps/mediaSlides';
 import { passwordFieldSteps } from './steps/passwordField';
 import { pearlPanelSteps } from './steps/pearlPanel';
+import { presenceColumnSteps } from './steps/presenceColumn';
 import { presenterBarSteps } from './steps/presenterBar';
 import { regroupingSteps } from './steps/regrouping';
 import { retentionSteps } from './steps/retention';
@@ -73,6 +74,7 @@ describe('walkthrough', () => {
   scanningSteps(world);
   visitorBoardSteps(world);
   attendanceSteps(world);
+  presenceColumnSteps(world);
   engagementSteps(world);
   regroupingSteps(world);
   rosterImportSteps(world);

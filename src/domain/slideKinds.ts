@@ -68,6 +68,7 @@ const content: SlideKindSpec<ContentSlide> = {
   toFile: ({ kind, title, tag, body, images, hidden }) => ({ kind, title, tag, body, images: trimmedLinks(images), hidden }),
   normalize: ({ imageUrl, ...slide }: StoredContent) => ({ ...slide, images: storedPictures({ images: slide.images, imageUrl }), hidden: slide.hidden ?? '' }),
   hasProblem: ({ images }) => picturesHaveProblem(images),
+  withoutKey: (slide) => slide,
 };
 
 /** In files the correct option is 1-based (or null for a poll); in memory it is a 0-based index. */
@@ -141,6 +142,7 @@ const choice: SlideKindSpec<ChoiceSlide> = {
     points: clampPoints(slide.points),
     correctIndex: slide.correctIndex !== null && slide.correctIndex >= slide.options.length ? null : slide.correctIndex,
   }),
+  withoutKey: (slide) => ({ ...slide, correctIndex: null, explanation: '' }),
 };
 
 const textKind: SlideKindSpec<TextSlide> = {
@@ -161,6 +163,7 @@ const textKind: SlideKindSpec<TextSlide> = {
   toFile: ({ kind, title, tag, prompt, placeholder, images, scope, points }) => ({ kind, title, tag, prompt, placeholder, images: trimmedLinks(images), scope, points }),
   normalize: (slide) => ({ ...slide, images: storedPictures(slide), points: clampPoints(slide.points) }),
   hasProblem: ({ images }) => picturesHaveProblem(images),
+  withoutKey: (slide) => slide,
 };
 
 /** A file may leave the address empty (the slide is then flagged, as the editor allows); a given one must be https. */
@@ -192,6 +195,7 @@ const media: SlideKindSpec<MediaSlide> = {
   }),
   toFile: ({ kind, title, tag, url, media: type, body }) => ({ kind, title, tag, url, media: type, body }),
   hasProblem: ({ url, media: type }) => isMediaProblem(mediaView(url, type)),
+  withoutKey: (slide) => slide,
 };
 
 const SLIDE_KINDS: { [K in SlideKind]: SlideKindSpec<Extract<Slide, { kind: K }>> } = {

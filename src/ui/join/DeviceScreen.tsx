@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { answersForWholeGroup, canAnswer, isQuestion } from '../../domain/answering';
 import type { Group, Participant, Session } from '../../domain/models';
 import { messageFor, resolveStudentView } from '../../domain/pacing';
+import { resultsReport } from '../../domain/resultRows';
 import { studentById } from '../../domain/roster';
 import type { SeenRoster } from '../../domain/visibility';
 import { t } from '../../i18n';
@@ -65,7 +66,7 @@ export function DeviceScreen({ session, group, participant, roster, onChooseName
   );
 
   const results = student && showResults && mine.own?.report && (
-    <MyResults student={student} group={group} report={mine.own.report} hearts={mine.own.hearts} onHide={() => setShowResults(false)}>
+    <MyResults student={student} group={group} report={resultsReport(mine.own.report)} hearts={mine.own.hearts} onHide={() => setShowResults(false)}>
       <OwnStandings session={session} />
     </MyResults>
   );

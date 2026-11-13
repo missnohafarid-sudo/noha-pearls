@@ -115,6 +115,10 @@ describe('lesson folder tree', () => {
 });
 
 describe('folders a reader sees', () => {
+  it('lists the ids of every folder it was built from', () => {
+    expect(tree.ids()).toEqual(new Set(['a', 'b', 'c', 'd']));
+  });
+
   it('the admin sees every folder, empty ones too', () => {
     expect(tree.visibleIds([], true)).toEqual(new Set(['a', 'b', 'c', 'd']));
     expect(tree.shownChildren(null, tree.visibleIds([], true)).map((f) => f.id)).toEqual(['a', 'd']);

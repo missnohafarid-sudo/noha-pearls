@@ -2,13 +2,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { contestedRequestNumber, namesHeldByOthers } from '../domain/admission';
 import type { Participant } from '../domain/models';
 import type { NameClaims, SeenRoster } from '../domain/visibility';
-import { ended, groups, live, roster, students } from '../domain/visibilityFixtures';
+import { ended, groups, live, roster, students } from '../domain/visibility.fixtures';
 import { LocalChangeBus, LocalDocumentStore } from '../infrastructure/LocalDocumentStore';
 import { MemoryStorage } from '../infrastructure/storage';
 import type { Caller } from '../ports/caller';
+import { ClassLookupService } from './ClassLookupService';
 import { ParticipantService } from './ParticipantService';
 import { SessionRosterService } from './SessionRosterService';
-import { SessionService } from './SessionService';
 
 let store: LocalDocumentStore;
 
@@ -84,11 +84,8 @@ describe('the seen roster', () => {
 
 describe('whether any class is live', () => {
   it('flips when a class ends and when another starts', async () => {
-    const { caller, rosters } = device('d1');
-    const sessions = new SessionService(store, caller, { rosterOfClass: async () => ({ groups: [], students: [] }) }, rosters, {
-      keep: async () => undefined,
-    });
-    const any = watched<boolean>((l) => sessions.watchAnyLive(l));
+    const lookup = new ClassLookupService(store);
+    const any = watched<boolean>((l) => lookup.watchAnyLive(l));
     await vi.waitFor(() => expect(any.last()).toBe(true));
     await store.put('sessions', ended);
     await vi.waitFor(() => expect(any.last()).toBe(false));

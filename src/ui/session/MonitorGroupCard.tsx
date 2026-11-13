@@ -3,6 +3,7 @@ import type { RewardIndex } from "../../domain/analytics";
 import type { Id } from "../../domain/models";
 import { pearlsEarned } from "../../domain/scoring";
 import { t } from "../../i18n";
+import { shownAnswer } from "../../domain/resultRows";
 import { AnswerLabel } from "../common/AnswerLabel";
 import { HeartButton } from "../common/HeartButton";
 import { PearlString } from "../common/PearlString";
@@ -105,7 +106,7 @@ export function MonitorGroupCard({ entry, rewards, possible, onGive, onSetPresen
         {groupCells.map((cell) => (
           <p key={cell.slide.id}>
             <strong>{cell.slide.title}: </strong>
-            <span>{cell.answer ? <AnswerLabel slide={cell.slide} answer={cell.answer} /> : t.monitor.dash}</span>
+            <span>{cell.answer ? <AnswerLabel answer={shownAnswer(cell.slide, cell.answer)} /> : t.monitor.dash}</span>
           </p>
         ))}
       </div>

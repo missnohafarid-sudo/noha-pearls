@@ -5,7 +5,7 @@ import { deviceAnswer } from './answering';
 import type { SessionRoster } from './models';
 import { peerRewardTargets } from './rewards';
 import { pearlsEarned, publishedKeys, scoreboard } from './scoring';
-import { answers, classData, ended, hearts, lesson, live, reveal1, reveal2, roster, seatOf, students } from './visibilityFixtures';
+import { answers, classData, ended, hearts, lesson, live, reveal1, reveal2, roster, seatOf, students } from './visibility.fixtures';
 import { boardTotals, cardResults, readerOf, seatView, withoutKey, type ClassData, type SeatRef } from './visibility';
 
 const sara: SeatRef = { groupId: 'g1', studentId: 's1' };

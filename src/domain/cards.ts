@@ -10,6 +10,11 @@ export const CARD_DICTIONARY = 'ARUCO_4X4_1000';
 export const MIN_CARD_NUMBER = 1;
 export const MAX_CARD_NUMBER = 999;
 
+/** Whether a number can be on a printed card at all. */
+export function isCardNumber(value: number): boolean {
+  return Number.isInteger(value) && value >= MIN_CARD_NUMBER && value <= MAX_CARD_NUMBER;
+}
+
 export interface Point {
   x: number;
   y: number;

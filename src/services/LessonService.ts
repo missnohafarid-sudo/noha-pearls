@@ -6,8 +6,7 @@ import { canRemoveLesson } from '../domain/sessions';
 import type { DocumentStore, Unsubscribe } from '../ports/store';
 import type { Caller } from '../ports/caller';
 import { requireAdmin } from './AuthService';
-import type { LessonMover } from './LessonMover';
-import { watchSessionAndLesson } from './classData';
+import type { LessonShelf } from './LessonShelf';
 import { requireFolder } from './requireFolder';
 
 export class LessonError extends Error {
@@ -18,7 +17,7 @@ export class LessonError extends Error {
 }
 
 /** Lessons: authoring, import and export. Slide edits are pure functions in `domain/lessonOps`. */
-export class LessonService implements LessonMover {
+export class LessonService implements LessonShelf {
   constructor(
     private readonly store: DocumentStore,
     private readonly caller: Caller,
@@ -31,11 +30,6 @@ export class LessonService implements LessonMover {
 
   watchLesson(lessonId: Id, listener: (lesson: Lesson | null) => void): Unsubscribe {
     return this.store.watch('lessons', { id: lessonId }, (lessons) => listener(lessons[0] ?? null));
-  }
-
-  /** The lesson of one class, even when it is not published. */
-  watchLessonOf(sessionId: Id, listener: (lesson: Lesson | null) => void): Unsubscribe {
-    return watchSessionAndLesson(this.store, sessionId)(([, lesson]) => listener(lesson));
   }
 
   async create(title: string, folderId: Id | null): Promise<Lesson> {

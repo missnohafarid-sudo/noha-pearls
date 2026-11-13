@@ -3,6 +3,7 @@ import type { DocumentStore } from '../ports/store';
 import { AdmissionService } from './AdmissionService';
 import { AnswerService } from './AnswerService';
 import { BoardService } from './BoardService';
+import { ClassLookupService } from './ClassLookupService';
 import { ContentService } from './ContentService';
 import { FolderService } from './FolderService';
 import { LessonService } from './LessonService';
@@ -31,6 +32,7 @@ export function createDataServices(store: DocumentStore, caller: Caller): Servic
     folders: new FolderService(store, caller, lessons),
     lessons,
     sessions: new SessionService(store, caller, roster, sessionRoster, records),
+    classLookup: new ClassLookupService(store),
     sessionRoster,
     participants,
     admission: new AdmissionService(store, caller, sessionRoster, sessionRoster),

@@ -3,6 +3,7 @@ import type { AdmissionService } from './AdmissionService';
 import type { AnswerService } from './AnswerService';
 import type { AuthService } from './AuthService';
 import type { BoardService } from './BoardService';
+import type { ClassLookupService } from './ClassLookupService';
 import type { ContentService } from './ContentService';
 import type { FolderService } from './FolderService';
 import type { LessonService } from './LessonService';
@@ -26,6 +27,7 @@ export interface ServiceClasses {
   folders: FolderService;
   lessons: LessonService;
   sessions: SessionService;
+  classLookup: ClassLookupService;
   sessionRoster: SessionRosterService;
   participants: ParticipantService;
   admission: AdmissionService;
@@ -47,8 +49,9 @@ export const UI_SURFACE = {
   roster: ['watchClasses', 'watchRoster', 'addClass', 'renameClass', 'removeClass', 'addGroup', 'saveGroup', 'removeGroup', 'addStudent', 'saveStudent', 'removeStudent', 'importFromText', 'exportToText'],
   teachers: ['watchTeachers', 'add', 'rename', 'remove'],
   folders: ['watchFolders', 'add', 'rename', 'move', 'remove'],
-  lessons: ['watchLessons', 'watchLesson', 'watchLessonOf', 'create', 'save', 'moveToFolder', 'remove', 'importFromText', 'exportToText'],
-  sessions: ['watchAll', 'watchAnyLive', 'watchByCode', 'start', 'end', 'goTo', 'reveal', 'setPacing', 'sendMessage', 'clearMessage', 'setMinInteractions'],
+  lessons: ['watchLessons', 'watchLesson', 'create', 'save', 'moveToFolder', 'remove', 'importFromText', 'exportToText'],
+  sessions: ['watchAll', 'start', 'end', 'goTo', 'reveal', 'setPacing', 'sendMessage', 'clearMessage', 'setMinInteractions'],
+  classLookup: ['watchAnyLive', 'watchByCode'],
   sessionRoster: ['watchRoster', 'watchSeen', 'moveStudent', 'addStudent', 'renameGroup', 'markPresent', 'markAbsent'],
   participants: ['watchParticipants', 'watchMine', 'watchNameClaims', 'join', 'leave'],
   admission: ['admit', 'takeRoll', 'admitAll', 'remove'],
@@ -57,7 +60,7 @@ export const UI_SURFACE = {
   records: ['currentPeriod', 'standingsOf', 'groupStandingsOf', 'ownStandingIn', 'watchKeptCount'],
   retention: ['watchSettings', 'watchNotices', 'rangeLimits', 'setYearEnd', 'classesToRemove', 'removeClasses'],
   board: ['watchTotals', 'watchCardResults'],
-  seatView: ['watchMine'],
+  seatView: ['watchMine', 'watchLesson'],
 } as const satisfies { [S in keyof ServiceClasses]: readonly (keyof ServiceClasses[S])[] };
 
 /** The use cases over stored data, as the interface sees them. */

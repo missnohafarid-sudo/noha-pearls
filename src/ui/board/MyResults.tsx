@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
-import { REWARD_SOURCES, type RewardTally, type StudentReport } from '../../domain/analytics';
+import { REWARD_SOURCES, type RewardTally } from '../../domain/analytics';
 import type { Group, Student } from '../../domain/models';
+import type { ResultsReport } from '../../domain/resultRows';
 import { t } from '../../i18n';
 import { AnswerLabel } from '../common/AnswerLabel';
 import { HeartButton } from '../common/HeartButton';
@@ -11,7 +12,7 @@ import './board.css';
 interface MyResultsProps {
   student: Pick<Student, 'name'>;
   group: Group | null;
-  report: StudentReport;
+  report: ResultsReport;
   hearts: RewardTally;
   onHide: () => void;
   /** Shown under the points and hearts: her cumulative lines on her own device. */
@@ -41,10 +42,10 @@ export function MyResults({ student, group, report, hearts, onHide, children }: 
       {children}
       <ul className="board__results list-reset">
         {report.results.map((result) => (
-          <li key={result.slide.id} className="board__result">
-            <strong>{result.slide.title}</strong>
+          <li key={result.slideId} className="board__result">
+            <strong>{result.title}</strong>
             <span className="board__answer">
-              {result.answer && <AnswerLabel slide={result.slide} answer={result.answer} />}
+              {result.answer && <AnswerLabel answer={result.answer} />}
               {result.byGroup && <span className="muted board__by-group">{t.common.yourGroupAnswer}</span>}
             </span>
             <VerdictChip verdict={result.verdict}>{t.board.verdict[result.verdict]}</VerdictChip>

@@ -60,7 +60,12 @@ export class FolderTree {
    * holds, at any depth, a lesson she may view. A folder with such a lesson inside makes all its ancestors visible.
    */
   visibleIds(lessons: readonly Pick<Lesson, 'folderId' | 'published'>[], isAdmin: boolean): Set<Id> {
-    return isAdmin ? new Set(this.byId.keys()) : this.holdingIds(lessons.filter((lesson) => canViewLesson(lesson, false)));
+    return isAdmin ? this.ids() : this.holdingIds(lessons.filter((lesson) => canViewLesson(lesson, false)));
+  }
+
+  /** Every folder of the list. */
+  ids(): Set<Id> {
+    return new Set(this.byId.keys());
   }
 
   /** The folders that hold at least one of the lessons, at any depth. */

@@ -9,6 +9,7 @@ import { peerRewardTargets } from './rewards';
 import { groupById, studentByCard, studentById } from './roster';
 import { pearlsEarned, publishedKeys, questionSlides, scoreboard, type GroupScore } from './scoring';
 import { liveSessions } from './sessions';
+import { slideKindSpec } from './slideKinds';
 
 /**
  * The single home for what each kind of caller may read. It adds no arithmetic: it composes the rules that own
@@ -30,11 +31,11 @@ export function readerOf(isAdmin: boolean, seat: Participant | null, students: r
 }
 
 /**
- * The lesson without its own answer key. Only what a reveal publishes is removed; pictures and hidden sections are
- * lesson content for students. Marking reads published keys only, so nothing a non-admin sees changes. Never apply it for the admin.
+ * The lesson without its own answer key: each slide kind says how (`SlideKindSpec.withoutKey`). Only what a reveal publishes
+ * is removed; pictures and hidden sections are lesson content for students. Marking reads published keys only, so nothing a non-admin sees changes. Never apply it for the admin.
  */
 export function withoutKey(lesson: Lesson): Lesson {
-  return { ...lesson, slides: lesson.slides.map((slide) => (slide.kind === 'choice' ? { ...slide, correctIndex: null, explanation: '' } : slide)) };
+  return { ...lesson, slides: lesson.slides.map((slide) => slideKindSpec(slide.kind).withoutKey(slide)) };
 }
 
 export function lessonSummary(lesson: Lesson): LessonSummary {

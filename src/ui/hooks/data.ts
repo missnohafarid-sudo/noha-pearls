@@ -6,7 +6,7 @@ import { liveSessions } from '../../domain/sessions';
 import type { BoardTotal, CardResults, NameClaims, SeatView, SeenRoster } from '../../domain/visibility';
 import type { ClearingNotices } from '../../services/RetentionService';
 import { useServices } from '../ServicesContext';
-import { useLive } from './useLive';
+import { useLive, type Subscribe } from './useLive';
 
 /**
  * Live data for pages. Each hook returns `undefined` while loading.
@@ -21,6 +21,12 @@ export function useAdmin(): boolean {
     (listener) => auth.subscribe(listener),
     () => auth.isAdmin(),
   );
+}
+
+/** A live read only the teacher may make: nothing is asked of the services for anyone else, and it starts when she signs in. */
+function useAdminLive<T>(subscribe: Subscribe<T> | null, deps: DependencyList): T | undefined {
+  const admin = useAdmin();
+  return useLive(admin ? subscribe : null, [...deps, admin]);
 }
 
 export function useSite(): SiteContent | null | undefined {
@@ -83,8 +89,8 @@ export function useLesson(lessonId: MaybeId): Lesson | null | undefined {
 
 /** The lesson of one class, whether or not it is published; null when the class names none that is stored. */
 export function useLessonOf(sessionId: MaybeId): Lesson | null | undefined {
-  const { lessons } = useServices();
-  return useLive(sessionId ? (listener) => lessons.watchLessonOf(sessionId, listener) : null, [lessons, sessionId]);
+  const { seatView } = useServices();
+  return useLive(sessionId ? (listener) => seatView.watchLesson(sessionId, listener) : null, [seatView, sessionId]);
 }
 
 export function useSessions(): Session[] | undefined {
@@ -100,13 +106,13 @@ export function useLiveSessions(): Session[] | undefined {
 
 /** Whether any class is running now. */
 export function useAnyLive(): boolean | undefined {
-  const { sessions } = useServices();
-  return useLive((listener) => sessions.watchAnyLive(listener), [sessions]);
+  const { classLookup } = useServices();
+  return useLive((listener) => classLookup.watchAnyLive(listener), [classLookup]);
 }
 
 export function useSessionByCode(code: string): Session | null | undefined {
-  const { sessions } = useServices();
-  return useLive((listener) => sessions.watchByCode(code, listener), [sessions, code]);
+  const { classLookup } = useServices();
+  return useLive((listener) => classLookup.watchByCode(code, listener), [classLookup, code]);
 }
 
 export function useAnswers(sessionId: MaybeId): Answer[] | undefined {
@@ -172,15 +178,13 @@ export function useKeptRecordCount(classId: MaybeId): number | undefined {
 /** When students' data is cleared; null when none were ever saved. Admin only: nothing is asked of anyone else. */
 export function useRetentionSettings(): RetentionSettings | null | undefined {
   const { retention } = useServices();
-  const admin = useAdmin();
-  return useLive(admin ? (listener) => retention.watchSettings(listener) : null, [retention, admin]);
+  return useAdminLive((listener) => retention.watchSettings(listener), [retention]);
 }
 
 /** The clearing of students' data that is coming within a week, and the one that ran within the last week. Admin only. */
 export function useClearingNotices(): ClearingNotices | undefined {
   const { retention } = useServices();
-  const admin = useAdmin();
-  return useLive(admin ? (listener) => retention.watchNotices(listener) : null, [retention, admin]);
+  return useAdminLive((listener) => retention.watchNotices(listener), [retention]);
 }
 
 /**

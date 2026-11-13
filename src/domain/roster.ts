@@ -1,4 +1,4 @@
-import { MAX_CARD_NUMBER, MIN_CARD_NUMBER, type DetectedMarker } from './cards';
+import { isCardNumber, MAX_CARD_NUMBER, MIN_CARD_NUMBER, type DetectedMarker } from './cards';
 import { newId } from './ids';
 import { nextOrder, sortByOrder } from './lists';
 import { cleanName } from './text';
@@ -46,12 +46,7 @@ export function createStudent(name: string, groupId: Id, existing: readonly Stud
 }
 
 export function isCardNumberFree(cardNumber: number, studentId: Id, students: readonly Student[]): boolean {
-  return (
-    Number.isInteger(cardNumber) &&
-    cardNumber >= MIN_CARD_NUMBER &&
-    cardNumber <= MAX_CARD_NUMBER &&
-    !students.some((s) => s.cardNumber === cardNumber && s.id !== studentId)
-  );
+  return isCardNumber(cardNumber) && !students.some((s) => s.cardNumber === cardNumber && s.id !== studentId);
 }
 
 /** The student who holds this answer card, if any. */

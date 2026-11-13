@@ -1,11 +1,11 @@
-import type { Id } from '../domain/models';
+import type { Id, Lesson } from '../domain/models';
 import { seatView, type ClassData, type Reader, type SeatView } from '../domain/visibility';
 import type { DocumentStore, Unsubscribe } from '../ports/store';
-import { watchClassData } from './classData';
+import { watchClassData, watchSessionAndLesson } from './classData';
 import { combineWatches } from './combineWatches';
 import type { ReaderSource } from './ReaderSource';
 
-/** What a device the teacher let in shows of the class: the answer that counts for it, its results, its group's pearls and its classmates' hearts. */
+/** What a device the teacher let in shows of the class: the answer that counts for it, its results, its group's pearls, its classmates' hearts and its lesson. */
 export class SeatViewService {
   constructor(
     private readonly store: DocumentStore,
@@ -18,5 +18,10 @@ export class SeatViewService {
       [(emit) => this.readers.watchReader(sessionId, emit), (emit) => watchClassData(this.store, sessionId, emit)],
       (reader, data) => listener(reader.seat && data && seatView(reader.seat, data)),
     );
+  }
+
+  /** The lesson of one class, even when it is not published. */
+  watchLesson(sessionId: Id, listener: (lesson: Lesson | null) => void): Unsubscribe {
+    return watchSessionAndLesson(this.store, sessionId)(([, lesson]) => listener(lesson));
   }
 }

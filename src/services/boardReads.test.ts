@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RewardIndex, studentReport } from '../domain/analytics';
 import { groupById, studentByCard } from '../domain/roster';
 import { publishedKeys, scoreboard } from '../domain/scoring';
-import { answer, answers, heart, hearts, lesson, live, reveal1, roster } from '../domain/visibilityFixtures';
+import { answer, answers, heart, hearts, lesson, live, reveal1, roster } from '../domain/visibility.fixtures';
 import type { BoardTotal, CardResults } from '../domain/visibility';
 import { LocalChangeBus, LocalDocumentStore } from '../infrastructure/LocalDocumentStore';
 import { MemoryStorage } from '../infrastructure/storage';

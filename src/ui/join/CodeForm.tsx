@@ -2,8 +2,8 @@ import { useState, type FormEvent } from 'react';
 import { normalizeJoinCode } from '../../domain/ids';
 import { t } from '../../i18n';
 
-/** The field where a code is typed; hands the code on in its normal form. */
-export function CodeForm({ onSubmit }: { onSubmit: (code: string) => void }) {
+/** The field where a code is typed, with the words of its button; hands the code on in its normal form. */
+export function CodeForm({ submitLabel, onSubmit }: { submitLabel: string; onSubmit: (code: string) => void }) {
   const [typed, setTyped] = useState('');
 
   const submit = (event: FormEvent) => {
@@ -27,7 +27,7 @@ export function CodeForm({ onSubmit }: { onSubmit: (code: string) => void }) {
         />
       </label>
       <button type="submit" className="btn btn--primary">
-        {t.home.join.submit}
+        {submitLabel}
       </button>
     </form>
   );

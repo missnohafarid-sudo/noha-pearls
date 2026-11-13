@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { isAdmitted } from '../../domain/admission';
 import type { Participant, Session } from '../../domain/models';
+import { resultsReport } from '../../domain/resultRows';
 import { groupById, studentById } from '../../domain/roster';
 import type { SeenRoster } from '../../domain/visibility';
 import { t } from '../../i18n';
@@ -40,7 +41,7 @@ export function EndedScreen({ session, seat, roster }: EndedScreenProps) {
           {t.join.myResults}
         </button>
       ) : (
-        <MyResults student={student} group={group} report={own.report} hearts={own.hearts} onHide={() => setHidden(true)}>
+        <MyResults student={student} group={group} report={resultsReport(own.report)} hearts={own.hearts} onHide={() => setHidden(true)}>
           <OwnStandings session={session} />
         </MyResults>
       )}

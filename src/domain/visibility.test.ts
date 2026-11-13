@@ -2,11 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { contestedRequestNumber, namesHeldByOthers, requestNumber } from './admission';
 import { studentReport } from './analytics';
 import { FolderTree } from './folders';
-import type { ChoiceSlide, Lesson, LessonFolder, Session } from './models';
+import type { ChoiceSlide, Lesson, LessonFolder, QuestionSlide, Session, Slide } from './models';
 import { messageFor } from './pacing';
-import { optionMark, pointsFor, publishedKeys, verdictFor } from './scoring';
+import { answerKey, optionMark, pointsFor, publishedKeys, verdictFor } from './scoring';
 import { liveSessions } from './sessions';
-import { answers, ended, lesson, live, reveal1, reveal2, roster, seatOf, students } from './visibilityFixtures';
+import { SLIDE_KIND_NAMES, slideKindSpec } from './slideKinds';
+import { answers, ended, lesson, live, reveal1, reveal2, roster, seatOf, students } from './visibility.fixtures';
 import {
   anyClassLive, catalogueFor, classLessonFor, foldersFor, lessonFor, lessonSummaries, lessonSummary, nameClaims, readerOf, seenRoster, sessionFor, withoutKey,
   type Reader,
@@ -52,6 +53,15 @@ describe('the lesson without its key', () => {
     expect(JSON.stringify(noKey)).toContain('secret text');
     expect(JSON.stringify(noKey)).toContain('https://a.example/p.png');
     expect(choices(lesson)[0].correctIndex).toBe(1);
+  });
+
+  it('leaves nothing of a key in any registered slide kind, so a new kind cannot be added without saying how', () => {
+    expect(answerKey({ ...lesson.slides[1], correctIndex: 0, explanation: 'secret key' } as QuestionSlide)).toEqual({ correctIndex: 0, explanation: 'secret key' });
+    for (const kind of SLIDE_KIND_NAMES) {
+      const keyed = { ...slideKindSpec(kind).create('k'), correctIndex: 0, explanation: 'secret key' } as Slide;
+      const bare = slideKindSpec(kind).withoutKey(keyed);
+      expect(answerKey(bare as QuestionSlide)).toEqual({ correctIndex: null, explanation: '' });
+    }
   });
 
   it('changes nothing a marked answer shows, for any reveals', () => {

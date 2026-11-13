@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { Session, SubjectRef } from '../../domain/models';
+import { resultsReport } from '../../domain/resultRows';
 import { pearlsEarned, rankScores } from '../../domain/scoring';
 import { t } from '../../i18n';
 import pearlsRow from '../assets/brand/pearls-row.jpg';
@@ -86,7 +87,7 @@ function BoardView({ session }: { session: Session }) {
       ) : (
         <section className="stack">
           {results ? (
-            <MyResults student={results} group={results.group} report={results.report} hearts={results.hearts} onHide={() => setCard(null)} />
+            <MyResults student={results} group={results.group} report={resultsReport(results.report)} hearts={results.hearts} onHide={() => setCard(null)} />
           ) : (
             <div className="card stack">
               <p className="muted">{t.board.showMineHint}</p>

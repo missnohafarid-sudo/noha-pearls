@@ -4,7 +4,7 @@ import type { Id, LessonFolder } from '../domain/models';
 import type { Caller } from '../ports/caller';
 import type { DocumentStore, Unsubscribe } from '../ports/store';
 import { requireAdmin } from './AuthService';
-import type { LessonMover } from './LessonMover';
+import type { LessonShelf } from './LessonShelf';
 import { FolderError, requireFolder } from './requireFolder';
 import { requireName } from './requireName';
 
@@ -13,7 +13,7 @@ export class FolderService {
   constructor(
     private readonly store: DocumentStore,
     private readonly caller: Caller,
-    private readonly lessons: LessonMover,
+    private readonly lessons: LessonShelf,
   ) {}
 
   watchFolders(listener: (folders: LessonFolder[]) => void): Unsubscribe {

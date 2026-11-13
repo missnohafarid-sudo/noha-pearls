@@ -1,10 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { seatView, type SeatView } from '../domain/visibility';
-import { answers, classData, ended, heart, hearts, lesson, live, reveal1, roster, seatOf, students } from '../domain/visibilityFixtures';
+import { answers, classData, ended, heart, hearts, lesson, live, reveal1, roster, seatOf, students } from '../domain/visibility.fixtures';
 import { LocalChangeBus, LocalDocumentStore } from '../infrastructure/LocalDocumentStore';
 import { MemoryStorage } from '../infrastructure/storage';
 import type { Caller } from '../ports/caller';
-import { LessonService } from './LessonService';
 import { ParticipantService } from './ParticipantService';
 import { SeatViewService } from './SeatViewService';
 import { SessionRosterService } from './SessionRosterService';
@@ -81,8 +80,9 @@ describe('the view of a seat', () => {
 
 describe('the lesson of a class', () => {
   it('is the lesson the session names, and follows a change of it', async () => {
-    const lessons = new LessonService(store, caller);
-    const seen = watched<unknown>((l) => lessons.watchLessonOf('x', l));
+    const teacher: Caller = { isAdmin: () => true, deviceId: () => 'd1' };
+    const seats = new SeatViewService(store, new ParticipantService(store, teacher, new SessionRosterService(store, teacher)));
+    const seen = watched<unknown>((l) => seats.watchLesson('x', l));
     await vi.waitFor(() => expect(seen.last()).toEqual(lesson));
     const edited = { ...lesson, title: 'edited' };
     await store.put('lessons', edited);

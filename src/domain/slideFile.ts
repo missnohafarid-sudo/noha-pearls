@@ -56,4 +56,6 @@ export interface SlideKindSpec<S extends Slide = Slide> {
   normalize?(slide: S): S;
   /** True when the slide cannot show what it should, so the editor can mark it. Omitted when a kind cannot be in that state. */
   hasProblem?(slide: S): boolean;
+  /** The copy a reader who may not know the answer gets: whatever a reveal publishes is removed. The identity for a kind with no key. */
+  withoutKey(slide: S): S;
 }

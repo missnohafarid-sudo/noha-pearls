@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { answer, ended, heart, lesson, live, roster, seatOf, students } from '../domain/visibilityFixtures';
+import { answer, ended, heart, lesson, live, roster, seatOf, students } from '../domain/visibility.fixtures';
 import type { ClassData, Reader } from '../domain/visibility';
 import { LocalChangeBus, LocalDocumentStore } from '../infrastructure/LocalDocumentStore';
 import { MemoryStorage } from '../infrastructure/storage';

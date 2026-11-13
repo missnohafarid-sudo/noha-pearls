@@ -8,7 +8,6 @@ import { answerKey } from '../domain/scoring';
 import { isOnRoster } from '../domain/roster';
 import { acceptsChanges, isLive, newUniqueJoinCode, sessionBasis } from '../domain/sessions';
 import { cleanMessage } from '../domain/text';
-import { anyClassLive } from '../domain/visibility';
 import type { DocumentStore, Unsubscribe } from '../ports/store';
 import type { Caller } from '../ports/caller';
 import { requireAdmin } from './AuthService';
@@ -29,15 +28,6 @@ export class SessionService {
   /** Every class, live or ended. */
   watchAll(listener: (sessions: Session[]) => void): Unsubscribe {
     return this.store.watch('sessions', {}, listener);
-  }
-
-  /** Whether any class is running, and nothing about which. Open to anyone. */
-  watchAnyLive(listener: (live: boolean) => void): Unsubscribe {
-    return this.store.watch('sessions', {}, (sessions) => listener(anyClassLive(sessions)));
-  }
-
-  watchByCode(code: string, listener: (session: Session | null) => void): Unsubscribe {
-    return this.store.watch('sessions', { code }, (sessions) => listener(sessions[0] ?? null));
   }
 
   /**

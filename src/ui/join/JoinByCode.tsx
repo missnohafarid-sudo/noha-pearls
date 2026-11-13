@@ -30,7 +30,7 @@ export function JoinByCode() {
 
   return (
     <div className="stack stack--tight">
-      <CodeForm onSubmit={setSubmitted} />
+      <CodeForm submitLabel={t.home.join.submit} onSubmit={setSubmitted} />
       {submitted !== '' && session !== undefined && (session ? <ChooseOrReturn session={session} /> : <p className="notice notice--bad">{th.wrongCode}</p>)}
     </div>
   );

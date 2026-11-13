@@ -1,12 +1,7 @@
 import type { CollectionName, Collections, Where } from '../../ports/store';
-import { MAX_CACHE_KEY_LENGTH } from '../../ports/limits';
-import { isConcerned, type Change, type Subject } from './watches';
-
-interface Entry extends Subject {
-  docs: readonly Collections[CollectionName][];
-}
-
-const MAX_ENTRIES = 256;
+import { MAX_CACHE_KEY_LENGTH, MAX_REMEMBERED_QUERIES } from '../../ports/limits';
+import { Remembered } from './remembered';
+import type { Change, Subject } from './watches';
 
 /** The key of one question: a collection and a filter, with the filter's fields in a fixed order; null when the question is too long to be remembered. */
 function keyOf(collection: CollectionName, where: object): string | null {
@@ -21,23 +16,21 @@ function keyOf(collection: CollectionName, where: object): string | null {
  * a reader must not change them; the store hands out the list as a new array.
  */
 export class ResultCache {
-  private readonly entries = new Map<string, Entry>();
+  private readonly entries = new Remembered<readonly Collections[CollectionName][]>(MAX_REMEMBERED_QUERIES);
 
   get<C extends CollectionName>(collection: C, where: Where<Collections[C]>): Collections[C][] | undefined {
     const key = keyOf(collection, where);
-    const found = key === null ? undefined : this.entries.get(key)?.docs;
+    const found = key === null ? undefined : this.entries.get(key);
     return found && ([...found] as Collections[C][]);
   }
 
   put<C extends CollectionName>(collection: C, where: Where<Collections[C]>, owner: Subject['owner'], docs: readonly Collections[C][]): void {
     const key = keyOf(collection, where);
-    if (key === null) return;
-    if (this.entries.size >= MAX_ENTRIES) this.entries.clear();
-    this.entries.set(key, { collection, owner, docs });
+    if (key !== null) this.entries.put(key, { collection, owner }, docs);
   }
 
   /** Drops every remembered answer that one of the changes could alter. */
   forget(changes: readonly Change[]): void {
-    for (const [key, entry] of this.entries) if (changes.some((change) => isConcerned(entry, change))) this.entries.delete(key);
+    this.entries.forget(changes);
   }
 }

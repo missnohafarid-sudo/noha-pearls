@@ -2,7 +2,10 @@ import type { Id } from '../../domain/models';
 import { ownerSessionId } from '../../domain/retention';
 import type { SqlDatabase } from '../../ports/sql';
 import { type PackedCollection } from '../../ports/storageLayout';
+import { MAX_REMEMBERED_ROWS } from '../../ports/limits';
 import type { Collections, Where } from '../../ports/store';
+import { Remembered } from './remembered';
+import type { Change } from './watches';
 
 type Packed<C extends PackedCollection> = Collections[C];
 type Row<C extends PackedCollection> = Record<Id, Packed<C>>;
@@ -15,6 +18,8 @@ const SEPARATOR = ':';
  * layout rule (see PACKED_COLLECTIONS): an id with a ':' starts with its class, an id without one is searched for.
  */
 export class PackedRows {
+  private readonly rows = new Remembered<Row<PackedCollection>>(MAX_REMEMBERED_ROWS);
+
   constructor(private readonly db: SqlDatabase) {}
 
   /** The class a lookup is about, if it names one: by `sessionId`, or by the start of an `id`. */
@@ -32,9 +37,26 @@ export class PackedRows {
     }
   }
 
+  /** The class's row, read once however many ask until a write could change it (`forget`). The documents are shared: a caller must not change the row (`copyOf` for one that will). */
   read<C extends PackedCollection>(collection: C, owner: Id): Row<C> {
+    const key = `${collection}\u0000${owner}`;
+    const remembered = this.rows.get(key);
+    if (remembered) return remembered as Row<C>;
     const [row] = this.db.all<{ body: string }>('SELECT body FROM packed_documents WHERE collection = ? AND owner = ?', collection, owner);
-    return row ? (JSON.parse(row.body) as Row<C>) : {};
+    if (!row) return {};
+    const docs = JSON.parse(row.body) as Row<C>;
+    this.rows.put(key, { collection, owner }, docs);
+    return docs;
+  }
+
+  /** The class's row as a new object that its owner may add to and remove from. */
+  copyOf<C extends PackedCollection>(collection: C, owner: Id): Row<C> {
+    return { ...this.read(collection, owner) };
+  }
+
+  /** Forgets the rows a write could have changed. */
+  forget(changes: readonly Change[]): void {
+    this.rows.forget(changes);
   }
 
   readAll<C extends PackedCollection>(collection: C): Packed<C>[] {

@@ -2,7 +2,7 @@ import type { Id, Lesson, Session } from '../domain/models';
 import type { ClassData } from '../domain/visibility';
 import type { DocumentStore, Unsubscribe } from '../ports/store';
 import type { ClassResolver } from './ClassResolver';
-import { combineWatches, followWatch, type Watch } from './combineWatches';
+import { combineWatches, followWatch, noRead, type Watch } from './combineWatches';
 import { NO_ROSTER } from './SessionRosterSource';
 
 /** A class's session and the lesson it names, followed when the session names another; null for either while it is not stored. */
@@ -31,12 +31,6 @@ export function watchClassData(store: DocumentStore, sessionId: Id, listener: (d
  */
 export function watchByCode<T>(codes: ClassResolver, code: string, inner: (session: Session) => Watch<T>, none: T, listener: (value: T) => void): Unsubscribe {
   const named: Watch<Session | null> = (emit) => codes.watchSession(code, emit);
-  const readOf = (session: Session | null): Watch<T> => (emit) => {
-    if (!session) {
-      emit(none);
-      return () => undefined;
-    }
-    return inner(session)(emit);
-  };
+  const readOf = (session: Session | null): Watch<T> => (session ? inner(session) : noRead(none));
   return followWatch(named, (session) => session?.id ?? '', readOf)(([, value]) => listener(value));
 }

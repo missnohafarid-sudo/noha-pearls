@@ -4,6 +4,7 @@ import { AllowanceService } from './AllowanceService';
 import { AdmissionService } from './AdmissionService';
 import { AnswerService } from './AnswerService';
 import { BoardService } from './BoardService';
+import { classReadsOf } from './ClassFeeds';
 import { ClassCodes } from './ClassCodes';
 import { ClassLookupService } from './ClassLookupService';
 import { ContentService } from './ContentService';
@@ -28,7 +29,8 @@ export function createDataServices(store: DocumentStore, caller: Caller, runtime
   const roster = new RosterService(store, caller);
   const participants = new ParticipantService(store, caller, sessionRoster, codes, runtime.guard);
   const records = new RecordService(store, caller, sessionRoster, roster, participants, codes, runtime.standings);
-  const lessons = new LessonService(store, caller);
+  const lessons = new LessonService(store, caller, runtime.lessonReads);
+  const classReads = runtime.classReads ?? classReadsOf(store);
   return {
     content: new ContentService(store, caller),
     roster,
@@ -45,7 +47,7 @@ export function createDataServices(store: DocumentStore, caller: Caller, runtime
     rewards: new RewardService(store, caller, participants, sessionRoster, codes),
     records,
     retention: new RetentionService(store, caller),
-    board: new BoardService(store, codes, runtime.guard),
-    seatView: new SeatViewService(store, participants),
+    board: new BoardService(store, codes, runtime.guard, classReads),
+    seatView: new SeatViewService(store, participants, classReads),
   };
 }

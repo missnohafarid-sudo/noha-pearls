@@ -8,7 +8,7 @@ import type { Caller } from '../ports/caller';
 import { adminWatch, requireAdmin } from './AuthService';
 import { watchByCode } from './classData';
 import type { ClassResolver } from './ClassResolver';
-import type { StandingsCache } from './StandingsCache';
+import type { ComputedOnce } from './ComputedOnce';
 import type { ClassRosterSource } from './ClassRosterSource';
 import type { RecordKeeper } from './RecordKeeper';
 import type { SeatSource } from './SeatSource';
@@ -23,7 +23,7 @@ export class RecordService implements RecordKeeper {
     private readonly classes: ClassRosterSource,
     private readonly seats: SeatSource,
     private readonly codes: ClassResolver,
-    private readonly cache: StandingsCache,
+    private readonly cache: ComputedOnce,
   ) {}
 
   async keep(sessionId: Id): Promise<void> {

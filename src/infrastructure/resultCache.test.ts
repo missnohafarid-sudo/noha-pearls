@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Answer, Session, Student } from '../domain/models';
+import { MAX_REMEMBERED_QUERIES } from '../ports/limits';
 import type { CollectionName, DocumentStore } from '../ports/store';
 import { LocalChangeBus, LocalDocumentStore } from './LocalDocumentStore';
 import { SqlDocumentStore } from './SqlDocumentStore';
@@ -49,6 +50,32 @@ describe('the result cache of the SQL store', () => {
     expect(sql.rowsRead).toBe(0);
     await store.list('answers', { sessionId: 'class-b' });
     expect(sql.rowsRead).toBeGreaterThan(0);
+  });
+
+  it('forgets only its oldest answer when it is full, not all of them', async () => {
+    const { store, sql } = setup();
+    const groups = Array.from({ length: MAX_REMEMBERED_QUERIES + 1 }, (_, n) => `g${n}`);
+    for (const group of groups) await store.put('students', student(`of-${group}`, group));
+    for (const group of groups) await store.list('students', { groupId: group });
+    sql.reset();
+    await store.list('students', { groupId: groups[5] });
+    await store.list('students', { groupId: groups.at(-1) });
+    expect(sql.rowsRead).toBe(0);
+    await store.list('students', { groupId: groups[0] });
+    expect(sql.rowsRead).toBeGreaterThan(0);
+  });
+
+  it('reads a class’s packed row once for any number of different questions about it, and again after it changes', async () => {
+    const { store, sql } = setup();
+    await store.put('answers', answer('class-a', 1, 1));
+    await store.put('answers', answer('class-a', 2, 2));
+    sql.reset();
+    for (let n = 1; n <= 2; n += 1) for (let device = 0; device < 50; device += 1) await store.get('answers', `class-a:q${n}:s1`);
+    expect(sql.rowsRead).toBe(1);
+    await store.put('answers', answer('class-a', 3, 3));
+    sql.reset();
+    await store.get('answers', 'class-a:q3:s1');
+    expect(sql.rowsRead).toBe(1);
   });
 
   it('does not let a reader change what the next reader gets', async () => {

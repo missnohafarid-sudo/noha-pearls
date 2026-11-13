@@ -26,6 +26,12 @@ export function combineWatches<T extends unknown[]>(sources: { [K in keyof T]: W
   };
 }
 
+/** A read of nothing: it gives `value` at once and never changes, so nothing is held open for it. */
+export const noRead = <T>(value: T): Watch<T> => (listener) => {
+  listener(value);
+  return () => undefined;
+};
+
 /**
  * Pairs each value of `outer` with the value of the inner watch it selects. The inner watch is reopened only when `keyOf`
  * changes, so a change of the outer value that keeps the key re-emits the inner value it already has.

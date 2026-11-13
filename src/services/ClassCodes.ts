@@ -25,9 +25,11 @@ export class ClassCodes implements ClassResolver {
   /**
    * A lookup that finds nothing it may open, and one that finds nothing at all, do the same reads and give the same answer.
    * The first answer of a watch counts as the lookup; later changes (the class ending) are not lookups.
+   * A code that names no class keeps no live read: nothing is left to hear, and it must not cost the store a query at every change.
    */
   watchSession(code: string, listener: (session: Session | null) => void): Unsubscribe {
     const wanted = normalizeJoinCode(code);
+    let stopSession: Unsubscribe | undefined;
     let stopSeat: Unsubscribe = () => undefined;
     let seatsOf: string | null = null;
     let first = true;
@@ -38,8 +40,19 @@ export class ClassCodes implements ClassResolver {
       first = false;
       listener(this.decide(latest, seat, lookup));
     };
-    const stopSession = this.store.watch('sessions', { code: wanted }, (sessions) => {
+    let unheard = false;
+    const stopAll = () => {
+      if (stopSession) stopSession();
+      else unheard = true;
+      stopSeat();
+    };
+    stopSession = this.store.watch('sessions', { code: wanted }, (sessions) => {
       latest = sessions[0] ?? null;
+      if (latest === null) {
+        seat = null;
+        stopAll();
+        return emit();
+      }
       const key = this.seatKey(latest);
       if (key === seatsOf) return emit();
       stopSeat();
@@ -54,10 +67,8 @@ export class ClassCodes implements ClassResolver {
         throw error;
       }
     });
-    return () => {
-      stopSession();
-      stopSeat();
-    };
+    if (unheard) stopSession();
+    return stopAll;
   }
 
   private seatKey(session: Session | null): string {

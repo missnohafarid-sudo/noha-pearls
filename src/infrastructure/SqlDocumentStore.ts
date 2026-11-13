@@ -81,6 +81,7 @@ export class SqlDocumentStore implements BatchedStore {
   apply(writes: readonly Write[]): void {
     const changes = this.db.transaction(() => this.writeAll(writes));
     this.results.forget(changes);
+    this.packed.forget(changes);
     this.watches.notify(changes);
   }
 
@@ -140,7 +141,7 @@ export class SqlDocumentStore implements BatchedStore {
         : (this.packed.ownerOfLookup({ id }) ?? this.searchedOwner(collection, id, searched));
     if (owner === undefined) return null;
     const key = `${collection}\u0000${owner}`;
-    const row = open.get(key) ?? { collection, owner, docs: this.packed.read(collection, owner) };
+    const row = open.get(key) ?? { collection, owner, docs: this.packed.copyOf(collection, owner) };
     open.set(key, row);
     if (write.kind === 'put') row.docs[id] = write.doc as Collections[PackedCollection];
     else delete row.docs[id];

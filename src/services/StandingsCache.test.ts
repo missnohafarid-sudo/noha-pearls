@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Standings } from '../domain/standings';
+import { NOT_REMEMBERED } from './ComputedOnce';
 import { StandingsCache } from './StandingsCache';
 
 const sum = {} as Standings;
@@ -26,8 +27,8 @@ describe('the remembered standings', () => {
     await expect(cache.get('k', async () => sum)).resolves.toBe(sum);
   });
 
-  it('computes every time when it is told not to remember', async () => {
-    const cache = new StandingsCache(false);
+  it('computes every time in a place that remembers nothing', async () => {
+    const cache = NOT_REMEMBERED;
     let computed = 0;
     for (let n = 0; n < 3; n += 1) await cache.get('k', async () => (computed += 1, sum));
     expect(computed).toBe(3);

@@ -2,6 +2,7 @@ import { commandAllowed } from '../domain/abuse';
 import type { Id } from '../domain/models';
 import type { AbuseGuard } from '../ports/abuse';
 import type { Caller } from '../ports/caller';
+import { MAX_COMPUTED_ENTRIES } from '../ports/limits';
 import type { WireError } from '../ports/wire';
 import { UnitOfWork } from '../infrastructure/UnitOfWork';
 import type { SqlDocumentStore } from '../infrastructure/SqlDocumentStore';
@@ -12,6 +13,8 @@ import { RetentionService } from '../services/RetentionService';
 import type { ServiceRuntime } from '../services/runtime';
 import { seedIfEmpty } from '../services/seed';
 import type { ServiceClasses } from '../services/Services';
+import { ClassFeeds } from '../services/ClassFeeds';
+import { ComputedOnce } from '../services/ComputedOnce';
 import { StandingsCache } from '../services/StandingsCache';
 import { SurfaceDispatcher } from '../services/surfaceDispatch';
 import type { ConnectionLimits } from './ConnectionLimits';
@@ -30,6 +33,9 @@ export type CommandOutcome = { ok: true; value: unknown } | { ok: false; error: 
 export class HubCore {
   private queue: Promise<unknown> = Promise.resolve();
   private readonly standings = new StandingsCache();
+  private readonly lessonReads = new ComputedOnce({ maxEntries: MAX_COMPUTED_ENTRIES, sources: ['lessons'] });
+  private readonly seats = new ComputedOnce({ maxEntries: MAX_COMPUTED_ENTRIES, sources: ['participants', 'sessions'] });
+  private readonly classFeeds: ClassFeeds;
 
   constructor(
     private readonly store: SqlDocumentStore,
@@ -37,7 +43,9 @@ export class HubCore {
     private readonly allowance: DayBreaker,
     readonly now: () => number = Date.now,
     private readonly report: (error: unknown) => void = (error) => console.error(error),
-  ) {}
+  ) {
+    this.classFeeds = new ClassFeeds((dropped) => new WatchView(store, dropped), report);
+  }
 
   /** Runs `work` after everything queued before it has finished, whether that succeeded or not. */
   exclusive<T>(work: () => Promise<T>): Promise<T> {
@@ -71,7 +79,7 @@ export class HubCore {
 
   /** The services for a caller's live reads. Live reads see committed data only, so they read the store itself; `dropped` hears of a read the store gives up on. */
   watchingServices(caller: Caller, guard: AbuseGuard, dropped: (error: unknown) => void): ServiceClasses {
-    return createDataServices(new WatchView(this.store, dropped), caller, this.runtime(guard));
+    return createDataServices(new WatchView(this.store, dropped), caller, { ...this.runtime(guard), classReads: this.classFeeds.reportingTo(dropped) });
   }
 
   /** The error as it may cross the wire: a known one by name and code, anything else as a bare failure and logged here. */
@@ -109,15 +117,18 @@ export class HubCore {
     });
   }
 
-  /** Applies the unit's writes, then tells what depends on them: the remembered standings, and the day's allowance. */
+  /**
+   * Applies the unit's writes and tells what depends on them. What is computed once for everyone is forgotten first, because
+   * applying the writes already tells the live reads, and they must not be shown a value from before the change.
+   */
   private commit(unit: UnitOfWork): void {
     const changed = unit.changedCollections();
+    for (const shared of [this.standings, this.lessonReads, this.seats]) shared.afterChange(changed);
     unit.commit();
-    this.standings.afterChange(changed);
     this.allowance.refresh();
   }
 
   private runtime(guard: AbuseGuard): ServiceRuntime {
-    return { guard, allowance: this.allowance, standings: this.standings };
+    return { guard, allowance: this.allowance, standings: this.standings, lessonReads: this.lessonReads };
   }
 }

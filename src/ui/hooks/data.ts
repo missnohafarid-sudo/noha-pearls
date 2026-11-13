@@ -3,6 +3,7 @@ import type { CardCodec } from '../../services/Services';
 import { FolderTree } from '../../domain/folders';
 import type { Answer, ClassRoster, Id, Lesson, LessonFolder, LessonSummary, Participant, Reward, RetentionSettings, SchoolClass, Session, SessionRoster, SiteContent, Teacher } from '../../domain/models';
 import { liveSessions } from '../../domain/sessions';
+import type { BoardTotal, CardResults, NameClaims, SeatView, SeenRoster } from '../../domain/visibility';
 import type { ClearingNotices } from '../../services/RetentionService';
 import { useServices } from '../ServicesContext';
 import { useLive } from './useLive';
@@ -64,6 +65,12 @@ export function useSessionRoster(session: Session | null | undefined): SessionRo
   return useLive(sessionId ? (listener) => sessionRoster.watchRoster(sessionId, listener) : null, [sessionRoster, sessionId]);
 }
 
+/** The groups and students a device picks from: no roll, no card numbers. */
+export function useSeenRoster(sessionId: MaybeId): SeenRoster | undefined {
+  const { sessionRoster } = useServices();
+  return useLive(sessionId ? (listener) => sessionRoster.watchSeen(sessionId, listener) : null, [sessionRoster, sessionId]);
+}
+
 export function useLessons(): LessonSummary[] | undefined {
   const { lessons } = useServices();
   return useLive((listener) => lessons.watchLessons(listener), [lessons]);
@@ -72,6 +79,12 @@ export function useLessons(): LessonSummary[] | undefined {
 export function useLesson(lessonId: MaybeId): Lesson | null | undefined {
   const { lessons } = useServices();
   return useLive(lessonId ? (listener) => lessons.watchLesson(lessonId, listener) : null, [lessons, lessonId]);
+}
+
+/** The lesson of one class, whether or not it is published; null when the class names none that is stored. */
+export function useLessonOf(sessionId: MaybeId): Lesson | null | undefined {
+  const { lessons } = useServices();
+  return useLive(sessionId ? (listener) => lessons.watchLessonOf(sessionId, listener) : null, [lessons, sessionId]);
 }
 
 export function useSessions(): Session[] | undefined {
@@ -83,6 +96,12 @@ export function useSessions(): Session[] | undefined {
 export function useLiveSessions(): Session[] | undefined {
   const all = useSessions();
   return useMemo(() => all && liveSessions(all), [all]);
+}
+
+/** Whether any class is running now. */
+export function useAnyLive(): boolean | undefined {
+  const { sessions } = useServices();
+  return useLive((listener) => sessions.watchAnyLive(listener), [sessions]);
 }
 
 export function useSessionByCode(code: string): Session | null | undefined {
@@ -108,10 +127,40 @@ export function useParticipants(sessionId: MaybeId): Participant[] | undefined {
   );
 }
 
+/** The group totals of the class: score, pearls' basis and hearts, for the board. */
+export function useBoardTotals(sessionId: MaybeId): BoardTotal[] | undefined {
+  const { board } = useServices();
+  return useLive(sessionId ? (listener) => board.watchTotals(sessionId, listener) : null, [board, sessionId]);
+}
+
+/** The results of the student who holds this card; null while no student of the class does. */
+export function useCardResults(sessionId: MaybeId, cardNumber: number | null): CardResults | null | undefined {
+  const { board } = useServices();
+  return useLive(sessionId && cardNumber !== null ? (listener) => board.watchCardResults(sessionId, cardNumber, listener) : null, [board, sessionId, cardNumber]);
+}
+
+/** How many hearts the class has been given. */
+export function useHeartCount(sessionId: MaybeId): number | undefined {
+  const { rewards } = useServices();
+  return useLive(sessionId ? (listener) => rewards.watchHeartCount(sessionId, listener) : null, [rewards, sessionId]);
+}
+
 /** This device's seat in the session; null when it has not joined yet. */
 export function useMyParticipant(sessionId: MaybeId): Participant | null | undefined {
   const { participants } = useServices();
   return useLive(sessionId ? (listener) => participants.watchMine(sessionId, listener) : null, [participants, sessionId]);
+}
+
+/** What a let-in device shows of the class; null when this device holds no let-in seat. */
+export function useSeatView(sessionId: MaybeId): SeatView | null | undefined {
+  const { seatView } = useServices();
+  return useLive(sessionId ? (listener) => seatView.watchMine(sessionId, listener) : null, [seatView, sessionId]);
+}
+
+/** The names other devices hold, and this device's request number when its own name is contested. */
+export function useNameClaims(sessionId: MaybeId): NameClaims | undefined {
+  const { participants } = useServices();
+  return useLive(sessionId ? (listener) => participants.watchNameClaims(sessionId, listener) : null, [participants, sessionId]);
 }
 
 /** How many ended classes of this class list have been kept; changes the moment one more is. */

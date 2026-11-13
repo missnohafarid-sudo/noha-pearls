@@ -2,6 +2,7 @@ import type { Caller } from '../ports/caller';
 import type { DocumentStore } from '../ports/store';
 import { AdmissionService } from './AdmissionService';
 import { AnswerService } from './AnswerService';
+import { BoardService } from './BoardService';
 import { ContentService } from './ContentService';
 import { FolderService } from './FolderService';
 import { LessonService } from './LessonService';
@@ -10,6 +11,7 @@ import { RecordService } from './RecordService';
 import { RetentionService } from './RetentionService';
 import { RewardService } from './RewardService';
 import { RosterService } from './RosterService';
+import { SeatViewService } from './SeatViewService';
 import type { ServiceClasses } from './Services';
 import { SessionRosterService } from './SessionRosterService';
 import { SessionService } from './SessionService';
@@ -36,5 +38,7 @@ export function createDataServices(store: DocumentStore, caller: Caller): Servic
     rewards: new RewardService(store, caller, participants, sessionRoster),
     records,
     retention: new RetentionService(store, caller),
+    board: new BoardService(store),
+    seatView: new SeatViewService(store, participants),
   };
 }

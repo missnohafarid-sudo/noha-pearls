@@ -21,6 +21,11 @@ export class RewardService {
     return this.store.watch('rewards', { sessionId }, listener);
   }
 
+  /** How many hearts the class has been given, and nothing about whom. */
+  watchHeartCount(sessionId: Id, listener: (count: number) => void): Unsubscribe {
+    return this.store.watch('rewards', { sessionId }, (rewards) => listener(rewards.length));
+  }
+
   /** Admin only: a heart in the teacher's name, for a student or a group of the session's roster. Returns false when the target is not on it. Accepted after the class has ended too. */
   async giveAsTeacher(sessionId: Id, target: SubjectRef): Promise<boolean> {
     requireAdmin(this.caller);

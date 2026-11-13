@@ -1,15 +1,12 @@
-import { useEffect, useMemo, useState } from 'react';
-import { answersForWholeGroup, canAnswer, deviceAnswer, isQuestion } from '../../domain/answering';
-import { RewardIndex } from '../../domain/analytics';
-import { seatAnswerer } from '../../domain/admission';
-import type { Group, Participant, Session, SessionRoster } from '../../domain/models';
+import { useEffect, useState } from 'react';
+import { answersForWholeGroup, canAnswer, isQuestion } from '../../domain/answering';
+import type { Group, Participant, Session } from '../../domain/models';
 import { messageFor, resolveStudentView } from '../../domain/pacing';
-import { pearlsEarned, publishedKeys, scoreboard } from '../../domain/scoring';
-import { peerRewardTargets } from '../../domain/rewards';
 import { studentById } from '../../domain/roster';
+import type { SeenRoster } from '../../domain/visibility';
 import { t } from '../../i18n';
-import { useAnswers, useLesson, useRewards } from '../hooks/data';
-import { OwnResults } from '../board/OwnResults';
+import { useLessonOf, useSeatView } from '../hooks/data';
+import { MyResults } from '../board/MyResults';
 import { Loading } from '../common/PageState';
 import { useServices } from '../ServicesContext';
 import { SlideNav } from '../slides/SlideNav';
@@ -24,7 +21,7 @@ interface DeviceScreenProps {
   session: Session;
   group: Group;
   participant: Participant;
-  roster: SessionRoster;
+  roster: SeenRoster;
   /** Gives the seat up and returns to the name list. */
   onChooseName: () => void;
 }
@@ -32,12 +29,10 @@ interface DeviceScreenProps {
 /** What a joined student device shows: header, teacher message, the current slide, pacing and peer hearts. */
 export function DeviceScreen({ session, group, participant, roster, onChooseName }: DeviceScreenProps) {
   const { answers: answerService, rewards: rewardService } = useServices();
-  const lesson = useLesson(session.lessonId);
-  const answers = useAnswers(session.id);
-  const rewards = useRewards(session.id);
+  const lesson = useLessonOf(session.id);
+  const mine = useSeatView(session.id);
   const [showResults, setShowResults] = useState(false);
   const [ownIndex, setOwnIndex] = useState(session.slideIndex);
-  const index = useMemo(() => new RewardIndex(rewards ?? []), [rewards]);
 
   const view = lesson && lesson.slides.length > 0 ? resolveStudentView(session, group.id, lesson.slides.length, ownIndex) : null;
   const shownIndex = view?.state === 'slide' && !view.selfPaced ? view.slideIndex : null;
@@ -46,25 +41,20 @@ export function DeviceScreen({ session, group, participant, roster, onChooseName
     if (shownIndex !== null) setOwnIndex(shownIndex);
   }, [shownIndex]);
 
-  const pearls = useMemo(() => {
-    if (!lesson || !answers) return 0;
-    const score = scoreboard(lesson, roster, answers, publishedKeys(session)).find((entry) => entry.groupId === group.id);
-    return score ? pearlsEarned(score) : 0;
-  }, [lesson, answers, group, roster, session]);
-
-  if (lesson === undefined || answers === undefined || rewards === undefined) return <Loading />;
+  if (lesson === undefined || !mine) return <Loading />;
 
   const student = studentById(roster.students, participant.studentId);
   const header = (
     <>
       <DeviceHeader
         group={group}
-        pearls={pearls}
+        pearls={mine.pearls}
         onChooseName={onChooseName}
         student={
-          student && {
+          student &&
+          mine.own && {
             name: student.name,
-            hearts: index.of({ kind: 'student', id: student.id }).total,
+            hearts: mine.own.hearts.total,
             resultsShown: showResults,
             onToggleResults: () => setShowResults((shown) => !shown),
           }
@@ -74,19 +64,10 @@ export function DeviceScreen({ session, group, participant, roster, onChooseName
     </>
   );
 
-  const results = student && showResults && lesson && (
-    <OwnResults
-      session={session}
-      lesson={lesson}
-      roster={roster}
-      answers={answers}
-      student={student}
-      group={group}
-      hearts={index.of({ kind: 'student', id: student.id })}
-      onHide={() => setShowResults(false)}
-    >
+  const results = student && showResults && mine.own?.report && (
+    <MyResults student={student} group={group} report={mine.own.report} hearts={mine.own.hearts} onHide={() => setShowResults(false)}>
       <OwnStandings session={session} />
-    </OwnResults>
+    </MyResults>
   );
 
   if (!lesson || !view) {
@@ -101,11 +82,10 @@ export function DeviceScreen({ session, group, participant, roster, onChooseName
     );
   }
 
-  const heartTargets = peerRewardTargets(session, participant, roster.students);
   const message = messageFor(session, group.id);
   const slide = view.state === 'slide' ? lesson.slides[view.slideIndex] : null;
   const question = slide && isQuestion(slide) ? slide : null;
-  const shown = question && deviceAnswer(roster, answers, question, seatAnswerer(participant, roster.students));
+  const shown = question ? (mine.answers[question.id] ?? null) : null;
   const open = question !== null && canAnswer(session, question);
 
   return (
@@ -138,13 +118,7 @@ export function DeviceScreen({ session, group, participant, roster, onChooseName
           <span className="chip join__pace">{view.selfPaced ? t.join.ownPace : t.join.followsTeacher}</span>
         </>
       )}
-      {heartTargets.length > 0 && (
-        <PeerHearts
-          targets={heartTargets}
-          heartsOf={(id) => index.of({ kind: 'student', id }).total}
-          onGive={(classmate) => void rewardService.giveAsPeer(session.id, classmate.id)}
-        />
-      )}
+      <PeerHearts classmates={mine.classmates} onGive={(classmate) => void rewardService.giveAsPeer(session.id, classmate.id)} />
     </div>
   );
 }

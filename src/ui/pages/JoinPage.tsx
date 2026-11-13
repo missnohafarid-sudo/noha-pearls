@@ -1,4 +1,4 @@
-import { contestedRequestNumber, isAdmitted, isSeatOfGroupPage, namesHeldByOthers, seatGroupId } from '../../domain/admission';
+import { isAdmitted, isSeatOfGroupPage, seatGroupId } from '../../domain/admission';
 import { groupById, membersOf } from '../../domain/roster';
 import { isLive } from '../../domain/sessions';
 import { t } from '../../i18n';
@@ -9,7 +9,7 @@ import { NamePicker } from '../join/NamePicker';
 import { DeviceScreen } from '../join/DeviceScreen';
 import { StatusMessage } from '../join/StatusMessage';
 import { Loading } from '../common/PageState';
-import { useMyParticipant, useParticipants, useSessionByCode, useSessionRoster } from '../hooks/data';
+import { useMyParticipant, useNameClaims, useSeenRoster, useSessionByCode } from '../hooks/data';
 import { useServices } from '../ServicesContext';
 import './join.css';
 
@@ -17,9 +17,9 @@ import './join.css';
 export function JoinPage({ code, groupId }: { code: string; groupId: string }) {
   const { participants } = useServices();
   const session = useSessionByCode(code);
-  const roster = useSessionRoster(session);
+  const seen = useSeenRoster(session?.id);
   const participant = useMyParticipant(session?.id);
-  const everyone = useParticipants(session?.id);
+  const claims = useNameClaims(session?.id);
   const { lost, leave } = useSeatLost(participant);
 
   const invalid = <StatusMessage title={t.join.invalidLink} hint={t.join.invalidLinkHint} />;
@@ -28,15 +28,15 @@ export function JoinPage({ code, groupId }: { code: string; groupId: string }) {
     content = <Loading />;
   } else if (session === null) {
     content = invalid;
-  } else if (roster === undefined) {
+  } else if (seen === undefined) {
     content = <Loading />;
   } else if (!isLive(session)) {
-    content = <EndedScreen session={session} roster={roster} seat={participant} />;
+    content = <EndedScreen session={session} roster={seen} seat={participant} />;
   } else {
-    const { groups, students } = roster;
+    const { groups, students } = seen;
     const group = groupById(groups, groupId);
     if (!group) content = invalid;
-    else if (participant === undefined || everyone === undefined) content = <Loading />;
+    else if (participant === undefined || claims === undefined) content = <Loading />;
     else if (participant === null || !isSeatOfGroupPage(participant, groupId, students)) {
       content = (
         <NamePicker
@@ -45,7 +45,7 @@ export function JoinPage({ code, groupId }: { code: string; groupId: string }) {
           session={session}
           lost={lost}
           students={membersOf(groupId, students)}
-          heldIds={namesHeldByOthers(everyone, participant?.id ?? null)}
+          heldIds={claims.heldByOthers}
           onPick={(studentId) => void participants.join(session.id, groupId, studentId)}
         />
       );
@@ -53,13 +53,13 @@ export function JoinPage({ code, groupId }: { code: string; groupId: string }) {
       content = (
         <AdmissionWaiting
           named={participant.studentId !== null}
-          requestNumber={contestedRequestNumber(everyone, participant)}
+          requestNumber={claims.requestNumber}
           onChangeName={() => void leave(session.id)}
         />
       );
     } else {
       const seatGroup = groupById(groups, seatGroupId(participant, students)) ?? group;
-      content = <DeviceScreen session={session} group={seatGroup} participant={participant} roster={roster} onChooseName={() => void leave(session.id)} />;
+      content = <DeviceScreen session={session} group={seatGroup} participant={participant} roster={seen} onChooseName={() => void leave(session.id)} />;
     }
   }
 

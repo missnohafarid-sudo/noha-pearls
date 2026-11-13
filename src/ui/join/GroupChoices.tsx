@@ -1,13 +1,13 @@
 import type { Session } from '../../domain/models';
 import { t } from '../../i18n';
 import { toneStyle } from '../common/tone';
-import { useSessionRoster } from '../hooks/data';
+import { useSeenRoster } from '../hooks/data';
 import { RouteLink } from '../routing/useRoute';
 import './choices.css';
 
 /** One button per group, each opening the join page of that group of the session's class. */
 export function GroupChoices({ session }: { session: Session }) {
-  const roster = useSessionRoster(session);
+  const roster = useSeenRoster(session.id);
   return (
     <div className="stack stack--tight">
       <p>{t.home.join.chooseGroup}</p>

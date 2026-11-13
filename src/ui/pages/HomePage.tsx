@@ -6,7 +6,7 @@ import logoRose from '../assets/brand/logo-rose.jpg';
 import { Loading } from '../common/PageState';
 import type { FieldSpec } from '../forms/SchemaForm';
 import { SchemaForm } from '../forms/SchemaForm';
-import { useAdmin, useLiveSessions, useSite, useTeachers } from '../hooks/data';
+import { useAdmin, useAnyLive, useLiveSessions, useSite, useTeachers } from '../hooks/data';
 import { JoinByCode } from '../join/JoinByCode';
 import { LessonImportDialog } from '../lesson/LessonImportDialog';
 import { ClearingNotice } from '../retention/ClearingNotice';
@@ -40,9 +40,9 @@ function TeacherNames() {
 }
 
 function VisitorJoin() {
-  const live = useLiveSessions();
+  const live = useAnyLive();
   const admin = useAdmin();
-  if (!live?.length || admin) return null;
+  if (!live || admin) return null;
   return (
     <section className="stack stack--tight">
       <p className="notice">{th.liveNowVisitor}</p>

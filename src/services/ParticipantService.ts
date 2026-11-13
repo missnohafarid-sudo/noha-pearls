@@ -1,7 +1,7 @@
 import { canClaimSeat, isAdmitted } from '../domain/admission';
 import type { Id, Participant, SessionRoster } from '../domain/models';
 import { acceptsChanges } from '../domain/sessions';
-import { readerOf, type Reader } from '../domain/visibility';
+import { nameClaims, readerOf, type NameClaims, type Reader } from '../domain/visibility';
 import type { Caller } from '../ports/caller';
 import type { DocumentStore, Unsubscribe } from '../ports/store';
 import { combineWatches } from './combineWatches';
@@ -19,6 +19,14 @@ export class ParticipantService implements SeatSource, ReaderSource {
 
   watchParticipants(sessionId: Id, listener: (participants: Participant[]) => void): Unsubscribe {
     return this.store.watch('participants', { sessionId }, listener);
+  }
+
+  /** Which names other devices hold and the request number of this device's own seat: no seat of another device is revealed. Open to anyone. */
+  watchNameClaims(sessionId: Id, listener: (claims: NameClaims) => void): Unsubscribe {
+    return combineWatches<[Participant[], Participant | null]>(
+      [(emit) => this.store.watch('participants', { sessionId }, emit), (emit) => this.watchMine(sessionId, emit)],
+      (everyone, mine) => listener(nameClaims(everyone, mine)),
+    );
   }
 
   /** This device's seat in the session, if it already joined. */

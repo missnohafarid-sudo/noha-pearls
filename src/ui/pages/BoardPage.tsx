@@ -1,17 +1,16 @@
-import { useMemo, useState } from 'react';
-import { REWARD_SOURCES, RewardIndex } from '../../domain/analytics';
-import type { Group, Session, Student, SubjectRef } from '../../domain/models';
-import { groupById, membersOf } from '../../domain/roster';
-import { pearlsEarned, publishedKeys, rankScores, scoreboard, type GroupScore } from '../../domain/scoring';
+import { useState } from 'react';
+import type { Session, SubjectRef } from '../../domain/models';
+import { pearlsEarned, rankScores } from '../../domain/scoring';
 import { t } from '../../i18n';
 import pearlsRow from '../assets/brand/pearls-row.jpg';
 import { HeartButton } from '../common/HeartButton';
 import { Loading } from '../common/PageState';
 import { PearlString } from '../common/PearlString';
 import { toneStyle } from '../common/tone';
-import { useAdmin, useAnswers, useLesson, useRewards, useSessionRoster } from '../hooks/data';
+import { useAdmin, useBoardTotals, useCardResults, useSessionRoster } from '../hooks/data';
 import { useTeacherHearts } from '../hooks/useTeacherHearts';
-import { OwnResults } from '../board/OwnResults';
+import { BoardHeartsGrid } from '../board/BoardHeartsGrid';
+import { MyResults } from '../board/MyResults';
 import { CardIdentify } from '../scanner/CardIdentify';
 import { GroupStandingsOfClass } from '../standings/GroupStandingsOfClass';
 import { SessionChooser } from '../session/SessionLists';
@@ -40,26 +39,17 @@ export function BoardPage({ code }: { code: string | undefined }) {
 
 function BoardView({ session }: { session: Session }) {
   const admin = useAdmin();
-  const lesson = useLesson(session.lessonId);
+  const totals = useBoardTotals(session.id);
   const roster = useSessionRoster(session);
-  const answers = useAnswers(session.id);
-  const rewards = useRewards(session.id);
-  const [identified, setIdentified] = useState<Student | null>(null);
+  const [card, setCard] = useState<number | null>(null);
   const [identifying, setIdentifying] = useState(false);
+  const results = useCardResults(session.id, card);
   const heartFor = useTeacherHearts(session);
 
-  const scores = useMemo(
-    () => (lesson && roster && answers ? scoreboard(lesson, roster, answers, publishedKeys(session)) : []),
-    [lesson, roster, answers, session],
-  );
-  const index = useMemo(() => new RewardIndex(rewards ?? []), [rewards]);
+  if (!totals) return <Loading />;
 
-  if (lesson === undefined || !roster || !answers || !rewards) return <Loading />;
-  const { groups, students } = roster;
-
-  const giveTo = (target: SubjectRef) => heartFor(roster, target);
-  const groupOf = (score: GroupScore): Group | null => groupById(groups, score.groupId);
-  const ranked = rankScores(scores);
+  const giveTo = (target: SubjectRef) => (roster ? heartFor(roster, target) : undefined);
+  const ranked = rankScores(totals);
 
   return (
     <div className="page">
@@ -72,22 +62,17 @@ function BoardView({ session }: { session: Session }) {
       <section className="stack">
         <h2 className="card__title">{t.board.leaderboard}</h2>
         <ol className="board__ranking list-reset">
-          {ranked.map((score) => {
-            const group = groupOf(score);
-            if (!group) return null;
+          {ranked.map((total) => {
+            const { group, rank, score, max, hearts } = total;
             return (
               <li key={group.id} className="card board__rank" style={toneStyle(group.color)}>
-                <span className="board__position">{score.rank}</span>
+                <span className="board__position">{rank}</span>
                 <div className="stack stack--tight board__rank-main">
                   <strong>{group.name}</strong>
-                  <PearlString earned={pearlsEarned(score)} />
+                  <PearlString earned={pearlsEarned(total)} />
                 </div>
-                <span className="muted">{t.common.scoreOf(score.score, score.max)}</span>
-                <HeartButton
-                  owner={group.name}
-                  count={index.groupTotal(group, students)}
-                  onGive={giveTo({ kind: 'group', id: group.id })}
-                />
+                <span className="muted">{t.common.scoreOf(score, max)}</span>
+                <HeartButton owner={group.name} count={hearts} onGive={giveTo({ kind: 'group', id: group.id })} />
               </li>
             );
           })}
@@ -97,55 +82,11 @@ function BoardView({ session }: { session: Session }) {
       <GroupStandingsOfClass session={session} />
 
       {admin ? (
-        <section className="stack">
-          <h2 className="card__title">{t.board.groupsHearts}</h2>
-          <div className="grid">
-            {groups.map((group) => {
-              const members = membersOf(group.id, students);
-              return (
-                <article key={group.id} className="card card--tone stack" style={toneStyle(group.color)}>
-                  <h3 className="card__title">{group.name}</h3>
-                  {members.length === 0 && <p className="muted">{t.board.noStudents}</p>}
-                  {members.map((student) => {
-                    const tally = index.of({ kind: 'student', id: student.id });
-                    return (
-                      <div key={student.id} className="stack stack--tight">
-                        <div className="row row--between">
-                          <span>{student.name}</span>
-                          <HeartButton
-                            owner={student.name}
-                            count={tally.total}
-                            onGive={giveTo({ kind: 'student', id: student.id })}
-                          />
-                        </div>
-                        <div className="row">
-                          {REWARD_SOURCES.filter((source) => tally.bySource[source] > 0).map((source) => (
-                            <span key={source} className="chip">
-                              {t.common.rewardSource[source]} {tally.bySource[source]}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </article>
-              );
-            })}
-          </div>
-        </section>
+        roster && <BoardHeartsGrid sessionId={session.id} roster={roster} giveTo={giveTo} />
       ) : (
         <section className="stack">
-          {identified && lesson ? (
-            <OwnResults
-              session={session}
-              lesson={lesson}
-              roster={roster}
-              answers={answers}
-              student={identified}
-              group={groupById(groups, identified.groupId)}
-              hearts={index.of({ kind: 'student', id: identified.id })}
-              onHide={() => setIdentified(null)}
-            />
+          {results ? (
+            <MyResults student={results} group={results.group} report={results.report} hearts={results.hearts} onHide={() => setCard(null)} />
           ) : (
             <div className="card stack">
               <p className="muted">{t.board.showMineHint}</p>
@@ -158,9 +99,9 @@ function BoardView({ session }: { session: Session }) {
       )}
       {identifying && (
         <CardIdentify
-          students={students}
+          students={roster?.students ?? []}
           onIdentified={(student) => {
-            setIdentified(student);
+            setCard(student.cardNumber);
             setIdentifying(false);
           }}
           onClose={() => setIdentifying(false)}

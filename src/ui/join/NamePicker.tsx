@@ -14,7 +14,7 @@ interface NamePickerProps {
   lost: SeatLoss | null;
   students: readonly SeenStudent[];
   /** Students whose names another device already holds. */
-  heldIds: ReadonlySet<string>;
+  heldIds: readonly string[];
   /** `null` joins as the shared device of the whole group. */
   onPick: (studentId: string | null) => void;
 }
@@ -40,7 +40,7 @@ export function NamePicker({ group, session, lost, students, heldIds, onPick }: 
             onClick={() => onPick(student.id)}
           >
             {student.name}
-            {heldIds.has(student.id) && <span className="muted join__choice-note">{t.join.nameTaken}</span>}
+            {heldIds.includes(student.id) && <span className="muted join__choice-note">{t.join.nameTaken}</span>}
           </button>
         ))}
         <button type="button" className="btn btn--primary join__choice" onClick={() => onPick(null)}>

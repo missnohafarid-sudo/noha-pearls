@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { RewardIndex } from '../../domain/analytics';
 import { isAdmitted } from '../../domain/admission';
-import type { Participant, Session, SessionRoster } from '../../domain/models';
-import { t } from '../../i18n';
+import type { Participant, Session } from '../../domain/models';
 import { groupById, studentById } from '../../domain/roster';
-import { OwnResults } from '../board/OwnResults';
-import { useAnswers, useLesson, useRewards } from '../hooks/data';
+import type { SeenRoster } from '../../domain/visibility';
+import { t } from '../../i18n';
+import { MyResults } from '../board/MyResults';
+import { useSeatView } from '../hooks/data';
 import { OwnStandings } from '../standings/OwnStandings';
 import { LeaveLink } from './LeaveLink';
 import { StatusMessage } from './StatusMessage';
@@ -14,25 +14,23 @@ interface EndedScreenProps {
   session: Session;
   /** This device's seat; only a named, admitted one has results to show. */
   seat: Participant | null | undefined;
-  roster: SessionRoster;
+  roster: SeenRoster;
 }
 
 /** What a device shows once the class has ended: thanks, and her own results if she was in under her name. */
 export function EndedScreen({ session, seat, roster }: EndedScreenProps) {
-  const { groups, students } = roster;
-  const lesson = useLesson(session.lessonId);
-  const answers = useAnswers(session.id);
-  const rewards = useRewards(session.id);
+  const mine = useSeatView(session.id);
   const [hidden, setHidden] = useState(false);
 
-  const student = seat && isAdmitted(seat) ? studentById(students, seat.studentId) : null;
-  const group = student && groupById(groups, student.groupId);
+  const student = seat && isAdmitted(seat) ? studentById(roster.students, seat.studentId) : null;
+  const group = student && groupById(roster.groups, student.groupId);
+  const own = mine?.own;
   const message = (
     <StatusMessage title={t.join.ended} hint={t.join.endedHint}>
       <LeaveLink />
     </StatusMessage>
   );
-  if (!student || !group || !lesson || !answers || !rewards) return message;
+  if (!student || !group || !own?.report) return message;
 
   return (
     <div className="stack">
@@ -42,18 +40,9 @@ export function EndedScreen({ session, seat, roster }: EndedScreenProps) {
           {t.join.myResults}
         </button>
       ) : (
-        <OwnResults
-          session={session}
-          lesson={lesson}
-          roster={roster}
-          answers={answers}
-          student={student}
-          group={group}
-          hearts={new RewardIndex(rewards).of({ kind: 'student', id: student.id })}
-          onHide={() => setHidden(true)}
-        >
+        <MyResults student={student} group={group} report={own.report} hearts={own.hearts} onHide={() => setHidden(true)}>
           <OwnStandings session={session} />
-        </OwnResults>
+        </MyResults>
       )}
     </div>
   );

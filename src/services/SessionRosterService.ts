@@ -2,6 +2,7 @@ import { addToRoll, joinRoll, markAbsent } from '../domain/attendance';
 import type { ClassRoster, Id, SessionRoster, Student } from '../domain/models';
 import { addStudentToRoster, isOnRoster, moveStudent, renameGroupIn } from '../domain/roster';
 import { acceptsChanges } from '../domain/sessions';
+import { seenRoster, type SeenRoster } from '../domain/visibility';
 import type { DocumentStore, Unsubscribe } from '../ports/store';
 import type { Caller } from '../ports/caller';
 import { requireAdmin } from './AuthService';
@@ -25,6 +26,11 @@ export class SessionRosterService implements SessionRosterSource, PresenceMarker
 
   watchRoster(sessionId: Id, listener: (roster: SessionRoster) => void): Unsubscribe {
     return this.watchRosterOf(sessionId, listener);
+  }
+
+  /** The groups and students without the roll or card numbers: all a device needs to pick its group and name. Open to anyone. */
+  watchSeen(sessionId: Id, listener: (roster: SeenRoster) => void): Unsubscribe {
+    return this.watchRosterOf(sessionId, (roster) => listener(seenRoster(roster)));
   }
 
   watchRosterOf(sessionId: Id, listener: (roster: SessionRoster) => void): Unsubscribe {

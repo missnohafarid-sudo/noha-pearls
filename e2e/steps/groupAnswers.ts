@@ -10,6 +10,9 @@ import { answersOn, countedFor, expectedAnswered, expectedTally, groupScore, her
 const TOGGLE = '.presenter__main .pearl-toggle';
 const SHARED_TEXT = 'A shared device answering for its whole group.';
 const OWN_TEXT = 'My own answer, which replaces the group one for me alone.';
+const SHARED_EDIT = 'The shared device changed its text while she was typing.';
+const DRAFT_TEXT = 'Her own draft, half written';
+const GROUP_BLOCK = '.slide-answer--group';
 const GROUP_QUESTION_TEXT = 'The shared device answering a group question.';
 const EXIT_CARD = SAMPLE.slides.length - 1;
 const POLL_OPTIONS = (SAMPLE.slides[SLIDE.poll].options ?? []).length;
@@ -184,7 +187,8 @@ export function groupAnswersSteps(world: World): void {
 
   it('a named student of that group sees her group\'s answer as what counts for her, and in her own results it is named her group\'s answer', async () => {
     await world.student.waitFor(t.join.groupAnswered);
-    expect(await world.student.page.$eval('textarea', (field) => (field as HTMLTextAreaElement).value)).toBe(SHARED_TEXT);
+    expect(await world.student.texts('.slide-answer--group')).toEqual([expect.stringContaining(SHARED_TEXT)]);
+    expect(await world.student.page.$eval('textarea', (field) => (field as HTMLTextAreaElement).value)).toBe('');
     const row = await resultRowOn(world.student, EXIT_CARD);
     expect(row).toContain(SHARED_TEXT);
     expect(row).toContain(t.common.yourGroupAnswer);
@@ -195,7 +199,7 @@ export function groupAnswersSteps(world: World): void {
     const before = expectedAnswered(await load(), slide.id);
     await world.admin.waitFor(t.common.answeredCount(...before));
     await world.student.fill('textarea', OWN_TEXT);
-    await world.student.click(t.slides.view.update);
+    await world.student.click(t.slides.view.send);
     await world.admin.until('her own stored answer', async () => answersOn(await load(), slide.id).length === 2);
     const data = await load();
     expect(answersOn(data, slide.id).map((answer) => [answer.subject.kind, answer.subject.id, answer.value]).sort()).toEqual(
@@ -209,6 +213,30 @@ export function groupAnswersSteps(world: World): void {
     expect(row).toContain(OWN_TEXT);
     expect(row).not.toContain(t.common.yourGroupAnswer);
     expect(await covered.has(t.join.groupAnswered)).toBe(true);
+  });
+
+  it('a covered student of the group keeps her own draft when the group\'s device changes its text: the group\'s text sits above her empty box, and sending her own removes it', async () => {
+    const classmate = coveredOne(await load());
+    const slide = await slideAt(EXIT_CARD);
+    const boxValue = () => covered.page.$eval('textarea', (field) => (field as HTMLTextAreaElement).value);
+    const groupBlock = async () => (await covered.texts(GROUP_BLOCK)).join('\n');
+    await covered.until('the group\'s text above her box', async () => (await groupBlock()).includes(SHARED_TEXT));
+    expect(await groupBlock()).toContain(t.common.yourGroupAnswer);
+    expect(await boxValue()).toBe('');
+    expect(await covered.has(t.slides.view.sent)).toBe(false);
+    expect(await covered.has(t.slides.view.update)).toBe(false);
+    await covered.page.type('textarea', DRAFT_TEXT);
+    await shared.fill('textarea', SHARED_EDIT);
+    await shared.click(t.slides.view.update);
+    await world.admin.until('the group\'s changed text stored', async () => answersOn(await load(), slide.id).some((answer) => answer.subject.kind === 'group' && answer.value === SHARED_EDIT));
+    await covered.until('the changed group text above her box', async () => (await groupBlock()).includes(SHARED_EDIT));
+    expect(await boxValue()).toBe(DRAFT_TEXT);
+    expect(await covered.has(t.slides.view.sent)).toBe(false);
+    await covered.click(t.slides.view.send);
+    await world.admin.until('her own answer stored', async () => answersOn(await load(), slide.id).some((answer) => answer.subject.kind === 'student' && answer.subject.id === classmate.id && answer.value === DRAFT_TEXT));
+    await covered.until('the group block gone', async () => !(await covered.exists(GROUP_BLOCK)));
+    expect(await boxValue()).toBe(DRAFT_TEXT);
+    await covered.waitFor(t.slides.view.sent);
   });
 
   it('on a choice question the shared device\'s answer raises its option by the present students of the group who gave none of their own, and her own option stays hers', async () => {

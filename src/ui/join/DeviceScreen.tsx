@@ -126,6 +126,7 @@ export function DeviceScreen({ session, group, participant, roster, onChooseName
           <SlideView
             slide={slide}
             answer={shown?.answer.value ?? null}
+            groupAnswer={shown?.coveredByGroup ? shown.answer.value : null}
             reveal={session.reveals[slide.id] ?? null}
             onAnswer={open ? (value) => void answerService.submitFromDevice(session.id, slide.id, value) : null}
           />

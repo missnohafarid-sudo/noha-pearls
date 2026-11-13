@@ -11,6 +11,8 @@ interface SlideViewProps {
   slide: Slide;
   /** The viewer's current answer. */
   answer?: number | string | null;
+  /** The part of `answer` that is the viewer's group's, not her own. */
+  groupAnswer?: number | string | null;
   /** Pass it to let the viewer answer; leave it out for a read-only slide. */
   onAnswer?: ((value: number | string) => void) | null;
   /** The published answer key, once revealed. */
@@ -22,7 +24,7 @@ interface SlideViewProps {
 }
 
 /** Draws any slide, for any audience. The same component serves the lesson page, the presenter and student devices. */
-export function SlideView({ slide, answer = null, onAnswer = null, reveal = null, tally = null, children }: SlideViewProps) {
+export function SlideView({ slide, answer = null, groupAnswer = null, onAnswer = null, reveal = null, tally = null, children }: SlideViewProps) {
   const { Body } = slideUi(slide.kind);
   const repaired = normalizeSlide(slide);
   return (
@@ -37,7 +39,7 @@ export function SlideView({ slide, answer = null, onAnswer = null, reveal = null
         <h2 className="slide__title">{slide.title || t.slides.view.emptySlide}</h2>
       </header>
       {/* Keyed by slide: nothing typed on one slide may leak into the next. */}
-      <Body key={slide.id} slide={repaired} interaction={{ answer, onAnswer, reveal, tally }} />
+      <Body key={slide.id} slide={repaired} interaction={{ answer, groupAnswer, onAnswer, reveal, tally }} />
       {children}
     </article>
   );

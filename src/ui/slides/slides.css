@@ -211,3 +211,14 @@
   border-radius: var(--radius-small);
   background: var(--gold-soft);
 }
+
+.slide-answer--group {
+  display: grid;
+  gap: 4px;
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--line-soft);
+}
+
+.slide-answer--group p {
+  margin: 0;
+}

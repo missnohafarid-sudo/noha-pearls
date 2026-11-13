@@ -22,6 +22,8 @@ import { Pictures } from './Pictures';
 export interface SlideInteraction {
   /** The viewer's current answer, if any. */
   answer: number | string | null;
+  /** The answer that counts for the viewer only because her group gave it; a written answer shows it apart from her own box. */
+  groupAnswer: number | string | null;
   /** Present when the viewer may answer; absent on the presenter and in previews. */
   onAnswer: ((value: number | string) => void) | null;
   /** The published answer key, once the teacher reveals it. */
@@ -96,17 +98,24 @@ function ChoiceBody({ slide, interaction }: SlideBodyProps<ChoiceSlide>) {
 }
 
 function TextBody({ slide, interaction }: SlideBodyProps<TextSlide>) {
-  const { onAnswer, answer, reveal } = interaction;
-  const sent = typeof answer === 'string' ? answer : '';
+  const { onAnswer, answer, groupAnswer, reveal } = interaction;
+  const covered = typeof groupAnswer === 'string' ? groupAnswer : '';
+  const sent = covered === '' && typeof answer === 'string' ? answer : '';
   const [draft, setDraft] = useState(sent);
 
-  // A group shares one answer: when a teammate sends theirs, every device of the group shows it.
+  // A group shares one answer: when a teammate sends theirs, every device of the group shows it. Her group's answer behind her own box never replaces her draft.
   useEffect(() => setDraft(sent), [sent]);
 
   return (
     <div className="slide-question">
       <p className="slide-question__prompt">{slide.prompt}</p>
       <Pictures links={slide.images} />
+      {covered !== '' && (
+        <div className="slide-answer slide-answer--group">
+          <span className="muted">{t.common.yourGroupAnswer}</span>
+          <p>{covered}</p>
+        </div>
+      )}
       {onAnswer ? (
         <form
           className="stack"

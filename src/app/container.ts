@@ -33,8 +33,16 @@ export async function createServices(): Promise<Services> {
   const caller = new BrowserCaller(gateway, tabMemory, `${STORAGE_NAMESPACE}/device`);
   let cardCodec: Promise<CardCodec> | null = null;
 
+  const dataServices = createDataServices(store, caller);
+  // A failed clearing writes nothing down, so the next page load repeats it; there is nothing the admin could do about it meanwhile.
+  const clearWhenDue = () => {
+    if (caller.isAdmin()) dataServices.retention.clearIfDue().catch(() => undefined);
+  };
+  clearWhenDue();
+  auth.subscribe(clearWhenDue);
+
   return {
-    ...createDataServices(store, caller),
+    ...dataServices,
     auth,
     qr: new QrSvgRenderer(),
     loadCardCodec: () =>

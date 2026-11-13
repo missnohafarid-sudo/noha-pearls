@@ -13,6 +13,7 @@ import type { DocumentStore, Unsubscribe } from '../ports/store';
 import type { Caller } from '../ports/caller';
 import { requireAdmin } from './AuthService';
 import type { ClassRosterSource } from './ClassRosterSource';
+import { combineWatches } from './combineWatches';
 import { requireName } from './requireName';
 
 export type RosterErrorCode = 'group-not-empty' | 'card-number-taken' | 'group-missing' | 'class-missing' | 'class-in-use';
@@ -39,22 +40,10 @@ export class RosterService implements ClassRosterSource {
 
   /** The groups of one class and the students in them, each in its order. */
   watchRoster(classId: Id, listener: (roster: ClassRoster) => void): Unsubscribe {
-    let groups: Group[] | null = null;
-    let students: Student[] | null = null;
-    const emit = () => {
-      if (groups && students) listener(rosterOf(groups, students));
-    };
-    const stops = [
-      this.store.watch('groups', { classId }, (docs) => {
-        groups = docs;
-        emit();
-      }),
-      this.store.watch('students', {}, (docs) => {
-        students = docs;
-        emit();
-      }),
-    ];
-    return () => stops.forEach((stop) => stop());
+    return combineWatches<[Group[], Student[]]>(
+      [(emit) => this.store.watch('groups', { classId }, emit), (emit) => this.store.watch('students', {}, emit)],
+      (groups, students) => listener(rosterOf(groups, students)),
+    );
   }
 
   async addClass(name: string): Promise<SchoolClass> {

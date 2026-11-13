@@ -16,31 +16,51 @@ import type { TeacherService } from './TeacherService';
 
 export type CardCodec = MarkerDetector & MarkerRenderer;
 
-/** The public shape of a service class: what a caller may use, without its internals. */
-export type Api<T> = { [K in keyof T]: T[K] };
-
-/** The use cases over stored data. Built the same way wherever they run. */
-export interface DataServices {
-  content: Api<ContentService>;
-  roster: Api<RosterService>;
-  teachers: Api<TeacherService>;
-  folders: Api<FolderService>;
-  /** `moveLessons` is the folder service's alone. */
-  lessons: Omit<Api<LessonService>, 'moveLessons'>;
-  sessions: Api<SessionService>;
-  sessionRoster: Api<SessionRosterService>;
-  participants: Api<ParticipantService>;
-  admission: Api<AdmissionService>;
-  answers: Api<AnswerService>;
-  rewards: Api<RewardService>;
-  records: Api<RecordService>;
-  retention: Api<RetentionService>;
+/** The service classes as the composition root builds them, internals included. */
+export interface ServiceClasses {
+  content: ContentService;
+  roster: RosterService;
+  teachers: TeacherService;
+  folders: FolderService;
+  lessons: LessonService;
+  sessions: SessionService;
+  sessionRoster: SessionRosterService;
+  participants: ParticipantService;
+  admission: AdmissionService;
+  answers: AnswerService;
+  rewards: RewardService;
+  records: RecordService;
+  retention: RetentionService;
 }
 
+/**
+ * The one table of what the interface may ask of the application: for each service, the names of its methods.
+ * A method missing here is internal: `sessionRoster.rosterOf`, `watchRosterOf`, `joinRoll`, `addToRoll`,
+ * `roster.rosterOfClass`, `lessons.moveLessons`, `participants.admittedSeat`, `watchReader`, `records.keep`, `retention.clearIfDue`.
+ */
+export const UI_SURFACE = {
+  content: ['watchSite', 'updateSite'],
+  roster: ['watchClasses', 'watchRoster', 'addClass', 'renameClass', 'removeClass', 'addGroup', 'saveGroup', 'removeGroup', 'addStudent', 'saveStudent', 'removeStudent', 'importFromText', 'exportToText'],
+  teachers: ['watchTeachers', 'add', 'rename', 'remove'],
+  folders: ['watchFolders', 'add', 'rename', 'move', 'remove'],
+  lessons: ['watchLessons', 'watchLesson', 'create', 'save', 'moveToFolder', 'remove', 'importFromText', 'exportToText'],
+  sessions: ['watchAll', 'watchByCode', 'start', 'end', 'goTo', 'reveal', 'setPacing', 'sendMessage', 'clearMessage', 'setMinInteractions'],
+  sessionRoster: ['watchRoster', 'moveStudent', 'addStudent', 'renameGroup', 'markPresent', 'markAbsent'],
+  participants: ['watchParticipants', 'watchMine', 'join', 'leave'],
+  admission: ['admit', 'takeRoll', 'admitAll', 'remove'],
+  answers: ['watchAnswers', 'submitFromDevice', 'submitForStudent', 'clearForStudent'],
+  rewards: ['watchRewards', 'giveAsTeacher', 'giveAsPeer'],
+  records: ['currentPeriod', 'standingsOf', 'groupStandingsOf', 'ownStandingIn', 'watchKeptCount'],
+  retention: ['watchSettings', 'watchNotices', 'rangeLimits', 'setYearEnd', 'classesToRemove', 'removeClasses'],
+} as const satisfies { [S in keyof ServiceClasses]: readonly (keyof ServiceClasses[S])[] };
+
+/** The use cases over stored data, as the interface sees them. */
+export type DataServices = { [S in keyof typeof UI_SURFACE]: Pick<ServiceClasses[S], Extract<(typeof UI_SURFACE)[S][number], keyof ServiceClasses[S]>> };
+
 /** Everything the interface may ask of the application. The composition root builds one. */
-export interface Services extends DataServices {
-  auth: Api<AuthService>;
+export type Services = DataServices & {
+  auth: AuthService;
   qr: QrRenderer;
   /** Loaded on demand: only the teacher's scanner and the card printer need it. */
   loadCardCodec(): Promise<CardCodec>;
-}
+};

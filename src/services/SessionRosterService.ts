@@ -6,9 +6,7 @@ import type { DocumentStore, Unsubscribe } from '../ports/store';
 import type { Caller } from '../ports/caller';
 import { requireAdmin } from './AuthService';
 import type { PresenceMarker } from './PresenceMarker';
-import type { SessionRosterSource } from './SessionRosterSource';
-
-const NO_ONE: SessionRoster = { id: '', groups: [], students: [], present: null };
+import { NO_ROSTER, type SessionRosterSource } from './SessionRosterSource';
 
 /** The roster with the new lists and everything else (its id, its roll) as it was; null when the rule refused. */
 function merged(roster: SessionRoster, lists: ClassRoster | null): SessionRoster | null {
@@ -26,11 +24,15 @@ export class SessionRosterService implements SessionRosterSource, PresenceMarker
   ) {}
 
   watchRoster(sessionId: Id, listener: (roster: SessionRoster) => void): Unsubscribe {
-    return this.store.watch('rosters', { id: sessionId }, (docs) => listener(docs[0] ?? NO_ONE));
+    return this.watchRosterOf(sessionId, listener);
+  }
+
+  watchRosterOf(sessionId: Id, listener: (roster: SessionRoster) => void): Unsubscribe {
+    return this.store.watch('rosters', { id: sessionId }, (docs) => listener(docs[0] ?? NO_ROSTER));
   }
 
   async rosterOf(sessionId: Id): Promise<SessionRoster> {
-    return (await this.store.get('rosters', sessionId)) ?? NO_ONE;
+    return (await this.store.get('rosters', sessionId)) ?? NO_ROSTER;
   }
 
   /** Admin only: puts the student in another group of the session. Returns false when the rules do not allow it. */

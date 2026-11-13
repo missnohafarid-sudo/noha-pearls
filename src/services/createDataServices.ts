@@ -10,13 +10,13 @@ import { RecordService } from './RecordService';
 import { RetentionService } from './RetentionService';
 import { RewardService } from './RewardService';
 import { RosterService } from './RosterService';
-import type { DataServices } from './Services';
+import type { ServiceClasses } from './Services';
 import { SessionRosterService } from './SessionRosterService';
 import { SessionService } from './SessionService';
 import { TeacherService } from './TeacherService';
 
 /** The one place the data services are wired together, for every place they run. */
-export function createDataServices(store: DocumentStore, caller: Caller): DataServices {
+export function createDataServices(store: DocumentStore, caller: Caller): ServiceClasses {
   const sessionRoster = new SessionRosterService(store, caller);
   const roster = new RosterService(store, caller);
   const participants = new ParticipantService(store, caller, sessionRoster);

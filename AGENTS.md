@@ -82,7 +82,7 @@ A teacher. She is not a programmer and cannot judge your code.
 | Session codes: making and reading one | `domain/ids.ts` |
 | Who is asking: the admin or not, and which device | `ports/caller.ts` |
 | Is this the admin | `services/AuthService.ts` |
-| What the UI may ask of the app | `services/Services.ts` |
+| What the UI may ask of the app: the one table `UI_SURFACE` of method names per service | `services/Services.ts` |
 | How the data services are wired together | `services/createDataServices.ts` |
 | Addresses and links | `ui/routing/routes.ts` |
 | Whether the edit panel shows | `ui/shell/AdminPanel.tsx` |

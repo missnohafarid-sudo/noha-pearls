@@ -1,13 +1,16 @@
 import { canClaimSeat, isAdmitted } from '../domain/admission';
-import type { Id, Participant } from '../domain/models';
+import type { Id, Participant, SessionRoster } from '../domain/models';
 import { acceptsChanges } from '../domain/sessions';
+import { readerOf, type Reader } from '../domain/visibility';
 import type { Caller } from '../ports/caller';
 import type { DocumentStore, Unsubscribe } from '../ports/store';
+import { combineWatches } from './combineWatches';
+import type { ReaderSource } from './ReaderSource';
 import type { SeatSource } from './SeatSource';
 import type { SessionRosterSource } from './SessionRosterSource';
 
 /** This device's own seat in a session: asking for it, following it, giving it up. */
-export class ParticipantService implements SeatSource {
+export class ParticipantService implements SeatSource, ReaderSource {
   constructor(
     private readonly store: DocumentStore,
     private readonly caller: Caller,
@@ -21,6 +24,14 @@ export class ParticipantService implements SeatSource {
   /** This device's seat in the session, if it already joined. */
   watchMine(sessionId: Id, listener: (participant: Participant | null) => void): Unsubscribe {
     return this.store.watch('participants', { id: this.participantId(sessionId) }, (docs) => listener(docs[0] ?? null));
+  }
+
+  /** Who this caller reads as: the admin or not, and the let-in seat it holds, which follows the roster as the teacher regroups. */
+  watchReader(sessionId: Id, listener: (reader: Reader) => void): Unsubscribe {
+    return combineWatches<[Participant | null, SessionRoster]>(
+      [(emit) => this.watchMine(sessionId, emit), (emit) => this.rosters.watchRosterOf(sessionId, emit)],
+      (seat, roster) => listener(readerOf(this.caller.isAdmin(), seat, roster.students)),
+    );
   }
 
   async admittedSeat(sessionId: Id): Promise<Participant | null> {

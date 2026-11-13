@@ -1,146 +1,502 @@
-import { type ChildProcess, execFileSync, spawn } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { createServer } from 'node:net';
+import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
+import { connect } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import type { ClassRoster, Lesson, LessonSummary, Participant, Session, Teacher } from '../src/domain/models';
+import { LOCAL_ADMIN_SECRETS } from '../vite.config';
+import { Device, LiveSocket, rightCode, rightPassword, wrongCode } from './hubClient';
+import { build, BUILT_WRANGLER_CONFIG, start, STARTUP_MS, stopEverything, type Server } from './serverProcess';
+import { MAX_POST_BODY_BYTES } from '../src/ports/limits';
+import { INSTANCE_PATH } from '../src/server/testing/instancePath';
+import { SAMPLE } from './sample';
 
-/**
- * The real local server: the built site and the Worker with its hub, run by `wrangler dev` from what `vite build` made,
- * with the hub's storage kept in a temporary folder so a restart can be checked. Every process and folder is removed at the end.
- */
-
-const HOST = '127.0.0.1';
-const BUILT_WRANGLER_CONFIG = 'dist/noha_pearls/wrangler.json';
-const STARTUP_MS = 90_000;
-const STOP_WAIT_MS = 15_000;
+/** The real local server, driven the way pages drive it: plain requests and one socket per page, each device with its own cookies. */
 
 const stateDir = mkdtempSync(join(tmpdir(), 'noha-pearls-hub-'));
-const running = new Set<ChildProcess>();
+/** A hibernatable hub forgets its memory after about ten idle seconds (docs/PLAN.md 2.4). */
+const IDLE_UNTIL_EVICTED_MS = 15_000;
+const PROBE_CONFIG = 'e2e/probe/wrangler.jsonc';
+const BUILT_PAGE = 'dist/client';
+const BUILT_FILES = [BUILT_PAGE, 'dist/noha_pearls'];
 
-function freePort(): Promise<number> {
-  return new Promise((resolve, reject) => {
-    const probe = createServer();
-    probe.once('error', reject);
-    probe.listen(0, HOST, () => {
-      const address = probe.address();
-      const port = typeof address === 'object' && address ? address.port : 0;
-      probe.close(() => resolve(port));
-    });
+function filesUnder(folder: string): string[] {
+  return readdirSync(folder).flatMap((name) => {
+    const path = join(folder, name);
+    return statSync(path).isDirectory() ? filesUnder(path) : [path];
   });
 }
 
-/** Builds the site and the Worker together, as `npm run build` does (the walkthrough's site-only variable must not be set). */
-function build(): void {
-  const { VITEST: _inTest, NOHA_SITE_ONLY: _siteOnly, ...environment } = process.env;
-  execFileSync(process.execPath, ['node_modules/vite/bin/vite.js', 'build', '--logLevel', 'warn'], { env: environment, stdio: 'inherit' });
-}
+/** Values no real secret has: a build that finds them anywhere in its output carried a build variable into the page or the Worker. */
+const CANARIES = { VITE_ADMIN_PASSWORD_SHA256: 'canary-password-hash-7f3a91c2', VITE_ADMIN_TOTP_SECRET: 'CANARYTOTPSECRET7F3A91C2' };
 
-interface Server {
-  origin: string;
-  stop(): Promise<void>;
-}
+const builtTextFiles = (): string[] => BUILT_FILES.flatMap(filesUnder).filter((path) => !/\.(png|jpe?g|woff2?|ico|webp)$/.test(path));
 
-async function start(): Promise<Server> {
-  const port = await freePort();
-  const child = spawn(
-    process.execPath,
-    ['node_modules/wrangler/bin/wrangler.js', 'dev', '-c', BUILT_WRANGLER_CONFIG, '--ip', HOST, '--port', String(port), '--persist-to', stateDir],
-    { env: { ...process.env, WRANGLER_SEND_METRICS: 'false', CI: '1' }, detached: true, stdio: ['ignore', 'pipe', 'pipe'] },
-  );
-  running.add(child);
-  let log = '';
-  const exited = new Promise<never>((_, reject) => child.once('exit', (code) => reject(new Error(`wrangler stopped with code ${code}\n${log}`))));
-  const ready = new Promise<void>((resolve) => {
-    const listen = (chunk: Buffer) => {
-      log += chunk.toString();
-      if (log.includes('Ready on')) resolve();
-    };
-    child.stdout?.on('data', listen);
-    child.stderr?.on('data', listen);
+describe('a build made with secrets in its environment', () => {
+  beforeAll(() => build({ ...CANARIES, NOHA_SITE_ONLY: 'true' }), STARTUP_MS * 2);
+
+  it('holds neither secret anywhere, and is still the hub build: only exactly 1 turns the browser-only mode on', () => {
+    for (const file of builtTextFiles()) {
+      const text = readFileSync(file, 'utf8');
+      for (const canary of Object.values(CANARIES)) expect(text.includes(canary), `${file} holds ${canary}`).toBe(false);
+    }
+    expect(readdirSync('dist/noha_pearls')).toContain('wrangler.json');
+    const page = filesUnder(BUILT_PAGE).filter((path) => path.endsWith('.js')).map((path) => readFileSync(path, 'utf8')).join('\n');
+    expect(page).not.toContain('pearls/admin');
   });
-  const timeout = new Promise<never>((_, reject) => setTimeout(() => reject(new Error(`the server did not start\n${log}`)), STARTUP_MS).unref());
-  try {
-    await Promise.race([ready, exited, timeout]);
-  } catch (error) {
-    await stopAndWait(child);
-    throw error;
-  }
-  return {
-    origin: `http://${HOST}:${port}`,
-    stop: () => stopAndWait(child),
-  };
-}
+});
 
-/** Asks the server's whole process group to stop (wrangler starts the Worker runtime as a child). */
-function kill(child: ChildProcess): void {
-  running.delete(child);
-  if (child.pid === undefined) return;
-  try {
-    process.kill(-child.pid, 'SIGTERM');
-  } catch {
-    child.kill('SIGTERM');
-  }
-}
+describe('what a deploy would use', () => {
+  beforeAll(() => build(), STARTUP_MS * 2);
 
-const groupIsRunning = (pid: number): boolean => {
-  try {
-    process.kill(-pid, 0);
-    return true;
-  } catch {
-    return false;
-  }
-};
+  it('holds neither development sign-in value, no variable and no local-only switch, in the configuration or anywhere in the build', () => {
+    const configuration = readFileSync(BUILT_WRANGLER_CONFIG, 'utf8');
+    expect(configuration).not.toMatch(/ADMIN_PASSWORD|ADMIN_TOTP_SECRET|NOHA_SITE_ONLY|CLOUDFLARE_ENV/);
+    expect((JSON.parse(configuration) as { vars?: object }).vars ?? {}).toEqual({});
+    const forbidden = [...Object.values(LOCAL_ADMIN_SECRETS), 'NOHA_SITE_ONLY'];
+    for (const file of builtTextFiles()) {
+      const text = readFileSync(file, 'utf8');
+      for (const value of forbidden) expect(text.includes(value), `${file} holds ${value}`).toBe(false);
+    }
+  });
 
-/** Stops the server and returns once every process of it is gone. */
-async function stopAndWait(child: ChildProcess): Promise<void> {
-  kill(child);
-  for (let waited = 0; child.pid !== undefined && groupIsRunning(child.pid) && waited < STOP_WAIT_MS; waited += 100) {
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  }
-}
-
-const calls = async (server: Server): Promise<number> => ((await (await fetch(`${server.origin}/api/health`)).json()) as { calls: number }).calls;
+  it('puts neither the browser store nor the prototype sign-in into the page', () => {
+    const page = filesUnder(BUILT_PAGE).filter((path) => path.endsWith('.js')).map((path) => readFileSync(path, 'utf8')).join('\n');
+    expect(page).not.toContain('pearls/admin');
+    expect(page).not.toContain('VITE_ADMIN');
+  });
+});
 
 describe('the local server', () => {
   let server: Server;
+  const device = (address?: string) => new Device(() => server.origin, address);
+  /** A visitor's page: it says hello, which gives the device its cookie, then opens its socket. */
+  const visitorSocket = async (): Promise<LiveSocket> => {
+    const visitor = device();
+    await visitor.hello();
+    return visitor.open();
+  };
+
+  /** A device that has said hello and is signed in as the teacher. */
+  async function teacher(address = '10.1.1.1'): Promise<Device> {
+    const signedIn = device(address);
+    await signedIn.hello();
+    expect(await signedIn.signIn(rightPassword(), await rightCode())).toBe(true);
+    return signedIn;
+  }
 
   beforeAll(async () => {
-    build();
-    server = await start();
+    server = await start(stateDir, { withSecrets: true });
   }, STARTUP_MS * 2);
 
   afterAll(async () => {
-    await Promise.all([...running].map(stopAndWait));
+    await stopEverything();
     rmSync(stateDir, { recursive: true, force: true });
   });
 
-  it('serves the site', async () => {
+  it('serves the site, and a health check that writes nothing', async () => {
     const page = await fetch(`${server.origin}/`);
     expect(page.status).toBe(200);
     expect(await page.text()).toContain('<div id="root">');
+    expect(await (await fetch(`${server.origin}/api/health`)).json()).toEqual({ ok: true });
   });
 
-  it('answers the health check through the hub, counting each call', async () => {
-    const first = await calls(server);
-    expect(await calls(server)).toBe(first + 1);
+  it('answers what the Worker can alone: a health check that reads, and a 404 for any /api path the hub does not serve', async () => {
+    expect((await fetch(`${server.origin}/api/health`, { method: 'POST' })).status).toBe(405);
+    for (const path of ['/api/nothing', '/api/live/extra', '/api/', '/api/hello/x']) expect((await fetch(`${server.origin}${path}`)).status, path).toBe(404);
+    expect((await fetch(`${server.origin}/api/hello`)).status).toBe(404);
   });
 
-  it('echoes a message on the live socket', async () => {
-    const socket = new WebSocket(`${server.origin.replace('http', 'ws')}/api/live`);
-    const echoed = new Promise<string>((resolve, reject) => {
-      socket.addEventListener('open', () => socket.send('hello'));
-      socket.addEventListener('message', (event) => resolve(String(event.data)));
-      socket.addEventListener('error', () => reject(new Error('the socket failed')));
+  describe('a plain request whose body is not small and honestly measured', () => {
+    const post = (body: BodyInit) => fetch(`${server.origin}/api/sign-in`, { method: 'POST', body });
+    const stillHealthy = async () => expect(await (await fetch(`${server.origin}/api/health`)).json()).toEqual({ ok: true });
+
+    it('is refused with 413 when it is just over the limit and fully written before the reply', async () => {
+      expect((await post('x'.repeat(MAX_POST_BODY_BYTES + 1))).status).toBe(413);
+      await stillHealthy();
     });
-    expect(await echoed).toBe('hello');
-    socket.close();
+
+    it('is refused with 413 on the length it declares, before any of it is sent', async () => {
+      const reply = await new Promise<string>((resolve, reject) => {
+        const socket = connect(Number(new URL(server.origin).port), new URL(server.origin).hostname);
+        let text = '';
+        socket.on('data', (chunk) => { text += chunk.toString(); if (text.includes('\r\n')) socket.destroy(); });
+        socket.on('close', () => resolve(text));
+        socket.on('error', reject);
+        socket.write('POST /api/sign-in HTTP/1.1\r\nHost: local\r\nContent-Length: 5000000\r\n\r\nx');
+      });
+      expect(reply.split('\r\n')[0]).toBe('HTTP/1.1 413 Payload Too Large');
+      await stillHealthy();
+    });
+
+    it('is refused with 411 when it names no length', async () => {
+      const unmeasured = new ReadableStream({ start: (controller) => { controller.enqueue(new TextEncoder().encode('{}')); controller.close(); } });
+      expect((await fetch(`${server.origin}/api/sign-in`, { method: 'POST', body: unmeasured, duplex: 'half' } as RequestInit)).status).toBe(411);
+    });
+
+    it('is refused when it is 5 MB: the reply is 413, or the local development proxy loses the upload it was still forwarding, and the hub is still answering at once', async () => {
+      // The Worker answers 413 without reading the body. `wrangler dev` forwards the upload through its own proxy, which then
+      // drops the connection: Node's fetch reports the cut-off send as an error instead of the reply it had already received, or
+      // the proxy itself answers 500 "Network connection lost". In every case the hub got no more than it needed to refuse it.
+      const outcome = await post('x'.repeat(5_000_000)).then(
+        async (response) => (response.status === 500 && (await response.text()).includes('Network connection lost') ? 'proxy-lost-upload' : response.status),
+        (failure: { cause?: { code?: string } }) => failure.cause?.code,
+      );
+      expect([413, 'proxy-lost-upload', 'EPIPE', 'ECONNRESET', 'UND_ERR_SOCKET']).toContain(outcome);
+      await stillHealthy();
+    });
   });
 
-  it('keeps the hub’s data when the server is stopped and started again', async () => {
-    const before = await calls(server);
-    await server.stop();
-    server = await start();
-    expect(await calls(server)).toBe(before + 1);
-  }, STARTUP_MS * 2);
+  describe('a signed-out visitor', () => {
+    it('is told she is not the admin, and is refused teacher commands, teacher reads and names off the table', async () => {
+      const visitor = device();
+      expect(await visitor.hello()).toMatchObject({ admin: false });
+      expect(visitor.cookieNamed('noha_device')).toBeDefined();
+      const live = await visitor.open();
+      expect(live.hello()).toMatchObject({ admin: false });
+      expect(await live.call('teachers', 'add', 'Intruder')).toMatchObject({ ok: false, error: { name: 'NotAuthorizedError' } });
+      const read = live.watch('roster', 'watchClasses');
+      await live.until(() => live.refusalOf(read) !== undefined);
+      expect(live.refusalOf(read)?.error.name).toBe('NotAuthorizedError');
+      expect(await live.call('retention', 'clearIfDue')).toMatchObject({ ok: false, error: { name: 'SurfaceError' } });
+      expect(await live.call('teachers', 'watchTeachers')).toMatchObject({ ok: false, error: { name: 'SurfaceError' } });
+      expect((await live.firstValue<Teacher[]>('teachers', 'watchTeachers')).length).toBeGreaterThan(0);
+      live.close();
+    });
+
+    it('cannot open a socket without the cookie the hub gave her device, nor from another origin, nor from the origin called null', async () => {
+      await expect(LiveSocket.open(server.origin, '')).rejects.toThrow();
+      const response = await fetch(`${server.origin}/api/hello`, { method: 'POST', headers: { Origin: 'http://evil.example' } });
+      expect(response.status).toBe(403);
+      const visitor = device();
+      await visitor.hello();
+      for (const origin of ['http://evil.example', 'null', 'https://noha-pearls.example']) {
+        await expect(LiveSocket.open(server.origin, visitor.cookie, { Origin: origin }), origin).rejects.toThrow();
+      }
+      (await LiveSocket.open(server.origin, visitor.cookie, { Origin: server.origin })).close();
+      (await visitor.open()).close();
+    });
+
+    it('has its socket closed when it sends bytes instead of text, or more than 64,000 characters', async () => {
+      const [binary, long, fine] = await Promise.all([visitorSocket(), visitorSocket(), visitorSocket()]);
+      binary.sendRaw(new Uint8Array([1, 2, 3]).buffer);
+      long.sendRaw(JSON.stringify({ type: 'call', id: 1, service: 'teachers', method: 'add', args: ['x'.repeat(70_000)] }));
+      fine.sendRaw('not json at all');
+      await binary.until(() => binary.closedWith !== null);
+      await long.until(() => long.closedWith !== null);
+      expect(binary.closedWith?.code).toBe(1008);
+      expect(long.closedWith?.code).toBe(1008);
+      expect(await fine.call('teachers', 'add', 'Intruder')).toMatchObject({ ok: false, error: { name: 'NotAuthorizedError' } });
+      expect(fine.closedWith).toBeNull();
+      fine.close();
+    });
+  });
+
+  describe('a page that sends too fast', () => {
+    const address = '10.12.12.12';
+    /** A page that says hello, opens its socket and sends more than the hub allows at once; how the hub closed it. */
+    async function flood(): Promise<number | undefined> {
+      const visitor = device(address);
+      await visitor.hello();
+      const live = await visitor.open();
+      for (let id = 0; id < 130; id += 1) live.sendRaw(JSON.stringify({ type: 'unwatch', id }));
+      await live.until(() => live.closedWith !== null);
+      return live.closedWith?.code;
+    }
+
+    it('has its socket closed, and the third such socket locks its address: no hello, no socket, until the lock ends; the teacher on it and other addresses are not turned away', async () => {
+      const signedIn = await teacher(address);
+      const known = device(address);
+      await known.hello();
+      expect([await flood(), await flood(), await flood()]).toEqual([4008, 4008, 4009]);
+      const refused = await device(address).post('/api/hello');
+      expect(refused.status).toBe(429);
+      expect(refused.text).toBe('');
+      await expect(known.open()).rejects.toThrow();
+      expect((await device('10.12.12.13').post('/api/hello')).status).toBe(200);
+      expect(await signedIn.hello()).toMatchObject({ admin: true });
+      const live = await signedIn.open();
+      expect(live.hello()).toMatchObject({ admin: true });
+      live.close();
+    });
+  });
+
+  describe('signing in', () => {
+    it('answers the same no to a wrong password and to a wrong code, and yes to the right pair, which sets a week-long cookie', async () => {
+      const first = device('10.2.2.2');
+      await first.hello();
+      const a = await first.post('/api/sign-in', { password: 'not-the-password', code: await rightCode() });
+      const b = await first.post('/api/sign-in', { password: rightPassword(), code: await wrongCode() });
+      expect(a.text).toBe(b.text);
+      expect(JSON.parse(a.text)).toEqual({ ok: false });
+      expect(a.setCookies.some((line) => line.startsWith('noha_admin='))).toBe(false);
+      const yes = await first.post('/api/sign-in', { password: rightPassword(), code: await rightCode() });
+      expect(JSON.parse(yes.text)).toEqual({ ok: true });
+      const cookie = yes.setCookies.find((line) => line.startsWith('noha_admin='));
+      expect(cookie).toMatch(/Max-Age=604800/);
+      expect(cookie).toMatch(/HttpOnly/);
+      expect(cookie).toMatch(/SameSite=Strict/);
+      expect(await first.hello()).toMatchObject({ admin: true });
+    });
+
+    it('accepts the same code for a second device at once', async () => {
+      const code = await rightCode();
+      const [one, two] = [device('10.3.3.1'), device('10.3.3.2')];
+      await Promise.all([one.hello(), two.hello()]);
+      expect(await Promise.all([one.signIn(rightPassword(), code), two.signIn(rightPassword(), code)])).toEqual([true, true]);
+    });
+
+    it('locks an address after five wrong attempts, even for the right pair, and leaves other addresses alone', async () => {
+      const locked = device('10.4.4.4');
+      await locked.hello();
+      for (let n = 0; n < 5; n += 1) expect(await locked.signIn('wrong-password-1', await rightCode())).toBe(false);
+      expect(await locked.signIn(rightPassword(), await rightCode())).toBe(false);
+      const other = device('10.4.4.5');
+      await other.hello();
+      expect(await other.signIn(rightPassword(), await rightCode())).toBe(true);
+    });
+  });
+
+  describe('the teacher', () => {
+    it('runs a command and another page watching the public list gets the new value without asking again', async () => {
+      const watcher = await visitorSocket();
+      const id = watcher.watch('teachers', 'watchTeachers');
+      await watcher.until(() => watcher.valuesOf(id).length === 1);
+      const signedIn = await teacher();
+      const live = await signedIn.open();
+      expect(live.hello()).toMatchObject({ admin: true });
+      expect(await live.call('teachers', 'add', 'Huda')).toMatchObject({ ok: true });
+      await watcher.until(() => (watcher.valuesOf(id).at(-1) as Teacher[]).some((entry) => entry.name === 'Huda'));
+      live.close();
+      watcher.close();
+    });
+
+    it('has every socket of the device closed when she signs out, and a socket opened afterwards is a visitor’s', async () => {
+      const signedIn = await teacher('10.5.5.6');
+      const [first, second] = [await signedIn.open(), await signedIn.open()];
+      const bystander = await (await teacher('10.5.5.7')).open();
+      await signedIn.signOut();
+      await first.until(() => first.closeReceived);
+      await second.until(() => second.closeReceived);
+      expect(bystander.closeReceived).toBe(false);
+      const reopened = await signedIn.open();
+      expect(reopened.hello()).toMatchObject({ admin: false });
+      expect(await reopened.call('teachers', 'add', 'Refused')).toMatchObject({ ok: false, error: { name: 'NotAuthorizedError' } });
+      [reopened, bystander].forEach((live) => live.close());
+    });
+
+    it('is refused teacher commands after signing out, on a new socket', async () => {
+      const signedIn = await teacher('10.5.5.5');
+      expect(await (await signedIn.open()).call('teachers', 'add', 'Allowed')).toMatchObject({ ok: true });
+      await signedIn.signOut();
+      expect(await signedIn.hello()).toMatchObject({ admin: false });
+      const after = await signedIn.open();
+      expect(await after.call('teachers', 'add', 'Refused')).toMatchObject({ ok: false, error: { name: 'NotAuthorizedError' } });
+      after.close();
+    });
+  });
+
+  describe('a class', () => {
+    interface Class { sessionId: string; session: Session; groupId: string; studentId: string; slideId: string; slideIndex: number; admin: LiveSocket; adminDevice: Device }
+
+    async function startClass(): Promise<Class> {
+      const adminDevice = await teacher('10.6.6.6');
+      const admin = await adminDevice.open();
+      const [lessons, classes, teachers] = await Promise.all([
+        admin.firstValue<LessonSummary[]>('lessons', 'watchLessons'),
+        admin.firstValue<{ id: string }[]>('roster', 'watchClasses'),
+        admin.firstValue<Teacher[]>('teachers', 'watchTeachers'),
+      ]);
+      const outcome = await admin.call('sessions', 'start', lessons[0].id, classes[0].id, teachers[0].id);
+      const session = (outcome as { value: Session }).value;
+      const roster = await admin.firstValue<ClassRoster>('roster', 'watchRoster', classes[0].id);
+      const lesson = await admin.firstValue<Lesson>('lessons', 'watchLesson', lessons[0].id);
+      const slideIndex = lesson.slides.findIndex((slide) => slide.kind === 'choice' && slide.scope === 'individual' && slide.explanation !== '');
+      await admin.call('sessions', 'goTo', session.id, slideIndex);
+      return { sessionId: session.id, session, groupId: roster.students[0].groupId, studentId: roster.students[0].id, slideId: lesson.slides[slideIndex].id, slideIndex, admin, adminDevice };
+    }
+
+    it('lets two devices ask for one name at the same instant, admits exactly one, and keeps the answer key from everyone who is not the teacher', async () => {
+      const cls = await startClass();
+      const [phoneA, phoneB, visitor] = [device(), device(), device()];
+      await Promise.all([phoneA.hello(), phoneB.hello(), visitor.hello()]);
+      const [liveA, liveB, liveV] = await Promise.all([phoneA.open(), phoneB.open(), visitor.open()]);
+      const { sessionId, groupId, studentId } = cls;
+
+      const watchAll = (live: LiveSocket) => {
+        live.watch('lessons', 'watchLessons');
+        live.watch('lessons', 'watchLesson', cls.session.lessonId);
+        live.watch('classLookup', 'watchByCode', cls.session.code);
+        live.watch('classLookup', 'watchAnyLive');
+        live.watch('sessionRoster', 'watchSeen', cls.session.code);
+        live.watch('participants', 'watchMine', sessionId);
+        live.watch('participants', 'watchNameClaims', cls.session.code);
+        live.watch('seatView', 'watchMine', sessionId);
+        live.watch('seatView', 'watchLesson', sessionId);
+        live.watch('board', 'watchTotals', cls.session.code);
+        live.watch('board', 'watchCardResults', cls.session.code, 1);
+        live.watch('rewards', 'watchHeartCount', cls.session.code);
+      };
+      [liveA, liveB, liveV].forEach(watchAll);
+
+      const joined = await Promise.all([liveA.call('participants', 'join', cls.session.code, groupId, studentId), liveB.call('participants', 'join', cls.session.code, groupId, studentId)]);
+      expect(joined.every((outcome) => outcome.ok && outcome.value !== null)).toBe(true);
+
+      const seats = await cls.admin.firstValue<Participant[]>('participants', 'watchParticipants', sessionId);
+      expect(seats).toHaveLength(2);
+      expect(new Set(seats.map((seat) => seat.id)).size).toBe(2);
+      await cls.admin.call('admission', 'admitAll', sessionId);
+      expect((await cls.admin.firstValue<Participant[]>('participants', 'watchParticipants', sessionId)).filter((seat) => seat.admitted)).toHaveLength(0);
+      await cls.admin.call('admission', 'admit', seats[0].id, studentId);
+      const stored = await cls.admin.firstValue<Participant[]>('participants', 'watchParticipants', sessionId);
+      expect(stored).toHaveLength(1);
+      expect(stored[0]).toMatchObject({ id: seats[0].id, admitted: true, studentId });
+
+      const answers = cls.admin.watch('answers', 'watchAnswers', sessionId);
+      await cls.admin.until(() => cls.admin.valuesOf(answers).length > 0);
+      const phones = [liveA, liveB];
+      const accepted = await Promise.all(phones.map((live) => live.call('answers', 'submitFromDevice', sessionId, cls.slideId, 0)));
+      expect(accepted.filter((outcome) => outcome.ok && outcome.value === true)).toHaveLength(1);
+      await cls.admin.until(() => (cls.admin.valuesOf(answers).at(-1) as unknown[]).length === 1);
+
+      for (const live of [liveA, liveB, liveV]) {
+        await live.until(() => live.raw.length > 0);
+        expect(live.raw, 'a right answer reached a student or visitor').not.toMatch(/"correctIndex":\s*\d/);
+        expect(live.raw, 'an explanation reached a student or visitor').not.toMatch(/"explanation":\s*"[^"]/);
+        for (const explanation of SAMPLE.slides.flatMap((slide) => ('explanation' in slide && slide.explanation ? [String(slide.explanation)] : []))) {
+          expect(live.raw.includes(explanation), 'an explanation reached a student or visitor').toBe(false);
+        }
+      }
+      expect(liveV.raw).not.toContain('cardNumber');
+      expect(cls.admin.raw, 'the teacher does receive the key, so the scan above can see one').toMatch(/"correctIndex":\s*\d/);
+      [liveA, liveB, liveV, cls.admin].forEach((live) => live.close());
+    });
+
+    it('locks the lookups of an address that guesses wrong codes, keeps a seated device and the teacher working, and shows an ended class only to its own seat', async () => {
+      const cls = await startClass();
+      const holder = device('10.31.0.1');
+      await holder.hello();
+      const holderLive = await holder.open();
+      expect(await holderLive.call('participants', 'join', cls.session.code, cls.groupId, cls.studentId)).toMatchObject({ ok: true });
+      const guesser = device('10.31.0.1');
+      await guesser.hello();
+      const guesserLive = await guesser.open();
+      const refused = (live: LiveSocket, id: number) => live.refusalOf(id)?.error.name === 'LimitError';
+      const ids: number[] = [];
+      for (let guess = 0; guess < 25; guess += 1) {
+        ids.push(guesserLive.watch('classLookup', 'watchByCode', `ZZ${String(guess).padStart(4, '0')}`));
+        await guesserLive.until(() => guesserLive.valuesOf(ids[guess]).length > 0 || guesserLive.refusalOf(ids[guess]) !== undefined);
+      }
+      expect(ids.slice(0, 20).some((id) => refused(guesserLive, id))).toBe(false);
+      expect(refused(guesserLive, ids[24])).toBe(true);
+      const lateId = guesserLive.watch('classLookup', 'watchByCode', cls.session.code);
+      await guesserLive.until(() => guesserLive.refusalOf(lateId) !== undefined);
+      expect(await holderLive.firstValue<Session | null>('classLookup', 'watchByCode', cls.session.code)).toMatchObject({ code: cls.session.code });
+      expect(await cls.admin.firstValue<Session | null>('classLookup', 'watchByCode', cls.session.code)).toMatchObject({ code: cls.session.code });
+
+      await cls.admin.call('sessions', 'end', cls.sessionId);
+      const stranger = device('10.32.0.1');
+      await stranger.hello();
+      const strangerLive = await stranger.open();
+      expect(await strangerLive.firstValue<Session | null>('classLookup', 'watchByCode', cls.session.code)).toBeNull();
+      expect(await holderLive.firstValue<Session | null>('classLookup', 'watchByCode', cls.session.code)).toMatchObject({ status: 'ended' });
+      [holderLive, guesserLive, strangerLive, cls.admin].forEach((live) => live.close());
+    });
+
+    it('keeps a device’s seat when its socket closes and opens again with the same cookie, and treats another cookie as another device', async () => {
+      const cls = await startClass();
+      const phone = device();
+      await phone.hello();
+      const first = await phone.open();
+      expect(await first.call('participants', 'join', cls.session.code, cls.groupId, cls.studentId)).toMatchObject({ ok: true });
+      first.close();
+      const again = await phone.open();
+      const mine = await again.firstValue<Participant | null>('participants', 'watchMine', cls.sessionId);
+      expect(mine).toMatchObject({ studentId: cls.studentId });
+      const stranger = device();
+      await stranger.hello();
+      const strangerLive = await stranger.open();
+      expect(await strangerLive.firstValue('participants', 'watchMine', cls.sessionId)).toBeNull();
+      expect(stranger.cookieNamed('noha_device')).not.toBe(phone.cookieNamed('noha_device'));
+      [again, strangerLive, cls.admin].forEach((live) => live.close());
+    });
+  });
+
+  describe('the hub going to sleep', () => {
+    let probed: Server;
+    const probeDevice = (address?: string) => new Device(() => probed.origin, address);
+    const instance = async (): Promise<string> => ((await (await fetch(`${probed.origin}${INSTANCE_PATH}`)).json()) as { instance: string }).instance;
+
+    const probeState = mkdtempSync(join(tmpdir(), 'noha-pearls-probe-'));
+
+    beforeAll(async () => {
+      probed = await start(probeState, { withSecrets: true, config: PROBE_CONFIG });
+    }, STARTUP_MS * 2);
+
+    afterAll(async () => {
+      await probed.stop();
+      rmSync(probeState, { recursive: true, force: true });
+    });
+
+    it('is built again after sitting idle, which the test sees through the hub’s own construction id, and keeps a page’s live read and sends the change that wakes it', async () => {
+      const visitor = probeDevice();
+      await visitor.hello();
+      const watcher = await visitor.open();
+      const id = watcher.watch('teachers', 'watchTeachers');
+      await watcher.until(() => watcher.valuesOf(id).length === 1);
+      const before = await instance();
+      expect(await instance()).toBe(before);
+      await new Promise((resolve) => setTimeout(resolve, IDLE_UNTIL_EVICTED_MS));
+      expect(await instance(), 'the hub was not built again, so it did not sleep').not.toBe(before);
+
+      const signedIn = probeDevice('10.9.9.9');
+      await signedIn.hello();
+      expect(await signedIn.signIn(rightPassword(), await rightCode())).toBe(true);
+      const live = await signedIn.open();
+      expect(await live.call('teachers', 'add', 'After the sleep')).toMatchObject({ ok: true });
+      await watcher.until(() => (watcher.valuesOf(id).at(-1) as Teacher[]).some((entry) => entry.name === 'After the sleep'));
+      [watcher, live].forEach((socket) => socket.close());
+    }, STARTUP_MS);
+  });
+
+  describe('a restart on the same storage', () => {
+    it('keeps the data, the teacher’s cookie and the device identity, and gives an open watch its value again after reconnecting', async () => {
+      const signedIn = await teacher('10.7.7.7');
+      const live = await signedIn.open();
+      await live.call('teachers', 'add', 'Survivor');
+      const seat = device();
+      await seat.hello();
+      const before = await (await seat.open()).firstValue<Teacher[]>('teachers', 'watchTeachers');
+      const deviceCookie = seat.cookieNamed('noha_device');
+      const watching = live.watch('teachers', 'watchTeachers');
+      await live.until(() => live.valuesOf(watching).length > 0);
+
+      await server.stop();
+      server = await start(stateDir, { withSecrets: true });
+      const reopened = await signedIn.open();
+      expect(reopened.hello()).toMatchObject({ admin: true });
+      const afterwards = await reopened.firstValue<Teacher[]>('teachers', 'watchTeachers');
+      expect(afterwards.map((entry) => entry.name)).toEqual(expect.arrayContaining(['Survivor', ...before.map((entry) => entry.name)]));
+      expect(seat.cookieNamed('noha_device')).toBe(deviceCookie);
+      expect((await seat.hello()).admin).toBe(false);
+      reopened.close();
+    }, STARTUP_MS * 2);
+
+    it('refuses every sign-in, and no longer honours old teacher cookies, when started without the secrets', async () => {
+      const old = await teacher('10.8.8.8');
+      await server.stop();
+      server = await start(stateDir, { withSecrets: false });
+      const same = new Device(() => server.origin, '10.8.8.8');
+      for (const name of ['noha_device', 'noha_admin']) same.forget(name);
+      await same.hello();
+      expect(await same.signIn(rightPassword(), await rightCode())).toBe(false);
+      expect(await same.signIn(LOCAL_ADMIN_SECRETS.ADMIN_PASSWORD, await rightCode())).toBe(false);
+      expect(old.cookieNamed('noha_admin')).toBeDefined();
+      const carried = new Device(() => server.origin);
+      await carried.hello();
+      const live = await LiveSocket.open(server.origin, `${carried.cookie}; noha_admin=${old.cookieNamed('noha_admin')}`);
+      expect(live.hello()).toMatchObject({ admin: false });
+      live.close();
+    }, STARTUP_MS * 2);
+  });
 });

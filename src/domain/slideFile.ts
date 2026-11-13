@@ -29,6 +29,7 @@ export type FileFieldName =
   | 'tag'
   | 'body'
   | 'images'
+  | 'hidden'
   | 'prompt'
   | 'scope'
   | 'points'

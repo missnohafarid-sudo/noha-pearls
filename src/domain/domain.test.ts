@@ -252,7 +252,7 @@ describe('pictures on content slides and written questions', () => {
 
   it('survives an export/import round trip on both kinds', () => {
     const slides: Lesson['slides'] = [
-      { id: 'c', kind: 'content', title: 'ش', tag: '', body: 'نص', images: [PHOTO_A, PHOTO_B] },
+      { id: 'c', kind: 'content', title: 'ش', tag: '', body: 'نص', images: [PHOTO_A, PHOTO_B], hidden: '' },
       { ...groupText, images: [PHOTO_A] },
     ];
     const result = importLesson(exportLesson({ ...lesson, slides }));
@@ -291,6 +291,29 @@ describe('pictures on content slides and written questions', () => {
     expect(slideHasProblem(withImages(['https://www.youtube.com/watch?v=abc']))).toBe(true);
     expect(pictureSources([PHOTO_A, '', 'http://example.org/x.png', PHOTO_B])).toEqual([PHOTO_A, PHOTO_B]);
     expect(pictureSources(['https://drive.google.com/file/d/FILE_ID_1/view'])).toEqual(['https://drive.google.com/thumbnail?id=FILE_ID_1&sz=w2000']);
+  });
+});
+
+describe('the hidden section of a content slide', () => {
+  const fileWith = (slide: object) => JSON.stringify({ format: 'spectrum-lesson', version: 1, title: 'د', slides: [slide] });
+  const imported = (slide: object) => {
+    const result = importLesson(fileWith(slide));
+    return result.ok ? result.lesson.slides[0] : result.issues;
+  };
+  const content = { kind: 'content', title: 'ش', body: 'نص' };
+
+  it('survives an export/import round trip, written as plain text', () => {
+    const slide: Lesson['slides'][number] = { id: 'c', kind: 'content', title: 'ش', tag: '', body: 'نص', images: [], hidden: '- أ\nب' };
+    const result = importLesson(exportLesson({ ...lesson, slides: [slide] }));
+    expect(result.ok && result.lesson.slides[0]).toMatchObject({ hidden: '- أ\nب' });
+    expect(JSON.parse(exportLesson({ ...lesson, slides: [slide] })).slides[0].hidden).toBe('- أ\nب');
+  });
+
+  it('means none when a file leaves it out or empty, and when stored data predates it', () => {
+    expect(imported(content)).toMatchObject({ hidden: '' });
+    expect(imported({ ...content, hidden: '  ' })).toMatchObject({ hidden: '' });
+    const old = { id: 'o', kind: 'content', title: '', tag: '', body: '', images: [] } as unknown as Lesson['slides'][number];
+    expect(normalizeSlide(old)).toMatchObject({ hidden: '' });
   });
 });
 

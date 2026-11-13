@@ -49,10 +49,13 @@ const QUESTION_FIELDS: readonly FileField[] = [
   { name: 'points', required: false },
 ];
 
+/** A content slide as older data holds it: before pictures were a list and before the hidden section. */
+type StoredContent = Omit<ContentSlide, 'images' | 'hidden'> & StoredPictures & { hidden?: string };
+
 const content: SlideKindSpec<ContentSlide> = {
   kind: 'content',
-  create: (id) => ({ id, kind: 'content', title: '', tag: '', body: '', images: [] }),
-  fileFields: [...COMMON_FIELDS, { name: 'body', required: false }, { name: 'images', required: false }],
+  create: (id) => ({ id, kind: 'content', title: '', tag: '', body: '', images: [], hidden: '' }),
+  fileFields: [...COMMON_FIELDS, { name: 'body', required: false }, { name: 'images', required: false }, { name: 'hidden', required: false }],
   fromFile: (raw, id, report) => ({
     id,
     kind: 'content',
@@ -60,9 +63,10 @@ const content: SlideKindSpec<ContentSlide> = {
     tag: text(raw, 'tag'),
     body: text(raw, 'body'),
     images: picturesOf(raw, report),
+    hidden: text(raw, 'hidden'),
   }),
-  toFile: ({ kind, title, tag, body, images }) => ({ kind, title, tag, body, images: trimmedLinks(images) }),
-  normalize: ({ imageUrl, ...slide }: ContentSlide & StoredPictures) => ({ ...slide, images: storedPictures({ images: slide.images, imageUrl }) }),
+  toFile: ({ kind, title, tag, body, images, hidden }) => ({ kind, title, tag, body, images: trimmedLinks(images), hidden }),
+  normalize: ({ imageUrl, ...slide }: StoredContent) => ({ ...slide, images: storedPictures({ images: slide.images, imageUrl }), hidden: slide.hidden ?? '' }),
   hasProblem: ({ images }) => picturesHaveProblem(images),
 };
 

@@ -15,6 +15,8 @@ export const slides = {
     images: 'روابط الصور (اختياري)',
     imagesHint: 'الصقي رابطًا عامًّا يبدأ بـ https لكل صورة. ملفات Google Drive يجب أن تكون متاحة لكل من لديه الرابط.',
     image: (number: number) => `رابط الصورة ${number}`,
+    hidden: 'معلومة مخفية (اختياري)',
+    hiddenHint: 'تُفتح بزر على الشريحة. تكتب بالتنسيق نفسه: ابدئي السطر بشرطة (-) ليظهر كنقطة.',
     prompt: 'نص السؤال',
     options: 'الخيارات',
     option: (letter: string) => `الخيار ${letter}`,
@@ -45,6 +47,8 @@ export const slides = {
     correct: 'إجابة صحيحة، أحسنتِ!',
     wrong: 'ليست الإجابة الصحيحة. اقرئي التغذية الراجعة.',
     emptySlide: 'شريحة فارغة',
+    showHidden: 'إظهار المعلومة',
+    hideHidden: 'إخفاء المعلومة',
   },
   media: {
     open: 'فتح في نافذة جديدة',

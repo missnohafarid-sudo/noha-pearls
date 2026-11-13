@@ -20,6 +20,8 @@ export interface ContentSlide extends SlideBase {
   body: string;
   /** Public https addresses of photos shown in a row; the site stores no files. */
   images: string[];
+  /** Same plain text as `body`, opened by a button on the slide. Empty means none. */
+  hidden: string;
 }
 
 export interface ChoiceSlide extends SlideBase {

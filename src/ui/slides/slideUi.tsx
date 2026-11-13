@@ -8,6 +8,7 @@ import { optionMark, verdictOf } from '../../domain/scoring';
 import { MAX_PICTURES, MEDIA_CHOICES } from '../../domain/media';
 import type { FieldSpec, SelectOption } from '../forms/SchemaForm';
 import { BodyText } from './BodyText';
+import { HiddenSection } from './HiddenSection';
 import { MediaBody } from './MediaBody';
 import { Pictures } from './Pictures';
 
@@ -54,6 +55,7 @@ function ContentBody({ slide }: SlideBodyProps<ContentSlide>) {
     <div className="slide-content">
       <BodyText text={slide.body} />
       <Pictures links={slide.images} />
+      <HiddenSection text={slide.hidden} />
     </div>
   );
 }
@@ -164,6 +166,7 @@ const SLIDE_UI: { [K in SlideKind]: SlideUi<Extract<Slide, { kind: K }>> } = {
       ...COMMON_FIELDS,
       { kind: 'textarea', key: 'body', label: f.body, hint: f.bodyHint },
       PICTURES_FIELD,
+      { kind: 'textarea', key: 'hidden', label: f.hidden, hint: f.hiddenHint },
     ],
     Body: ContentBody,
   },

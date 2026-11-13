@@ -101,6 +101,25 @@
   background: var(--gold);
 }
 
+.slide-hidden {
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+}
+
+.slide-hidden__box {
+  inline-size: 100%;
+  padding: 14px 18px;
+  border-radius: var(--radius-small);
+  background: var(--info-soft);
+  color: var(--info-ink);
+  box-shadow: inset 0 0 0 1.5px var(--info-edge);
+}
+
+.slide-hidden__box[hidden] {
+  display: none;
+}
+
 .slide-pictures {
   display: flex;
   flex-wrap: wrap;

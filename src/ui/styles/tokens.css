@@ -27,6 +27,11 @@
   --heart-ink: #a81f52;
   --blush-deep: #f1d3db;
 
+  /* A calm bluish box for extra information: soft surface, ink and edge. The ink keeps 9:1 on the surface. */
+  --info-soft: #e6eef6;
+  --info-ink: #1f3d5c;
+  --info-edge: color-mix(in srgb, var(--info-ink) 22%, var(--info-soft));
+
   /* Rose-gold lettering: highlight, body, deep edge. The deep edge keeps 6.2:1 on the page background. */
   --rose-gold-light: #dca597;
   --rose-gold: #b76e79;

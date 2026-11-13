@@ -1,5 +1,5 @@
-import { importLesson, exportLesson } from './lessonFormat';
-import { integer, isBoolean, isId, isName, isRecord, MAX_SLIDES_PER_LESSON, MAX_TITLE_LENGTH, nonEmptyText, number, shape, text, listOf, nullable, oneOf, type Check } from './argumentChecks';
+import { integer, isBoolean, isId, isName, isRecord, MAX_SLIDES_PER_LESSON, MAX_TITLE_LENGTH, number, shape, text, listOf, nullable, oneOf, type Check } from './argumentChecks';
+import { isSlideKind } from './slideKinds';
 
 /** The shapes of the whole objects a method takes: the site's text, a group, a student, a lesson. */
 
@@ -13,14 +13,17 @@ const isDay = shape({ year: integer(1900, 2200), month: integer(1, 12), day: int
 export const isDateRange: Check = shape({ from: isDay, to: isDay });
 export const isYearEnd: Check = nullable(shape({ month: integer(1, 12), day: integer(1, 31) }));
 
-/** A lesson as the teacher saves it: it must be one the lesson file would accept, so a lesson is held to the file's rules when saved and not only when imported. */
+const isSlide: Check = (value) => isRecord(value) && isId(value.id) && isSlideKind(value.kind);
+
+const isLessonShape: Check = shape({ id: isId, folderId: nullable(isId), title: text(MAX_TITLE_LENGTH), subject: text(MAX_TITLE_LENGTH), grade: text(MAX_TITLE_LENGTH), published: isBoolean, slides: listOf(isSlide, MAX_SLIDES_PER_LESSON), updatedAt: number(0, 8.64e15) });
+
+/**
+ * A lesson as the editor saves it. The editor saves a lesson that is not finished (no slides yet, a blank new slide, a field half typed)
+ * and marks what is missing itself, so only the structure is checked here: slides of kinds the registry knows, each under its own id.
+ * The stricter rules of the lesson file apply when a file is imported, not when the teacher is still writing.
+ */
 export const isLesson: Check = (value) => {
-  if (!shape({ id: isId, folderId: nullable(isId), title: nonEmptyText(MAX_TITLE_LENGTH), subject: text(MAX_TITLE_LENGTH), grade: text(MAX_TITLE_LENGTH), published: isBoolean, slides: listOf(isRecord, MAX_SLIDES_PER_LESSON), updatedAt: number(0, 8.64e15) })(value)) return false;
-  try {
-    const lesson = value as Parameters<typeof exportLesson>[0];
-    const read = importLesson(exportLesson(lesson));
-    return read.ok && read.lesson.slides.length === lesson.slides.length && new Set(lesson.slides.map((slide) => slide.id)).size === lesson.slides.length && lesson.slides.every((slide) => isId(slide.id));
-  } catch {
-    return false;
-  }
+  if (!isLessonShape(value)) return false;
+  const { slides } = value as { slides: { id: string }[] };
+  return new Set(slides.map((slide) => slide.id)).size === slides.length;
 };

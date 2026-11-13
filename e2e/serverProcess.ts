@@ -39,11 +39,11 @@ export interface Server {
 
 /**
  * Starts the built Worker, or the Worker of another configuration file (`config`) that serves the same built site. The development
- * sign-in goes on the command line, only when asked: the built files never hold it.
+ * sign-in goes on the command line, only when asked: the built files never hold it. The sample class, groups and students go with it unless `withSampleSchool` is false, which starts the school empty as the live site does.
  */
-export async function start(stateDir: string, { withSecrets, config = BUILT_WRANGLER_CONFIG }: { withSecrets: boolean; config?: string }): Promise<Server> {
+export async function start(stateDir: string, { withSecrets, withSampleSchool = true, config = BUILT_WRANGLER_CONFIG }: { withSecrets: boolean; withSampleSchool?: boolean; config?: string }): Promise<Server> {
   const port = await freePort();
-  const secrets = withSecrets ? Object.entries({ ...LOCAL_ADMIN_SECRETS, ...LOCAL_SAMPLE_SCHOOL }).flatMap(([name, value]) => ['--var', `${name}:${value}`]) : [];
+  const secrets = withSecrets ? Object.entries({ ...LOCAL_ADMIN_SECRETS, ...(withSampleSchool ? LOCAL_SAMPLE_SCHOOL : {}) }).flatMap(([name, value]) => ['--var', `${name}:${value}`]) : [];
   const child = spawn(
     process.execPath,
     ['node_modules/wrangler/bin/wrangler.js', 'dev', '-c', config, '--ip', HOST, '--port', String(port), '--persist-to', stateDir, ...secrets],

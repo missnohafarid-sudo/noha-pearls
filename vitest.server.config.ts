@@ -4,7 +4,7 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     environment: 'node',
-    include: ['e2e/server.integration.ts', 'e2e/csp.integration.ts', 'e2e/joinByCode.integration.ts'],
+    include: ['e2e/server.integration.ts', 'e2e/csp.integration.ts', 'e2e/joinByCode.integration.ts', 'e2e/firstRun.integration.ts'],
     fileParallelism: false,
     testTimeout: 60_000,
     hookTimeout: 240_000,

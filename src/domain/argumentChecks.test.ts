@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { integer, isAnswerValue, isCard, isClassCode, isId, isPeriod, listOf, nullable, oneOf, shape, text } from './argumentChecks';
 import { isDateRange, isGroup, isLesson, isSiteContent, isStudent, isSubject, isYearEnd } from './entityChecks';
+import { addSlide, createLesson } from './lessonOps';
 import { periodAt } from './periods';
+import { SLIDE_KIND_NAMES } from './slideKinds';
 import { lesson } from './visibility.fixtures';
 
 describe('the small checkers', () => {
@@ -59,13 +61,18 @@ describe('the shapes of whole objects', () => {
     expect([isDateRange({ from: day, to: day }), isDateRange({ from: day })]).toEqual([true, false]);
   });
 
-  it('hold a lesson to the rules of the lesson file when it is saved', () => {
+  it('hold a lesson to its structure only, so a lesson that is not finished can be saved', () => {
     expect(isLesson(lesson)).toBe(true);
-    expect(isLesson({ ...lesson, slides: [] })).toBe(false);
-    expect(isLesson({ ...lesson, title: '' })).toBe(false);
+    expect(isLesson({ ...lesson, slides: [] })).toBe(true);
+    expect(isLesson({ ...lesson, title: '' })).toBe(true);
     expect(isLesson({ ...lesson, slides: [{ ...lesson.slides[0], kind: 'video' }] })).toBe(false);
+    expect(isLesson({ ...lesson, slides: [{ kind: lesson.slides[0].kind }] })).toBe(false);
     expect(isLesson({ ...lesson, slides: [lesson.slides[0], lesson.slides[0]] })).toBe(false);
     expect(isLesson({ ...lesson, extra: true })).toBe(false);
     expect(isLesson('lesson')).toBe(false);
+  });
+
+  it('accept the blank slide the editor adds, of every kind', () => {
+    for (const kind of SLIDE_KIND_NAMES) expect(isLesson(addSlide(createLesson('x', null), kind, -1).lesson), kind).toBe(true);
   });
 });

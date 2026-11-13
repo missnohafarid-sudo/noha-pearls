@@ -51,7 +51,7 @@ describe('what a deploy would use', () => {
 
   it('holds neither development sign-in value, no variable and no local-only switch, in the configuration or anywhere in the build', () => {
     const configuration = readFileSync(BUILT_WRANGLER_CONFIG, 'utf8');
-    expect(configuration).not.toMatch(/ADMIN_PASSWORD|ADMIN_TOTP_SECRET|NOHA_SITE_ONLY|CLOUDFLARE_ENV/);
+    expect(configuration).not.toMatch(/ADMIN_PASSWORD|ADMIN_TOTP_SECRET|SAMPLE_SCHOOL|NOHA_SITE_ONLY|CLOUDFLARE_ENV/);
     expect((JSON.parse(configuration) as { vars?: object }).vars ?? {}).toEqual({});
     const forbidden = [...Object.values(LOCAL_ADMIN_SECRETS), 'NOHA_SITE_ONLY'];
     for (const file of builtTextFiles()) {
@@ -105,6 +105,18 @@ describe('the local server', () => {
     expect((await fetch(`${server.origin}/api/health`, { method: 'POST' })).status).toBe(405);
     for (const path of ['/api/nothing', '/api/live/extra', '/api/', '/api/hello/x']) expect((await fetch(`${server.origin}${path}`)).status, path).toBe(404);
     expect((await fetch(`${server.origin}/api/hello`)).status).toBe(404);
+  });
+
+  it('puts nosniff and no-store on every answer under /api/, whether the Worker or the hub gives it, errors and not-founds included', async () => {
+    const asked: [string, string, BodyInit?][] = [
+      ['GET', '/api/health'], ['POST', '/api/health'], ['GET', '/api/nothing'], ['GET', '/api/hello'], ['POST', '/api/hello'],
+      ['POST', '/api/sign-in', 'not json'], ['POST', '/api/sign-in', 'x'.repeat(MAX_POST_BODY_BYTES + 1)], ['POST', '/api/sign-out'], ['GET', '/api/live'],
+    ];
+    for (const [method, path, body] of asked) {
+      const reply = await fetch(`${server.origin}${path}`, { method, body });
+      expect(reply.headers.get('X-Content-Type-Options'), `${method} ${path}`).toBe('nosniff');
+      expect(reply.headers.get('Cache-Control'), `${method} ${path}`).toBe('no-store');
+    }
   });
 
   describe('a plain request whose body is not small and honestly measured', () => {
@@ -194,26 +206,38 @@ describe('the local server', () => {
 
   describe('a page that sends too fast', () => {
     const address = '10.12.12.12';
-    /** A page that says hello, opens its socket and sends more than the hub allows at once; how the hub closed it. */
-    async function flood(): Promise<number | undefined> {
-      const visitor = device(address);
-      await visitor.hello();
+    /** A page of this device that opens its socket and sends more than the hub allows at once; how the hub closed it. */
+    async function flood(visitor: Device): Promise<number | undefined> {
       const live = await visitor.open();
       for (let id = 0; id < 130; id += 1) live.sendRaw(JSON.stringify({ type: 'unwatch', id }));
       await live.until(() => live.closedWith !== null);
       return live.closedWith?.code;
     }
 
-    it('has its socket closed, and the third such socket locks its address: no hello, no socket, until the lock ends; the teacher on it and other addresses are not turned away', async () => {
+    it('has its socket closed, and the third such socket locks that device: no hello, no socket, until the lock ends; another device at the same address, the teacher on it and other addresses are not turned away', async () => {
       const signedIn = await teacher(address);
-      const known = device(address);
-      await known.hello();
-      expect([await flood(), await flood(), await flood()]).toEqual([4008, 4008, 4009]);
-      const refused = await device(address).post('/api/hello');
+      const flooder = device(address);
+      await flooder.hello();
+      expect([await flood(flooder), await flood(flooder), await flood(flooder)]).toEqual([4008, 4008, 4009]);
+      const refused = await flooder.post('/api/hello');
       expect(refused.status).toBe(429);
       expect(refused.text).toBe('');
-      await expect(known.open()).rejects.toThrow();
+      await expect(flooder.open()).rejects.toThrow();
+      const neighbour = device(address);
+      expect((await neighbour.post('/api/hello')).status).toBe(200);
+      const neighbourLive = await neighbour.open();
+      expect(neighbourLive.hello()).toMatchObject({ admin: false });
+      neighbourLive.close();
       expect((await device('10.12.12.13').post('/api/hello')).status).toBe(200);
+      expect(await signedIn.hello()).toMatchObject({ admin: true });
+      const live = await signedIn.open();
+      expect(live.hello()).toMatchObject({ admin: true });
+      live.close();
+    });
+
+    it('closes the teacher’s socket when it floods, but never locks her device', async () => {
+      const signedIn = await teacher('10.12.12.20');
+      expect([await flood(signedIn), await flood(signedIn), await flood(signedIn), await flood(signedIn)]).toEqual([4008, 4008, 4008, 4008]);
       expect(await signedIn.hello()).toMatchObject({ admin: true });
       const live = await signedIn.open();
       expect(live.hello()).toMatchObject({ admin: true });
@@ -372,12 +396,18 @@ describe('the local server', () => {
       [liveA, liveB, liveV, cls.admin].forEach((live) => live.close());
     });
 
-    it('locks the lookups of an address that guesses wrong codes, keeps a seated device and the teacher working, and shows an ended class only to its own seat', async () => {
+    it('locks the lookups of a device that guesses wrong codes, keeps a seated device and the teacher working, and shows an ended class only to a device that was let in', async () => {
       const cls = await startClass();
       const holder = device('10.31.0.1');
       await holder.hello();
       const holderLive = await holder.open();
       expect(await holderLive.call('participants', 'join', cls.session.code, cls.groupId, cls.studentId)).toMatchObject({ ok: true });
+      const [heldSeat] = await cls.admin.firstValue<Participant[]>('participants', 'watchParticipants', cls.sessionId);
+      await cls.admin.call('admission', 'admit', heldSeat.id, cls.studentId);
+      const asker = device('10.31.0.1');
+      await asker.hello();
+      const askerLive = await asker.open();
+      expect(await askerLive.call('participants', 'join', cls.session.code, cls.groupId, null)).toMatchObject({ ok: true });
       const guesser = device('10.31.0.1');
       await guesser.hello();
       const guesserLive = await guesser.open();
@@ -400,7 +430,8 @@ describe('the local server', () => {
       const strangerLive = await stranger.open();
       expect(await strangerLive.firstValue<Session | null>('classLookup', 'watchByCode', cls.session.code)).toBeNull();
       expect(await holderLive.firstValue<Session | null>('classLookup', 'watchByCode', cls.session.code)).toMatchObject({ status: 'ended' });
-      [holderLive, guesserLive, strangerLive, cls.admin].forEach((live) => live.close());
+      expect(await askerLive.firstValue<Session | null>('classLookup', 'watchByCode', cls.session.code)).toBeNull();
+      [holderLive, askerLive, guesserLive, strangerLive, cls.admin].forEach((live) => live.close());
     });
 
     it('keeps a device’s seat when its socket closes and opens again with the same cookie, and treats another cookie as another device', async () => {
@@ -497,6 +528,25 @@ describe('the local server', () => {
       const live = await LiveSocket.open(server.origin, `${carried.cookie}; noha_admin=${old.cookieNamed('noha_admin')}`);
       expect(live.hello()).toMatchObject({ admin: false });
       live.close();
+    }, STARTUP_MS * 2);
+  });
+
+  describe('a hub started without the sample-school variable, as a school’s is', () => {
+    it('has the site’s wording and the example lesson, and no teacher, class list or student of anyone’s invention', async () => {
+      const fresh = mkdtempSync(join(tmpdir(), 'noha-pearls-bare-'));
+      const bare = await start(fresh, { withSecrets: false });
+      try {
+        const visitor = new Device(() => bare.origin);
+        await visitor.hello();
+        const live = await visitor.open();
+        expect(await live.firstValue<{ schoolName: string }>('content', 'watchSite')).toMatchObject({ schoolName: expect.any(String) });
+        expect((await live.firstValue<LessonSummary[]>('lessons', 'watchLessons')).length).toBeGreaterThan(0);
+        expect(await live.firstValue<Teacher[]>('teachers', 'watchTeachers')).toEqual([]);
+        live.close();
+      } finally {
+        await bare.stop();
+        rmSync(fresh, { recursive: true, force: true });
+      }
     }, STARTUP_MS * 2);
   });
 });

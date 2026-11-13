@@ -1,3 +1,4 @@
+import { withApiHeaders } from '../apiHeaders';
 import { SchoolHub } from '../SchoolHub';
 import { HUB_NAME } from '../hubName';
 import { INSTANCE_PATH } from './instancePath';
@@ -14,5 +15,5 @@ export class ProbedHub extends SchoolHub {
 }
 
 export default {
-  fetch: (request: Request, env: Env): Promise<Response> => env.HUB.getByName(HUB_NAME).fetch(request),
+  fetch: async (request: Request, env: Env): Promise<Response> => withApiHeaders(await env.HUB.getByName(HUB_NAME).fetch(request)),
 } satisfies ExportedHandler<Env>;

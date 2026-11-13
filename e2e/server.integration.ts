@@ -235,13 +235,14 @@ describe('the local server', () => {
       live.close();
     });
 
-    it('closes the teacher’s socket when it floods, but never locks her device', async () => {
+    it('never counts the teacher’s messages: 300 at once keep her socket open and her device unlocked', async () => {
       const signedIn = await teacher('10.12.12.20');
-      expect([await flood(signedIn), await flood(signedIn), await flood(signedIn), await flood(signedIn)]).toEqual([4008, 4008, 4008, 4008]);
-      expect(await signedIn.hello()).toMatchObject({ admin: true });
       const live = await signedIn.open();
-      expect(live.hello()).toMatchObject({ admin: true });
+      for (let id = 0; id < 300; id += 1) live.sendRaw(JSON.stringify({ type: 'unwatch', id }));
+      expect(await live.call('teachers', 'add', 'Huda')).toMatchObject({ ok: true });
+      expect(live.closedWith).toBeNull();
       live.close();
+      expect(await signedIn.hello()).toMatchObject({ admin: true });
     });
   });
 

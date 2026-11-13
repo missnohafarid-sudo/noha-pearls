@@ -688,13 +688,13 @@ ship inside the page, and all data is local anyway. Use throwaway values.
 **Limits on the hub** (`ports/limits.ts` holds every number; the rules are in `domain/abuse.ts`). A whole school sits
 behind one network address, so nothing is counted per address except two things: the sign-in lock above, and the
 budget of new devices an address may be given (1,500 an hour; the teacher is always given a device, whatever the
-budget). Everything else is counted per DEVICE: a script spends one device's share, but it may make devices, up to
+budget). The count is held in memory, so each time the hub sleeps (after about ten idle seconds) the share starts fresh; "1,500 an hour" is a ceiling while the hub stays awake, not a promise across sleeps. Everything else is counted per DEVICE: a script spends one device's share, but it may make devices, up to
 1,500 an hour from one address, and a locked device escapes its lock by dropping its cookie and asking for a new
 one, so the shares of a script add up to the budget of new devices, not to one device's share:
 
 - A device that sends more than 120 messages in 10 seconds, counted over all its sockets together, has the socket
   that sent the last one closed; three such floods in ten minutes lock that device out (no hello, no socket) for ten
-  minutes. The teacher's socket is closed when it floods but is never counted and never locked. These device locks
+  minutes. The teacher's messages are never counted, so her socket is never closed for flooding and she is never locked. These device locks
   are kept in memory only (2.4).
 - A device that looks up 21 wrong class codes in ten minutes is refused further lookups for ten minutes. The teacher
   and a device that was let in to the class it names are not counted. A class code has 31^6 possibilities and opens the
@@ -722,7 +722,7 @@ school, so these are known and left open:
 - R2. A script at school can hold the address's 400 visitor sockets. Students who are not yet let in then cannot
   join, while the teacher and the students already let in keep working.
 - R3. A script at school can use up the hour's 1,500 new devices, so brand-new phones are refused for up to an hour
-  (the teacher is not refused).
+  (the teacher is not refused); because the count is held in memory, it also starts fresh each time the hub sleeps.
 - R4. The waiting seats of a class can be filled by scripted devices until the teacher removes them.
 - R5. A student on the school's network can lock that network's teacher sign-in for 15 minutes at a time; teachers
   already signed in are unaffected for 7 days.

@@ -6,7 +6,7 @@ import type { Unsubscribe } from '../ports/store';
 import { SurfaceDispatcher, SurfaceError } from '../services/surfaceDispatch';
 import { wireErrorOf } from '../services/errorRegistry';
 import { LimitError } from '../services/LimitError';
-import type { AdminSession } from './AdminSessions';
+import type { AdminSession, SessionRegister } from './AdminSessions';
 import type { ConnectionLimits } from './ConnectionLimits';
 import type { HubCore } from './HubCore';
 import { ConnectionCaller } from './identity';
@@ -75,12 +75,12 @@ export class Connection {
     return connection;
   }
 
-  /** The connection of a socket that outlived the hub's memory: its live reads open again, without sending values the page already has. */
-  static restore(socket: HubSocket, core: HubCore): Connection | null {
+  /** The connection of a socket that outlived the hub's memory: its live reads open again, unsent. A teacher's whose session is no longer open in `sessions` is ended. */
+  static restore(socket: HubSocket, core: HubCore, sessions: SessionRegister): Connection | null {
     const attached = socket.deserializeAttachment() as Attachment | null;
     if (!attached) return null;
     const connection = new Connection(socket, core, new ConnectionCaller(attached.device, attached.admin, core.now), core.limitsFor(attached.address, attached.device));
-    if (connection.endIfExpired()) return connection;
+    if (attached.admin !== null && !sessions.isOpen(attached.admin)) return connection.endSession();
     for (const spec of attached.watches) {
       const error = connection.open(spec, true);
       if (error) connection.send({ type: 'watch-refused', id: spec.id, error });
@@ -108,11 +108,11 @@ export class Connection {
 
   /**
    * Handles one message from the page, after the ones before it. A message that is not text, or is longer than this caller may
-   * send, closes the socket; so does one that arrives faster than a page sends, and the device of that page gets a strike (the teacher's is only closed).
+   * send, closes the socket; so does one that arrives faster than a page sends, and the device of that page gets a strike. The teacher's messages are not counted.
    */
   receive(message: string | ArrayBuffer): Promise<void> {
-    if (!this.ended && !this.limits.messageAllowed()) {
-      this.shutDown(this.limits.flooded(this.caller.isAdmin()), 'too many messages');
+    if (!this.ended && !this.limits.messageAllowed(this.caller.isAdmin())) {
+      this.shutDown(this.limits.flooded(), 'too many messages');
       return Promise.resolve();
     }
     if (typeof message !== 'string' || message.length > messageLimitFor(this.caller.isAdmin())) {
@@ -149,8 +149,13 @@ export class Connection {
   /** If the teacher's session on this connection has run out: nothing more is sent or accepted, and the socket is closed. Says whether it had. */
   endIfExpired(): boolean {
     const expired = this.caller.sessionRanOut();
-    if (expired) this.shutDown(CLOSE_SESSION_ENDED, 'session ended');
+    if (expired) this.endSession();
     return expired;
+  }
+
+  private endSession(): this {
+    this.shutDown(CLOSE_SESSION_ENDED, 'session ended');
+    return this;
   }
 
   private async call({ id, service, method, args }: Extract<ClientMessage, { type: 'call' }>): Promise<void> {

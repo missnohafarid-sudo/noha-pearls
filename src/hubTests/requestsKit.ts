@@ -1,6 +1,5 @@
 import { expect } from 'vitest';
-import { createHarness, FakeSocket } from './hubHarness';
-import { AdminSessionTable } from '../infrastructure/sql/adminSessions';
+import { createHarness, FakeSocket, type Harness } from './hubHarness';
 import { SqlWindowMemory } from '../infrastructure/sql/windowEvents';
 import { totpCode } from '../infrastructure/totp';
 import { Connection } from '../server/Connection';
@@ -21,7 +20,7 @@ export async function hub(secrets: typeof SECRETS | null = SECRETS, location?: s
   await harness.core.seed(true);
   const { registry, gate, meter } = harness;
   const now = () => harness.clock.now;
-  const sessions = secrets ? await AdminSessions.from(secrets, new AdminSessionTable(meter), now) : null;
+  const sessions = secrets ? await AdminSessions.from(secrets, harness.adminSessions, now) : null;
   const devices = await DeviceTokens.from(meter, now);
   const sockets: FakeSocket[] = [];
   const accept: AcceptSocket = (origin) => {
@@ -34,6 +33,12 @@ export async function hub(secrets: typeof SECRETS | null = SECRETS, location?: s
   const http = new HubHttp(secrets, sessions, signIns, devices, now);
   const requests = new HubRequests(http, sessions, devices, registry, gate, (device) => harness.core.isSeated(device), accept);
   return { harness, requests, sockets, registry, devices, sessions, signIns };
+}
+
+/** The hub waking up: the socket's connection is made again from its attachment, its teacher's session checked against the database. */
+export async function wake(harness: Harness, socket: FakeSocket): Promise<Connection | null> {
+  const sessions = await AdminSessions.from(SECRETS, harness.adminSessions, () => harness.clock.now);
+  return Connection.restore(socket, harness.core, sessions);
 }
 
 const bytes = (text: string) => new TextEncoder().encode(text).length;

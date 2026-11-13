@@ -9,7 +9,7 @@ import { Connection } from '../server/Connection';
 import { deviceIdOf } from '../server/identity';
 import { SignInGuard } from '../server/SignInGuard';
 import { connect, createHarness, type Harness } from './hubHarness';
-import { hub, jar, post, teacher, upgrade } from './requestsKit';
+import { hub, jar, post, teacher, upgrade, wake } from './requestsKit';
 
 const MINUTE = 60_000;
 const FAR = 9_000_000_000_000;
@@ -89,12 +89,12 @@ describe('a socket that sends too fast', () => {
     expect(harness.gate.turnsAway('a', false)).toBe(false);
   });
 
-  it('closes the teacher’s socket when it floods, but never strikes it and never locks anything', async () => {
+  it('never counts the teacher’s messages: 300 in ten seconds keep her socket open, strike nothing and lock nothing', async () => {
     const harness = createHarness();
     for (let round = 0; round < 6; round += 1) {
       const teacherPage = connect(harness, 'laptop', FAR, '10.0.0.8');
-      await chatter(teacherPage, DEVICE_MESSAGES.max + 1);
-      expect(teacherPage.socket.closedWith).toMatchObject({ code: CLOSE_RATE_LIMITED });
+      await chatter(teacherPage, 300);
+      expect(teacherPage.socket.closedWith).toBeNull();
     }
     expect(harness.gate.turnsAway('laptop', false)).toBe(false);
     expect(harness.sql.all('SELECT subject FROM locks')).toEqual([]);
@@ -258,7 +258,7 @@ describe('the guard a connection gives the services', () => {
     const phone = connect(harness, 'phone', null, '10.0.0.77');
     const attached = phone.socket.deserializeAttachment() as { address: string };
     expect(attached.address).toBe('10.0.0.77');
-    const woken = Connection.restore(phone.socket, harness.core) as Connection;
+    const woken = await wake(harness, phone.socket) as Connection;
     expect(woken.address()).toBe('10.0.0.77');
   });
 });

@@ -1,4 +1,5 @@
 import { MeteredSql } from '../infrastructure/MeteredSql';
+import { AdminSessionTable } from '../infrastructure/sql/adminSessions';
 import { SqlLocks } from '../infrastructure/sql/locks';
 import { migrate } from '../infrastructure/sql/schema';
 import { NodeSqlDatabase } from '../infrastructure/testKit/NodeSqlDatabase';
@@ -64,6 +65,8 @@ export interface Harness {
   gate: Gatekeeper;
   /** What the hub refuses for a while and must not forget on waking: the sign-in locks, in its database. */
   locks: SqlLocks;
+  /** The teacher's sessions in the database: `connect` opens one for an admin page. */
+  adminSessions: AdminSessionTable;
   registry: ConnectionRegistry<object>;
   breaker: DayBreaker;
   clock: { now: number };
@@ -81,9 +84,10 @@ export function createHarness(location = ':memory:'): Harness {
   const store = new SqlDocumentStore(meter, (error) => reported.push(error));
   const registry = new ConnectionRegistry<object>();
   const locks = new SqlLocks(meter);
+  const adminSessions = new AdminSessionTable(meter);
   const gate = new Gatekeeper(now, registry);
   const breaker = new DayBreaker(meter);
-  return { sql, meter, store, clock, reported, gate, locks, registry, breaker, core: new HubCore(store, gate, breaker, now, (error) => reported.push(error)) };
+  return { sql, meter, store, clock, reported, gate, locks, adminSessions, registry, breaker, core: new HubCore(store, gate, breaker, now, (error) => reported.push(error)) };
 }
 
 export interface Client {
@@ -100,6 +104,7 @@ export interface Client {
 export function connect(harness: Harness, device: string, adminExpiresAt: number | null = null, address = LOCAL_ADDRESS): Client {
   const socket = new FakeSocket();
   const admin = adminExpiresAt === null ? null : { id: `session-of-${device}`, expiresAt: adminExpiresAt };
+  if (admin) harness.adminSessions.add(admin.id, admin.expiresAt);
   const connection = Connection.open(socket, harness.core, { device, admin, address });
   harness.registry.add(socket, connection);
   return clientOf(socket, connection);

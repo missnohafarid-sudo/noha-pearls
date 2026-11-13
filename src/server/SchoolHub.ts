@@ -6,7 +6,7 @@ import { migrate } from '../infrastructure/sql/schema';
 import { SqlWindowMemory } from '../infrastructure/sql/windowEvents';
 import { SqlDocumentStore } from '../infrastructure/SqlDocumentStore';
 import { CLOSE_POLICY, PING, PONG } from '../ports/wire';
-import { AdminSessions } from './AdminSessions';
+import { AdminSessions, NO_SESSIONS, type SessionRegister } from './AdminSessions';
 import { Connection, type ConnectionOrigin } from './Connection';
 import { ConnectionRegistry } from './ConnectionRegistry';
 import { DayBreaker } from './DayBreaker';
@@ -26,6 +26,7 @@ import { SignInGuard } from './SignInGuard';
  */
 export class SchoolHub extends DurableObject<Env> {
   private readonly core: HubCore;
+  private readonly sessions: Promise<AdminSessions | null>;
   private readonly requests: Promise<HubRequests>;
   private readonly connections = new ConnectionRegistry<WebSocket>();
   private readonly adminSessions: AdminSessionTable;
@@ -43,14 +44,16 @@ export class SchoolHub extends DurableObject<Env> {
     const secrets = adminSecretsOf(env);
     this.adminSessions = new AdminSessionTable(db);
     this.signIns = new SignInGuard(locks, new SqlWindowMemory(db), Date.now);
-    this.requests = Promise.all([secrets ? AdminSessions.from(secrets, this.adminSessions, Date.now) : null, DeviceTokens.from(db, Date.now)]).then(
+    this.sessions = Promise.resolve(secrets ? AdminSessions.from(secrets, this.adminSessions, Date.now) : null);
+    this.requests = Promise.all([this.sessions, DeviceTokens.from(db, Date.now)]).then(
       ([sessions, devices]) =>
         new HubRequests(new HubHttp(secrets, sessions, this.signIns, devices, this.core.now), sessions, devices, this.connections, gate, (device) => this.core.isSeated(device), (origin) => this.acceptSocket(origin)),
     );
     ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair(PING, PONG));
     ctx.blockConcurrencyWhile(async () => {
       await this.core.seed(wantsSampleSchool(env));
-      for (const socket of ctx.getWebSockets()) this.restore(socket);
+      const sessions = (await this.sessions) ?? NO_SESSIONS;
+      for (const socket of ctx.getWebSockets()) this.restore(socket, sessions);
       if ((await ctx.storage.getAlarm()) === null) await ctx.storage.setAlarm(await this.core.nextCheckAt());
     });
   }
@@ -87,8 +90,8 @@ export class SchoolHub extends DurableObject<Env> {
     return new Response(null, { status: 101, webSocket: client });
   }
 
-  private restore(socket: WebSocket): void {
-    const connection = Connection.restore(socket, this.core);
+  private restore(socket: WebSocket, sessions: SessionRegister): void {
+    const connection = Connection.restore(socket, this.core, sessions);
     if (connection) this.connections.add(socket, connection);
     else socket.close(CLOSE_POLICY, 'lost its identity');
   }

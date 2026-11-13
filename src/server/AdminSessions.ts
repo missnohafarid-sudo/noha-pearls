@@ -9,6 +9,14 @@ export interface AdminSession {
   readonly expiresAt: number;
 }
 
+/** Whether a teacher's session is still open, which is the sessions' to say. */
+export interface SessionRegister {
+  isOpen(session: AdminSession): boolean;
+}
+
+/** The register of a hub with no teacher's secrets: no session is ever open. */
+export const NO_SESSIONS: SessionRegister = { isOpen: () => false };
+
 /**
  * The teacher's sessions. A sign-in opens one (a row with a random id and its end); the cookie carries the signed id and counts only
  * while its row exists and has not run out, so signing out, which removes the row, ends it for every device that holds the cookie.

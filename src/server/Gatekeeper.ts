@@ -62,8 +62,9 @@ export class Gatekeeper {
     return (await seated()) ? null : 'shared';
   }
 
-  /** Counts a message that has just arrived from the device, over all its sockets, and says whether the device is still within its rate. */
-  messageAllowed(device: Id): boolean {
+  /** Counts a message that has just arrived from the device, over all its sockets, and says whether the device is still within its rate. The teacher's are not counted. */
+  messageAllowed(device: Id, isAdmin: boolean): boolean {
+    if (!isHeldToLimits(isAdmin)) return true;
     this.messages.record(device);
     return !this.messages.isOver(device);
   }

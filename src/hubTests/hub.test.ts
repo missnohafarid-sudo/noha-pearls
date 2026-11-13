@@ -2,8 +2,9 @@ import { describe, expect, it, vi } from 'vitest';
 import { ADMIN_SESSION_MS } from '../domain/adminAccess';
 import type { Session, Teacher } from '../domain/models';
 import { classroom } from './classKit';
-import { connect, createHarness, FakeSocket } from './hubHarness';
+import { clientOf, connect, createHarness, FakeSocket } from './hubHarness';
 import { Connection } from '../server/Connection';
+import { wake } from './requestsKit';
 import { WATCHES_PER_DEVICE } from '../ports/limits';
 import { CLOSE_SESSION_ENDED } from '../ports/wire';
 import { UI_SURFACE } from '../services/Services';
@@ -228,7 +229,7 @@ describe('waking from hibernation', () => {
     const socket = first.socket;
     const sentBefore = socket.sent.length;
 
-    const woken = Connection.restore(socket, harness.core);
+    const woken = await wake(harness, socket);
     expect(woken).not.toBeNull();
     first.connection.close();
     expect(socket.sent.length).toBe(sentBefore);
@@ -244,14 +245,27 @@ describe('waking from hibernation', () => {
     await admin.watch(1, 'roster', 'watchClasses');
     const socket = admin.socket;
     admin.connection.close();
-    const awake = Connection.restore(socket, harness.core) as Connection;
+    const awake = await wake(harness, socket) as Connection;
     expect(socket.closedWith).toBeNull();
     expect(awake.deviceId()).toBe('laptop');
     awake.close();
     harness.clock.now = expiresAt + 1;
-    expect(Connection.restore(socket, harness.core)).not.toBeNull();
+    expect(await wake(harness, socket)).not.toBeNull();
     expect(socket.closedWith).toEqual({ code: CLOSE_SESSION_ENDED, reason: 'session ended' });
-    expect(Connection.restore(new FakeSocket(), harness.core)).toBeNull();
+    expect(await wake(harness, new FakeSocket())).toBeNull();
+  });
+
+  it('closes a teacher’s socket whose session row went while the hub slept, so its next admin call is refused', async () => {
+    const harness = await seeded();
+    const admin = connect(harness, 'laptop', FAR);
+    expect((await admin.call(1, 'teachers', 'add', 'Huda')).ok).toBe(true);
+    admin.connection.close();
+    harness.sql.run('DELETE FROM admin_sessions');
+    const awake = (await wake(harness, admin.socket)) as Connection;
+    expect(admin.socket.closedWith).toEqual({ code: CLOSE_SESSION_ENDED, reason: 'session ended' });
+    await clientOf(admin.socket, awake).send({ type: 'call', id: 2, service: 'teachers', method: 'add', args: ['Mona'] });
+    expect(admin.socket.result(2)).toBeUndefined();
+    expect((await harness.store.list('teachers')).map((teacher) => teacher.name)).not.toContain('Mona');
   });
 
   it('tells the page of a read it can no longer open, instead of dropping it silently', async () => {
@@ -263,7 +277,7 @@ describe('waking from hibernation', () => {
     attached.watches[0].service = 'nothing';
     socket.serializeAttachment(attached);
     first.connection.close();
-    Connection.restore(socket, harness.core);
+    await wake(harness, socket);
     expect(socket.refusal(7)?.error).toMatchObject({ name: 'SurfaceError', code: 'unknown-method' });
   });
 });

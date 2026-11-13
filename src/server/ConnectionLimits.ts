@@ -1,4 +1,3 @@
-import { isHeldToLimits } from '../domain/abuse';
 import type { Id } from '../domain/models';
 import type { AbuseGuard } from '../ports/abuse';
 import { CLOSE_DEVICE_LOCKED, CLOSE_RATE_LIMITED } from '../ports/wire';
@@ -21,14 +20,14 @@ export class ConnectionLimits {
     };
   }
 
-  /** Counts a message that has just arrived and says whether the device is still within its rate. */
-  messageAllowed(): boolean {
-    return this.gate.messageAllowed(this.device);
+  /** Counts a message that has just arrived and says whether the device is still within its rate. The teacher's are never counted. */
+  messageAllowed(isAdmin: boolean): boolean {
+    return this.gate.messageAllowed(this.device, isAdmin);
   }
 
-  /** The socket sent too fast: its device gets a strike, unless it is the admin's, which is closed and never struck. The code to close the socket with. */
-  flooded(isAdmin: boolean): number {
-    return isHeldToLimits(isAdmin) && this.gate.flood(this.device) ? CLOSE_DEVICE_LOCKED : CLOSE_RATE_LIMITED;
+  /** The socket sent too fast: its device gets a strike. The code to close the socket with. */
+  flooded(): number {
+    return this.gate.flood(this.device) ? CLOSE_DEVICE_LOCKED : CLOSE_RATE_LIMITED;
   }
 
   /** Why one more live read is refused to this device, or null when it may open. */

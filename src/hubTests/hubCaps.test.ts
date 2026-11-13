@@ -5,7 +5,7 @@ import { Connection } from '../server/Connection';
 import { deviceIdOf } from '../server/identity';
 import { classroom, FAR, seatFor } from './classKit';
 import { connect, createHarness } from './hubHarness';
-import { hub, teacher, upgrade } from './requestsKit';
+import { hub, teacher, upgrade, wake } from './requestsKit';
 
 describe('the sockets the hub accepts', () => {
   const cookieFor = async (h: Awaited<ReturnType<typeof hub>>, name: string) => `noha_device=${(await h.devices.issue(name))!}`;
@@ -24,7 +24,7 @@ describe('the sockets the hub accepts', () => {
     const cookie = await cookieFor(h, 'issuer');
     for (let n = 0; n < 6; n += 1) await h.requests.handle(upgrade({ Cookie: cookie }));
     const woken = createHarness();
-    for (const socket of h.sockets) woken.registry.add(socket, Connection.restore(socket, woken.core) as Connection);
+    for (const socket of h.sockets) woken.registry.add(socket, await wake(woken, socket) as Connection);
     const { device } = h.sockets[0].deserializeAttachment() as { device: string };
     const counts = woken.registry.countsFor(device, 'local');
     expect(counts).toEqual({ ofDevice: 6, ofAddress: 6, inHub: 6 });

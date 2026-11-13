@@ -35,7 +35,7 @@ From then on `npm run ship` fetches the maintainer's newer changes by itself and
 
 ## 4. Deployment
 
-The site runs as one Cloudflare Worker (`noha-pearls`) at `https://noha-pearls.miss-noha-farid.workers.dev`. GitHub Actions is the only deployer: every push to `main` runs `.github/workflows/deploy.yml` (check, deploy, smoke test). Nobody deploys by hand from a laptop.
+The site runs as one Cloudflare Worker (`noha-pearls`) at `https://noha-pearls.miss-noha-farid.workers.dev`. GitHub Actions is the only deployer, through `.github/workflows/deploy.yml`. A change shipped from her laptop goes to the branch `try`: the workflow runs the whole check there and, only when it passes, moves `main` to that change, deploys it and smoke-tests the site. A direct push to `main` (the maintainer's) is checked and deployed the same way. Nobody deploys by hand from a laptop.
 
 Repository secrets (Settings > Secrets and variables > Actions):
 

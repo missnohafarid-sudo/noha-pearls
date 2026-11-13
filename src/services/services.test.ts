@@ -115,35 +115,35 @@ describe('document store', () => {
 describe('admin access', () => {
   it('rejects a wrong password and admin commands from visitors', async () => {
     const { auth, sessions, lessons } = await setup();
-    expect(await auth.signIn({ password: 'wrong', code: await validCode() })).toBe(false);
+    expect(await auth.signIn({ password: 'wrong', code: await validCode() })).toBe('wrong');
     expect(auth.isAdmin()).toBe(false);
     await expect(sessions.start('l1', 'c1', 't1')).rejects.toBeInstanceOf(NotAuthorizedError);
     await expect(lessons.create('x', null)).rejects.toBeInstanceOf(NotAuthorizedError);
-    expect(await auth.signIn({ password: 'secret', code: await validCode() })).toBe(true);
+    expect(await auth.signIn({ password: 'secret', code: await validCode() })).toBe('signed-in');
     await auth.signOut();
     expect(auth.isAdmin()).toBe(false);
   });
 
   it('refuses the right password with a wrong code, and the right code with a wrong password', async () => {
     const { auth } = await setup();
-    expect(await auth.signIn({ password: 'secret', code: '000000' })).toBe(false);
-    expect(await auth.signIn({ password: 'wrong', code: await validCode() })).toBe(false);
+    expect(await auth.signIn({ password: 'secret', code: '000000' })).toBe('wrong');
+    expect(await auth.signIn({ password: 'wrong', code: await validCode() })).toBe('wrong');
     expect(auth.isAdmin()).toBe(false);
   });
 
   it('accepts a code typed with Arabic digits', async () => {
     const { auth } = await setup();
     const arabic = (await validCode()).replace(/\d/g, (d) => String.fromCharCode(0x0660 + Number(d)));
-    expect(await auth.signIn({ password: 'secret', code: arabic })).toBe(true);
+    expect(await auth.signIn({ password: 'secret', code: arabic })).toBe('signed-in');
   });
 
   it('has no admin at all unless both secrets are configured', async () => {
     const noTotp = new AuthService(await gateway(''));
-    expect(await noTotp.signIn({ password: 'secret', code: await validCode() })).toBe(false);
+    expect(await noTotp.signIn({ password: 'secret', code: await validCode() })).toBe('wrong');
     const nothing = new AuthService(
       new PrototypeAuthGateway({ passwordSha256: undefined, totpSecret: undefined }, new MemoryStorage(), 'admin'),
     );
-    expect(await nothing.signIn({ password: '', code: '' })).toBe(false);
+    expect(await nothing.signIn({ password: '', code: '' })).toBe('wrong');
   });
 });
 

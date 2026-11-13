@@ -1,5 +1,6 @@
 import type { AdminCredentials, AuthGateway } from '../../ports/auth';
 import type { Unsubscribe } from '../../ports/store';
+import type { SignInResult } from '../../ports/auth';
 import { HELLO_PATH, SIGN_IN_PATH, SIGN_OUT_PATH, type Hello, type SignInAnswer } from '../../ports/wire';
 
 export type PostJson = (path: string, body?: unknown) => Promise<unknown>;
@@ -36,11 +37,11 @@ export class RemoteSession implements AuthGateway {
     return this.localNow() + this.offset;
   }
 
-  async signIn(credentials: AdminCredentials): Promise<boolean> {
+  async signIn(credentials: AdminCredentials): Promise<SignInResult> {
     const answer = (await this.post(SIGN_IN_PATH, credentials)) as SignInAnswer;
-    if (!answer.ok) return false;
+    if (!answer.ok) return answer.closed ? 'closed' : 'wrong';
     await this.reopenSocket();
-    return true;
+    return 'signed-in';
   }
 
   async signOut(): Promise<void> {

@@ -270,7 +270,7 @@ describe('signing in and out', () => {
     const changes: boolean[] = [];
     session.subscribe(() => changes.push(session.isAdmin()));
     wire.identity.admin = true;
-    expect(await session.signIn({ password: 'x', code: '1' })).toBe(true);
+    expect(await session.signIn({ password: 'x', code: '1' })).toBe('signed-in');
     expect(session.isAdmin()).toBe(true);
     expect(changes).toEqual([true]);
     expect(events.filter((event) => event === 'socket')).toHaveLength(2);
@@ -285,9 +285,16 @@ describe('signing in and out', () => {
   it('does not reopen the socket for a refused sign-in', async () => {
     const { session, events } = await page();
     const refusing = new RemoteSession((async () => ({ ok: false })) as PostJson, async () => { events.push('reopened'); });
-    expect(await refusing.signIn({ password: 'x', code: '1' })).toBe(false);
+    expect(await refusing.signIn({ password: 'x', code: '1' })).toBe('wrong');
     expect(events).not.toContain('reopened');
     expect(session.isAdmin()).toBe(false);
+  });
+
+  it('tells the page that sign-in is closed for everyone, and does not reopen the socket', async () => {
+    const { events } = await page();
+    const closed = new RemoteSession((async () => ({ ok: false, closed: true })) as PostJson, async () => { events.push('reopened'); });
+    expect(await closed.signIn({ password: 'x', code: '1' })).toBe('closed');
+    expect(events).not.toContain('reopened');
   });
 
   it('learns from the hub when the teacher’s session ran out', async () => {

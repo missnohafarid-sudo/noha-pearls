@@ -1,5 +1,5 @@
 import { toAsciiDigits } from '../domain/digits';
-import type { AdminCredentials, AuthGateway } from '../ports/auth';
+import type { AdminCredentials, AuthGateway, SignInResult } from '../ports/auth';
 import type { KeyValueStorage } from '../ports/storage';
 import type { Unsubscribe } from '../ports/store';
 import { verifyTotp } from './totp';
@@ -33,9 +33,9 @@ export class PrototypeAuthGateway implements AuthGateway {
     private readonly now: () => number = Date.now,
   ) {}
 
-  async signIn({ password, code }: AdminCredentials): Promise<boolean> {
+  async signIn({ password, code }: AdminCredentials): Promise<SignInResult> {
     const { passwordSha256, totpSecret } = this.secrets;
-    if (!passwordSha256 || !totpSecret) return false;
+    if (!passwordSha256 || !totpSecret) return 'wrong';
     const passwordOk = (await sha256Hex(password)) === passwordSha256.toLowerCase();
     const codeOk = await verifyTotp(totpSecret, toAsciiDigits(code), this.now());
     const matches = passwordOk && codeOk;
@@ -43,7 +43,7 @@ export class PrototypeAuthGateway implements AuthGateway {
       this.memory.setItem(this.flagKey, '1');
       this.notify();
     }
-    return matches;
+    return matches ? 'signed-in' : 'wrong';
   }
 
   async signOut(): Promise<void> {

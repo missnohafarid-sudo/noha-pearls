@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { t } from '../../i18n';
+import type { SignInResult } from '../../ports/auth';
 import { PasswordField } from '../forms/PasswordField';
 import { useServices } from '../ServicesContext';
 import '../forms/forms.css';
@@ -14,7 +15,7 @@ export function AdminUnlock({ onClose }: { onClose: () => void }) {
   const [password, setPassword] = useState('');
   const [passwordShown, setPasswordShown] = useState(false);
   const [code, setCode] = useState('');
-  const [status, setStatus] = useState<'idle' | 'checking' | 'wrong'>('idle');
+  const [status, setStatus] = useState<'idle' | 'checking' | 'wrong' | 'closed'>('idle');
   /** Set once the prompt is closed, so the answer to an attempt made before that is ignored. */
   const closed = useRef(false);
 
@@ -27,19 +28,19 @@ export function AdminUnlock({ onClose }: { onClose: () => void }) {
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setStatus('checking');
-    let signedIn = false;
+    let result: SignInResult = 'wrong';
     try {
-      signedIn = await auth.signIn({ password, code });
+      result = await auth.signIn({ password, code });
     } catch {
-      signedIn = false;
+      result = 'wrong';
     }
     if (closed.current) return;
-    if (signedIn) {
+    if (result === 'signed-in') {
       close();
     } else {
       setCode('');
       setPasswordShown(false);
-      setStatus('wrong');
+      setStatus(result);
     }
   };
 
@@ -79,7 +80,7 @@ export function AdminUnlock({ onClose }: { onClose: () => void }) {
             />
           </label>
           <p className="muted form-status" role="status">
-            {status === 'checking' ? t.shell.unlock.checking : status === 'wrong' ? t.shell.unlock.wrong : ''}
+            {status === 'idle' ? '' : t.shell.unlock[status]}
           </p>
         </div>
         <div className="dialog__foot row">

@@ -1,4 +1,4 @@
-import type { AdminCredentials, AuthGateway } from '../ports/auth';
+import type { AdminCredentials, AuthGateway, SignInResult } from '../ports/auth';
 import type { Caller } from '../ports/caller';
 import type { Unsubscribe } from '../ports/store';
 
@@ -17,7 +17,7 @@ export class AuthService {
     return this.gateway.isAdmin();
   }
 
-  signIn(credentials: AdminCredentials): Promise<boolean> {
+  signIn(credentials: AdminCredentials): Promise<SignInResult> {
     return this.gateway.signIn(credentials);
   }
 

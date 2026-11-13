@@ -59,9 +59,10 @@ export interface Hello {
   now: number;
 }
 
-/** What `POST /api/sign-in` answers: yes or no, never which part was wrong. (It takes the page's `AdminCredentials`.) */
+/** What `POST /api/sign-in` answers: yes or no, never which part was wrong; `closed` when sign-in is shut for everyone for a while. (It takes the page's `AdminCredentials`.) */
 export interface SignInAnswer {
   ok: boolean;
+  closed?: true;
 }
 
 export const encode = (message: ClientMessage | ServerMessage): string => JSON.stringify(message);

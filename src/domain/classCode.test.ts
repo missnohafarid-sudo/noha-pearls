@@ -1,33 +1,39 @@
 import { describe, expect, it } from 'vitest';
 import { canGiveAnotherPeerHeart } from './rewards';
-import { canWaitForSeat, seatId } from './admission';
+import { canWaitForSeat, holdsSeat, seatId } from './admission';
 import { deviceAnswerStep } from './answerChanges';
 import { codeOpens, lookupIsExempt } from './classCode';
 import type { Answer, Participant } from './models';
 import { ended, live } from './visibility.fixtures';
 
-const visitor = { isAdmin: false, holdsSeat: false };
+const seatOf = (admitted: boolean): Participant => ({ id: 'x:d', sessionId: 'x', groupId: 'g', studentId: null, joinedAt: 1, admitted });
+const visitor = { isAdmin: false, seat: null };
+const letIn = { isAdmin: false, seat: seatOf(true) };
+const waiting = { isAdmin: false, seat: seatOf(false) };
+const admin = { isAdmin: true, seat: null };
 
 describe('what a class code opens', () => {
   it('opens a running class for anyone', () => {
     expect(codeOpens(live, visitor)).toBe(true);
   });
 
-  it('opens an ended class only for the admin and for a device that holds a seat in it', () => {
+  it('opens an ended class only for the admin and for a device that was let in to it; a seat still waiting is a stranger’s', () => {
     expect(codeOpens(ended, visitor)).toBe(false);
-    expect(codeOpens(ended, { isAdmin: false, holdsSeat: true })).toBe(true);
-    expect(codeOpens(ended, { isAdmin: true, holdsSeat: false })).toBe(true);
+    expect(codeOpens(ended, waiting)).toBe(false);
+    expect(codeOpens(ended, letIn)).toBe(true);
+    expect(codeOpens(ended, admin)).toBe(true);
   });
 
   it('opens nothing for a code that names no class, whoever asks', () => {
-    for (const who of [visitor, { isAdmin: true, holdsSeat: false }, { isAdmin: false, holdsSeat: true }]) expect(codeOpens(null, who)).toBe(false);
+    for (const who of [visitor, admin, letIn, waiting]) expect(codeOpens(null, who)).toBe(false);
   });
 
-  it('checks the lookups of everyone but the admin and a device with a seat in the class', () => {
+  it('checks the lookups of everyone but the admin and a device that was let in to the class; a waiting seat is checked like a stranger', () => {
     expect(lookupIsExempt(live, visitor)).toBe(false);
-    expect(lookupIsExempt(null, { isAdmin: false, holdsSeat: true })).toBe(false);
-    expect(lookupIsExempt(ended, { isAdmin: false, holdsSeat: true })).toBe(true);
-    expect(lookupIsExempt(null, { isAdmin: true, holdsSeat: false })).toBe(true);
+    expect(lookupIsExempt(ended, waiting)).toBe(false);
+    expect(lookupIsExempt(null, letIn)).toBe(false);
+    expect(lookupIsExempt(ended, letIn)).toBe(true);
+    expect(lookupIsExempt(null, admin)).toBe(true);
   });
 });
 
@@ -44,6 +50,12 @@ describe('crowding a class with waiting seats', () => {
     expect(canWaitForSeat(waiting, 's:me', 'x', caps)).toBe(false);
     expect(canWaitForSeat(waiting, 's:a', 'x', caps)).toBe(true);
     expect(canWaitForSeat(waiting, 's:me', 'y', caps)).toBe(true);
+  });
+
+  it('counts a seat as held only once the teacher let it in', () => {
+    expect(holdsSeat(null)).toBe(false);
+    expect(holdsSeat(seat('s:a', 'x'))).toBe(false);
+    expect(holdsSeat(seat('s:a', 'x', true))).toBe(true);
   });
 
   it('allows ten shared devices waiting in a class', () => {

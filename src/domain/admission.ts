@@ -11,6 +11,11 @@ export function isAdmitted(participant: Participant): boolean {
   return participant.admitted;
 }
 
+/** Whether a device's seat is a place in the class: it was let in. A seat that is still waiting is none, and gives its device no more than a stranger has. */
+export function holdsSeat(seat: Participant | null): seat is Participant {
+  return seat !== null && isAdmitted(seat);
+}
+
 export function admittedDevices(participants: readonly Participant[]): Participant[] {
   return participants.filter(isAdmitted);
 }

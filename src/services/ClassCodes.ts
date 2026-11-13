@@ -65,7 +65,7 @@ export class ClassCodes implements ClassResolver {
   }
 
   private decide(session: Session | null, seat: Participant | null, isLookup: boolean): Session | null {
-    const who = { isAdmin: this.caller.isAdmin(), holdsSeat: seat !== null };
+    const who = { isAdmin: this.caller.isAdmin(), seat };
     const exempt = lookupIsExempt(session, who);
     if (isLookup && !exempt) requireWithin(this.guard.lookupAllowed(), 'lookups');
     const opened = codeOpens(session, who) ? session : null;

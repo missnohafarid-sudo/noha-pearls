@@ -1,19 +1,21 @@
 ---
 name: change-look
-description: Use when the teacher asks to change colours, font size, spacing, rounded corners, how big or small something looks, or how a page is laid out. Arabic phrasings - غيّري اللون، اجعليه أخضر، الخط صغير، كبّري الأزرار، المسافات ضيقة، الصفحة مزدحمة، رتّبي الشكل. English - change the colour, make the text bigger, more space, make it look nicer.
+description: Use when the teacher asks to change colours (one colour or the whole palette of the site), font size, spacing, rounded corners, how big or small something looks, how a page is arranged, or to put a picture or a logo she gives. Arabic phrasings - غيّري اللون، اجعليه أخضر، غيّري ألوان الموقع، الخط صغير، كبّري الأزرار، المسافات ضيقة، الصفحة مزدحمة، رتّبي الشكل، ضعي هذه الصورة. English - change the colour, new colours for the site, make the text bigger, more space, rearrange the page, make it look nicer.
 ---
 
 # Change look
 
-Goal: change a design token (whole site) or one page's own stylesheet (one page). Never inline styles.
+Goal: change design tokens (whole site) or one page's own stylesheet (one page). Never inline styles.
 
 1. Restate the request in Arabic as a visible change. Ask one question when needed: "كل الموقع أم هذه الصفحة فقط؟" with options 1) كل الموقع 2) هذه الصفحة فقط.
-2. Whole site: edit the token in `src/ui/styles/tokens.css` (tokens: colours, fonts, radii). Tokens: `--bg`, `--surface`, `--surface-2`, `--ink`, `--muted`, `--line`, `--accent`, `--accent-soft`, `--on-accent`, `--ok`, `--ok-soft`, `--bad`, `--bad-soft`, `--heart`, `--radius`, `--radius-small`, `--gap`, `--font`. Keep text readable: dark text on light background, `--on-accent` readable on `--accent`.
-3. One page: edit that page's stylesheet in `src/ui/pages/` (`home.css`, `lesson.css`, `session.css`, `monitor.css`, `roster.css`, `board.css`, `cards.css`, `join.css`), or the feature's (`src/ui/slides/slides.css`, `src/ui/shell/shell.css`, `src/ui/scanner/scanner.css`, `src/ui/forms/forms.css`). Use `var(--token)` for colours and spacing.
+2. Whole site, one colour or all of them: edit the token values in `src/ui/styles/tokens.css`. Read the file first: the colours, fonts, radii and gaps of the site are tokens there. `--glow` and `--shadow-tint` repeat a colour as numbers: change them with it. Two things keep their colours, and you tell her so: the brand pictures in `src/ui/assets/brand/`, and the groups' colours (each stored group has its own; never rewrite them). A new palette is the same tokens with new values, changed together in one change. Keep text readable: dark text on a light surface (or the reverse), `--on-accent` readable on `--accent`. After the change look at the buttons, the chips, the notices, a slide and a student's screen.
+3. One page: edit that page's stylesheet in `src/ui/pages/` (`home.css`, `lesson.css`, `session.css`, `monitor.css`, `roster.css`, `board.css`, `cards.css`, `join.css`), or the feature's (`src/ui/slides/slides.css`, `src/ui/shell/shell.css`, `src/ui/library/library.css`, `src/ui/forms/forms.css`). Use `var(--token)` for colours and spacing.
 4. A shared control (`.btn`, `.card`, `.chip`, `.input`, `.notice`) changes in `base.css` and so on every page. Tell her that before changing it.
-5. Right-to-left: use logical properties only (`inline-size`, `margin-inline-start`, `padding-inline-end`, `text-align: start`). Never `left`, `right`, `margin-left`. See `.agents/rules/styles.md`.
-6. No raw colour values outside `:root`. No `style=` in `.tsx` files.
-7. Look at the result: `npm run dev`, open the page, describe to her what she will see.
-8. Finish as in AGENTS.md section 5. Example message: `Make the accent colour a deeper green`.
+5. A page arranged differently: move the existing parts in the page's `.tsx` and its stylesheet. The parts keep doing what they did; nothing is removed unless she asked.
+6. A picture or a logo she gives you: put the file in `src/ui/assets/brand/` (check its size yourself: under 500 KB, else ask her for a smaller one; never a photo in which a student can be recognised) and use it as the ones there are used (`url(...)` in a stylesheet, or an `import` as in `src/ui/join/NamePicker.tsx`). Do not point at a picture on another website: it can disappear.
+7. Right-to-left: use logical properties only (`inline-size`, `margin-inline-start`, `padding-inline-end`, `text-align: start`). Never `left`, `right`, `margin-left`. See `.agents/rules/styles.md`.
+8. No raw colour values outside `tokens.css`. No `style=` in `.tsx` files.
+9. Look at the result: `npm run dev`, open the page, describe to her what she will see.
+10. Finish as in AGENTS.md section 5. Example message: `Make the accent colour a deeper green`.
 
-Stop and hand over when she wants a new layout, new pictures, or a logo: that is not a small change.
+She wants to choose between looks (a button that switches the look, a dark mode, a look she sets for everyone): that is a small feature, skill `add-small-feature`.

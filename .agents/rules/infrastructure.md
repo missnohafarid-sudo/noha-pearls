@@ -12,7 +12,7 @@ The only code that touches the browser and the outside world. General rules: AGE
 
 - `infrastructure/`: classes that implement a port: `LocalDocumentStore` (DocumentStore), `PrototypeAuthGateway` (AuthGateway), `ArucoCardCodec`, `QrSvgRenderer`, `storage.ts`, `totp.ts`.
 - `app/container.ts`: the single file that names concrete adapters and builds the services. It is also where `localStorage` and `sessionStorage` are handed to the adapters.
-- `app/config.ts`: every setting. `app/seed.ts`: sample data for a fresh install.
+- `app/config.ts`: every setting. Sample data for a fresh install: `services/seed.ts`.
 
 ## Never here
 

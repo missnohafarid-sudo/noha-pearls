@@ -33,6 +33,7 @@ a deployed site refuses it.
 | `npm run build` | Production build into `dist/` (the site in `dist/client`, the Worker in `dist/noha_pearls`) |
 | `npm run check` | Everything the deploy checks: types, tests, protected files, browser walkthrough |
 | `npm run ship -- "message"` / `npm run undo` | Check and publish one change / take the last one back |
+| `npm run deployed` | After a ship or an undo: wait for the online check and deploy, and say whether the site shows it |
 | `npm run admin:2fa` | Make (or show) the authenticator key and its QR code for the admin sign-in |
 | `npm run vendor:aruco` | Rebuild the vendored marker library after upgrading `js-aruco2` |
 

@@ -26,4 +26,4 @@ Say it like this, adapted to what she asked:
 
 4. Tell her the changes save as she types. These changes are saved in this browser only until the backend phase exists: say plainly that a change made on one device does not yet appear on another.
 
-If she says it did not work, or the panel does not appear, ask her what she sees on the screen. If she cannot open admin mode, hand over to the maintainer. Do not edit `src/app/seed.ts` or `src/i18n/sampleLesson.json` to change her lessons or students: they are only the starting sample.
+If she says it did not work, or the panel does not appear, ask her what she sees on the screen. If she cannot open admin mode, hand over to the maintainer. Do not edit `src/services/seed.ts` or `src/domain/sampleLesson.json` to change her lessons or students: they are only the starting sample.

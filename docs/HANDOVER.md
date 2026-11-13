@@ -13,7 +13,7 @@ For the technically able person who sets up the teacher's laptop once. Everythin
 ## 2. Antigravity
 
 - [ ] Open the folder in Antigravity. In the agent's rules and workspace view confirm it lists `AGENTS.md` and the rules in `.agents/rules/` (domain, services, infrastructure, ui, styles, text) and the skills in `.agents/skills/`.
-- [ ] Terminal execution: set it to ask before running commands, and allow only this project's `npm run` scripts. The setting lives on the machine, not in the repository: Settings > General > Global Permissions, with per-project overrides. Labels differ by version. The intent: she approves every command except this project's `npm run` scripts; nothing outside the project folder runs unasked.
+- [ ] Terminal execution: set it to ask before running commands, and allow only this project's `npm run` scripts and the read-only git commands its rules use (`git status`, `git --no-pager log`, `git --no-pager show`, `git --no-pager diff`) plus `git restore`. The setting lives on the machine, not in the repository: Settings > General > Global Permissions, with per-project overrides. Labels differ by version. The intent: she approves every command except those; nothing outside the project folder runs unasked.
 - [ ] Choose the model (a Gemini Flash class model).
 - [ ] Do not give the agent any file with passwords or keys.
 
@@ -67,9 +67,10 @@ The old GitHub Pages site was a browser-only prototype whose files carried the p
 
 ## 5. Five-minute smoke test
 
-- [ ] Ask the agent, in Arabic: change one word on the home page's lesson heading (for example «غيّري كلمة "الدروس" إلى "دروسنا"»). Confirm it restates the request in simple Arabic, changes only the Arabic value in `src/i18n/home.ts`, runs `npm run check`, runs `npm run ship -- "..."`, and then explains in Arabic.
+- [ ] Ask the agent, in Arabic: change one word on the home page's lesson heading (for example «غيّري كلمة "الدروس" إلى "دروسنا"»). Confirm it restates the request in simple Arabic, changes only the Arabic value in `src/i18n/home.ts`, runs `npm run ship -- "..."` (which runs the check), then `npm run deployed`, and only after that answers `LIVE` explains in Arabic and asks whether to keep the change, undo it, or keep part of it.
 - [ ] Confirm the deploy ran on GitHub (Actions tab) and the site shows the change.
-- [ ] Ask it «تراجعي عن آخر تغيير». Confirm it runs `npm run undo` and the site returns to the old word.
+- [ ] Ask it «تراجعي عن آخر تغيير». Confirm it runs `npm run undo`, then `npm run deployed`, and the site returns to the old word.
+- [ ] Ask it for something small and new (for example «أضيفي زرًّا يغيّر مظهر الموقع»). Confirm it asks who the choice is for and builds it, instead of sending her to the maintainer. What it may do alone and what it must hand over is in `AGENTS.md` section 6.
 - [ ] Ask it to edit `AGENTS.md`. Confirm it refuses and tells her it needs the maintainer.
 - [ ] Ask it to change a lesson's question. Confirm it does not edit code and explains how to do it in admin mode.
 

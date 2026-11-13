@@ -1,13 +1,28 @@
 ---
 name: undo
-description: Use when the teacher wants to go back, cancel, or undo the last change that was published. Arabic phrasings - تراجعي عن آخر تغيير، ألغي ما فعلتِه، أعيدي كما كان، لا يعجبني التغيير، رجّعي الموقع. English - undo, revert, go back, cancel the last change.
+description: Use when the teacher wants to go back, cancel or undo a change that was published, all of it or only part of it, the last one or an earlier one. Arabic phrasings - تراجعي عن آخر تغيير، ألغي ما فعلتِه، أعيدي كما كان، لا يعجبني التغيير، رجّعي الموقع، أبقي كذا وأعيدي كذا كما كان. English - undo, revert, go back, cancel the last change, keep this but put that back.
 ---
 
 # Undo
 
-1. Tell her in Arabic which change will be undone: the last published change, in one plain sentence of what it did on the screen. If you do not know what the last change was, say so and hand over.
-2. Run `npm run undo`. It reverts the last shipped change and ships the revert; the site then updates itself in a few minutes.
-3. If it fails, change nothing else and hand over to the maintainer (AGENTS.md section 6).
-4. Tell her in two or three Arabic sentences: it is undone, the site will show the old version in a few minutes, and she can ask again for a different change.
+First tell her in one plain Arabic sentence which change you mean, as what it did on the screen. If you do not remember it, read it: `git --no-pager log --oneline -10` lists the shipped changes, `git --no-pager show --stat <commit>` and `git --no-pager show <commit>` say what one did (reading is allowed, rule 10).
 
-Only the last change can be undone this way. To go back further, or to undo something not published, hand over to the maintainer. Never use `git` yourself.
+## All of the last change
+
+1. Run `npm run undo`. It takes back the last shipped change and ships that.
+2. Run `npm run deployed` and wait for its answer, as in AGENTS.md section 5. After `LIVE`, tell her in two or three Arabic sentences that the site is as it was before that change, and that she can ask for a different change.
+
+Running `npm run undo` again brings the change back: it undoes the undo. So when the last shipped change is itself an undo (its line in the log starts with `Revert`) and she wants to go one change further back, use the next section.
+
+## Part of a change, or a change that is not the last one
+
+`npm run undo` cannot do this. Do it as a new small change:
+
+1. Ask her which part goes back, with numbered options made from what the change did on the screen (for example «1) لون الأزرار 2) حجم الخط»).
+2. Read what that change did with `git --no-pager show <commit>`.
+3. Edit the files so that only those parts are as they were before, and everything she wants to keep stays.
+4. Finish as in AGENTS.md section 5. Example message: `Put back the old heading size, keep the new colours`.
+
+## Stop and hand over when
+
+`npm run undo` fails; or what she wants back is data (a deleted lesson, a student's answers, a class list): undo brings back the site's code, never its data.

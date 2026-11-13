@@ -20,17 +20,18 @@ A teacher. She is not a programmer and cannot judge your code.
 | She says (examples) | What it is | Do |
 |---|---|---|
 | «غيّري كلمة الزر إلى ...»، «اكتبي "ابدأ" بدل "بدء"» | Interface wording | Skill `change-wording` |
-| «اجعلي اللون أخضر»، «الخط أكبر»، «المسافة بين الأزرار ضيقة» | Look | Skill `change-look` |
+| «اجعلي اللون أخضر»، «غيّري ألوان الموقع كلها»، «الخط أكبر»، «المسافة بين الأزرار ضيقة»، «رتّبي الصفحة بشكل آخر»، «ضعي هذه الصورة أو هذا الشعار» | Look: one colour or the whole palette, fonts, sizes, spacing, how a page is arranged, a picture she gives you | Skill `change-look` |
 | «غيّري نص الصفحة الرئيسية»، «أضيفي سؤالاً للدرس»، «أضيفي فيديو أو صوتًا أو صورة أو ملف PDF أو محاكاة للدرس»، «صحّحي اسم طالبة»، «انقلي سلمى إلى مجموعة أخرى»، «عدّلي الدرس» | CONTENT, edited inside the website by the admin (media goes in a «شريحة وسائط» from a public link). NOT code | Skill `content-is-edited-in-the-site`. Change no code |
 | «أريد نوعاً جديداً من الأسئلة»، «شريحة فيها ترتيب أو مطابقة» | New slide kind | Skill `add-slide-kind` |
 | «أريد خانة لرقم ولي الأمر في بيانات الطالبة» | New field on an existing form | Skill `add-form-field` |
+| «أضيفي زرًّا يغيّر مظهر الموقع»، «أريد وضعًا ليليًّا»، «أريد أن أختار المظهر لكل الطالبات»، «أضيفي زرًّا يُخفي الأسماء»، «أريد قسمًا أو رابطًا أو عدّادًا جديدًا في الصفحة» | A small new feature: on the page only, remembered on one device, or a setting the site keeps for everyone | Skill `add-small-feature` |
 | «الموقع لا يعمل»، «ضغطتُ فلم يحدث شيء»، «ظهرت رسالة خطأ» | Bug | Skill `fix-a-bug` (test first) |
-| «تراجعي عن آخر تغيير»، «لا يعجبني ما حدث» | Undo | Skill `undo` |
+| «تراجعي عن آخر تغيير»، «لا يعجبني ما حدث»، «أبقي اللون وأعيدي الخط كما كان» | Undo: a whole change, or part of one | Skill `undo` |
 | «انشري»، «أريد أن يراه الجميع» | Publish | Skill `ship` |
-| Passwords, the authenticator code, backups or restore, the database, GitHub settings, deleting data, anything in the protected files | Maintainer only | STOP. Change nothing. Tell her in Arabic this needs the maintainer. |
-| Anything that fits no row | Unknown | STOP. Say so in Arabic. Do not improvise. |
+| Passwords, the authenticator code, signing in, the limits, backups or restore, the database or the server itself, GitHub or Cloudflare settings, deleting or rewriting data that is already stored, anything in the protected files | Maintainer only | STOP. Change nothing. Tell her in Arabic this needs the maintainer. |
+| Anything else that changes what the pages show or what the site can do | A small new feature | Skill `add-small-feature`. Only when you cannot tell what she wants after your two questions: STOP and say so in Arabic. |
 
-4. One request = one small change, shipped on its own. Several requests: do them one at a time, each finished and shipped before the next.
+4. One request = one small change, shipped on its own and confirmed on the site (section 5). Several requests: do them one at a time, each finished before the next. A request too big for one small change (a whole new page, several screens at once): say so in Arabic, split it into small changes she can look at one by one, tell her the order, and do them in that order.
 
 ## 3. Map of the code
 
@@ -41,7 +42,7 @@ A teacher. She is not a programmer and cannot judge your code.
 | `src/services` | Use cases as classes (`LessonService`, `RosterService`, ...). Every change of stored data goes through one | `domain`, `ports` |
 | `src/infrastructure` | Adapters that implement ports: browser storage, auth, markers, QR | `domain`, `ports` |
 | `src/server` | The Worker and the hub: the server's composition root and transport. Runs on Cloudflare, never in the page; nothing imports it | `domain`, `ports`, `services`, `infrastructure` |
-| `src/app` | `container.ts` (the only file naming concrete adapters), `config.ts`, `seed.ts` | everything except `server` |
+| `src/app` | `container.ts` (the only file naming concrete adapters), `config.ts` | everything except `server` |
 | `src/i18n` | Every word the interface shows, one file per feature, `t` in `index.ts` | `domain` |
 | `src/ui` | React pages and components | `domain`, `i18n`, `services`, `ports` (types only), `app/config` |
 
@@ -85,6 +86,8 @@ A teacher. She is not a programmer and cannot judge your code.
 | Who is asking: the admin or not, and which device | `ports/caller.ts` |
 | Is this the admin | `services/AuthService.ts` |
 | What the UI may ask of the app: the one table `UI_SURFACE` of method names per service | `services/Services.ts` |
+| What an argument or a record sent to the server may look like (the server refuses anything else) | `domain/argumentChecks.ts` (small checkers), `domain/entityChecks.ts` (whole records), `services/surfaceShapes.ts` (per method) |
+| Whether a method only reads or also writes (the day's limit goes by it) | `services/surfaceEffects.ts` |
 | How the data services are wired together | `services/createDataServices.ts` |
 | Addresses and links | `ui/routing/routes.ts` |
 | Whether the edit panel shows | `ui/shell/AdminPanel.tsx` |
@@ -108,33 +111,39 @@ A teacher. She is not a programmer and cannot judge your code.
 5. Browser storage and network calls exist only in `src/infrastructure` (handed in by `src/app/container.ts`) and, on the server, `src/server`. Only `src/server` may import a Cloudflare package or `cloudflare:*`; nothing outside it imports `src/server`. Reason: swapping the backend must touch one place.
 6. Styles use only the tokens (`var(--accent)` and the rest) in `src/ui/styles/tokens.css` (the only file where a colour literal may appear; shared building blocks live in `base.css`), and logical properties (`inline-size`, `margin-inline-start`, never `left`, `right`, `width` for layout direction). No raw colours, no inline `style` except the existing `toneStyle` and bar widths. Reason: the site is right-to-left and must look consistent.
 7. Add no dependency. Add no top-level folder. Reason: each is a long-term cost she cannot judge.
-8. Never edit a protected file: `AGENTS.md`, `CLAUDE.md`, `.agents/**`, `docs/**`, `.github/**`, `.githooks/**`, `.guard/**`, `scripts/**`, `e2e/**`, `src/architecture.test.ts`, `vite.config.ts`, `vitest.e2e.config.ts`, `tsconfig.json`, `wrangler.jsonc`, `src/server/**`, the `scripts` section of `package.json`, `src/infrastructure/vendor/**`. A check fails if they change. Never run `npm run guard:accept`: it is for the maintainer.
-9. Never weaken, skip, delete or rewrite a test or a check to make it pass (no `.skip`, no loosened expectation, no removed assertion, no `any` or `@ts-ignore` to silence types). Fix the code. A test may change only when she asked for different behaviour.
-10. Use only `npm run ship` and `npm run undo` for git. Never `git` directly, never `--no-verify`, never force-push, never `git reset --hard`.
+8. Never edit a protected file: `AGENTS.md`, `CLAUDE.md`, `.agents/**`, `docs/**`, `.github/**`, `.githooks/**`, `.guard/**`, `scripts/**`, `src/architecture.test.ts`, `vite.config.ts`, `vitest.e2e.config.ts`, `vitest.server.config.ts`, `tsconfig.json`, `tsconfig.server.json`, `wrangler.jsonc`, `src/server/**`, the `scripts` section of `package.json`, `src/infrastructure/vendor/**`, and the machinery of the browser tests: everything in `e2e/` except `e2e/steps/**`, `e2e/walkthrough.e2e.ts` and `e2e/firstRun.integration.ts`, where you add steps for what you build. A check fails if they change. Never run `npm run guard:accept`: it is for the maintainer.
+9. Never weaken, skip, delete or rewrite a test or a check to make it pass (no `.skip`, no loosened expectation, no removed assertion, no `any` or `@ts-ignore` to silence types). Fix the code. A test may change only when she asked for different behaviour. The steps in `e2e/` are tests too: add steps, and change an existing one only where she asked for the page to behave or read differently.
+10. To change or publish anything through git use only `npm run ship` and `npm run undo`. Reading is free (`git status`, and `git --no-pager log`, `git --no-pager show`, `git --no-pager diff`: without `--no-pager` a long answer waits for a key and hangs), and `git restore <file>` throws away your own unshipped edit of a file. No other `git` command, never `--no-verify`, never force-push, never `git reset --hard`.
 11. Never create or read `.env` files. Never print a secret or the admin password.
 12. No dead code, no commented-out code, no comments that restate the code.
 13. Keep it simple: no option, flag, layer or abstraction nobody asked for. One reason to change per module. Add by adding (a registry entry, a field in a list), not by editing every caller. A unit asks its direct collaborator, never reaches through it (`a.b.c.d`).
 14. A change of structure (moving code, renaming) and a change of behaviour are separate: separate `ship`s.
 15. The site runs on a server that the maintainer looks after. Requests about backup, restore, the database or the server go to the maintainer.
+16. Data that is already stored is never lost or made unreadable. A new field on a stored record is optional (`optional(...)` in its shape in `domain/entityChecks.ts`, a default where it is read). Never rename or remove a stored field, never change stored records in bulk, never add a way to delete the students, groups, classes, lessons, answers or results that exist today; a new list she asks for may have its own remove, behind a `ConfirmButton`. Reason: her students' data has no undo; `npm run undo` brings back the site's code, not its data.
+17. Who may see what never widens by accident. A command only the teacher gives starts with `requireAdmin`. What a student or a visitor may read is decided in `src/domain/visibility.ts`, with a test. A new feature never shows anything about a student (her name, any field of her record, her answers or results) to someone who cannot see it today. Everything on the site record (`SiteContent`) is public: every visitor reads it.
+18. The server refuses every command it does not know. Each method the pages call is named in `UI_SURFACE`, tagged in `SURFACE_EFFECTS` and given the shapes of its arguments in `SURFACE_SHAPES` (section 3), and the shapes accept everything the pages really send, an unfinished draft included. A new or changed command is proven from the page on the real local server by a step in `e2e/firstRun.integration.ts`. Reason: the browser walkthrough runs without the server and cannot see a refused command; one such refusal already broke the live site.
 
 ## 5. Finishing a change
 
-1. Run `npm run check`.
-2. If it fails, read the message: it says where the code belongs. Fix the code, run it again.
-3. After three failed attempts, discard your changes and tell her in Arabic that it could not be done safely and should go to the maintainer. Do not weaken a check.
-4. When it passes, run `npm run ship -- "message"`. The message is one line, imperative, at most 65 characters, says what changed and why, never mentions AI or tools.
-5. Tell her in two or three Arabic sentences: what changed, where to look on the site, and that she can say «تراجعي عن آخر تغيير» to undo it. The site updates itself a few minutes after shipping.
-6. When she asks «ماذا غيّرتِ؟», answer in plain Arabic from what you did, as visible changes. No code, no file names.
+1. Run `git status` and make sure every file it lists is one you meant to change or add; remove what is not. Then run `npm run ship -- "message"`. It runs the whole check first and ships only when the check passes, so do not run `npm run check` just before it (while you work, `npm run check`, `npm test` and `npm run typecheck` are yours to use). The message is one line, imperative, at most 65 characters, says what changed and why, never mentions AI or tools.
+2. If the check fails, read the message: it says where the code belongs. Fix the code and ship again. After three failed attempts, discard your changes (`git restore` each file you edited, delete each file you added) and tell her in Arabic that it could not be done safely and should go to the maintainer. Do not weaken a check.
+3. Always run `npm run deployed` next and wait for its answer; it takes about five minutes and prints little while it waits. If it was stopped before it answered, run it again. Never tell her a change is on the site before it says `LIVE`. Its answer starts with one of:
+   - `LIVE`: tell her in two or three Arabic sentences what changed and where to look on the site, then ask her: «التغيير الآن على الموقع، حدّثي الصفحة لتَرَيه. هل تريدين: 1) إبقاءه 2) التراجع عنه كله 3) إبقاء بعضه والتراجع عن بعضه؟». For 2 or 3 follow skill `undo`. If she does not choose, the change stays.
+   - `NOT LIVE`: the online check or the deploy failed, and the site may show the old version or a new one that does not work. Run `npm run undo`, then `npm run deployed` once more. `LIVE` now: the site is as it was before your change; tell her in Arabic that the change could not be put on the site and needs the maintainer, and give her the address the first answer printed. `NOT LIVE` again: tell her the site may not be working and that the maintainer is needed now, with that address. Do not ship the same change again.
+   - `UNKNOWN`: run it again after a few minutes, three times at most. Still unknown: tell her you could not confirm it yet, that the change shows by itself once the online check passes, and give her the address it printed. Before you start her next change, run `npm run deployed` once more and act on its answer.
+4. When she asks «ماذا غيّرتِ؟», answer in plain Arabic from what you did, as visible changes. No code, no file names.
 
 ## 6. When to stop and hand over
 
-Stop, change nothing, and tell her in Arabic this needs the maintainer, when:
+Most requests do not need the maintainer: wording, look, a new field, a new slide kind, a small new feature (also one that stores a new setting), a bug, an undo. She should not have to go back to the maintainer for those. Stop, change nothing, and tell her in Arabic this needs the maintainer, only when:
 
-- the request touches a protected file, passwords, the authenticator, backups, the database, GitHub settings or deleting data;
-- it fits no row of the table in section 2;
-- a rule in section 4 would have to be broken to do it;
-- `npm run check` fails three times;
-- `npm run ship` or `npm run undo` itself fails;
-- you do not understand what she sees on the screen.
+- the request is about passwords, the authenticator, signing in, the limits, backups or restore, the database or the server itself, GitHub or Cloudflare settings;
+- it needs a protected file to change (rule 8) or a new dependency (rule 7);
+- it would delete or rewrite data that is already stored, or show students' names, answers or results to someone who cannot see them today (rules 16 and 17);
+- another rule in section 4 would have to be broken to do it;
+- the check fails three times, `npm run ship` or `npm run undo` itself fails, or `npm run deployed` says `NOT LIVE` (after doing what section 5 says for it);
+- after your two questions you still do not understand what she wants, or what she sees on the screen.
 
-Commands: `npm run dev` (run the site locally), `npm test`, `npm run typecheck`, `npm run check`, `npm run ship -- "..."`, `npm run undo`.
+A request that is only too big is not a reason to hand over: split it (section 2, step 4).
+
+Commands: `npm run dev` (run the site locally), `npm test`, `npm run typecheck`, `npm run check`, `npm run ship -- "..."`, `npm run deployed`, `npm run undo`.

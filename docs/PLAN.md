@@ -961,7 +961,9 @@ one. These do:
    check.
 3. **One way to finish.** `npm run check` runs everything. `npm run ship` runs
    the check and only then commits and pushes. A git hook refuses a push when
-   the check fails.
+   the check fails. `npm run deployed` then waits for the online run and says
+   whether the site shows the change; the agent asks her to keep it, undo it,
+   or keep part of it only after that.
 4. **Deploys are gated.** On every push to `main`, CI runs the same check and
    (from phase 1; until then a push only runs the check) deploys only if it
    passes. A failed change leaves the live site as it was.

@@ -13,6 +13,6 @@ Goal: one Arabic value in `src/i18n` changes. Nothing else.
 4. If the words are not in `src/i18n`, they are lesson content, a student's name or the home page text. These are edited inside the site: use skill `content-is-edited-in-the-site` and change no code.
 5. Change only the Arabic value. Keep the key name, keep the feminine voice (اكتبي، اختاري، يمكنكِ), keep any `${...}` parts and function parameters exactly.
 6. Never touch `src/i18n/lessonPrompt.ts` for a wording request unless she asked about the AI instructions.
-7. Finish as in AGENTS.md section 5 (`npm run check`, then `npm run ship -- "..."`). Example message: `Reword the start button on the lesson page`.
+7. Finish as in AGENTS.md section 5 (`npm run ship -- "..."`, then `npm run deployed`). Example message: `Reword the start button on the lesson page`.
 
 Stop and hand over (AGENTS.md section 6) when the wording is inside a protected file.

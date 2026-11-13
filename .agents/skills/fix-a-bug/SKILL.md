@@ -16,6 +16,7 @@ Always: failing test first, then the fix. Never the other way round.
 | A score, who may answer, what a device shows, a limit, a lesson file check | `src/domain` | `src/domain/domain.test.ts` |
 | A command (save, start session, reveal, hearts) or who may do it | `src/services` | `src/services/services.test.ts` |
 | Storage, sign-in code, card read or print, QR | `src/infrastructure` | the `*.test.ts` beside the adapter |
+| The page answers «تعذّر تنفيذ العملية. حاولي مرة أخرى.» to something that should work: the server refused what the page sent | the shape in `src/domain/entityChecks.ts` or `src/services/surfaceShapes.ts` | `src/domain/argumentChecks.test.ts`, and a step in `e2e/firstRun.integration.ts` that does it from the page |
 | Wrong words | `src/i18n` | none: use skill `change-wording` |
 | Layout or looks | `src/ui` css | none: use skill `change-look` |
 

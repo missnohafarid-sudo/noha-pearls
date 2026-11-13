@@ -4,7 +4,7 @@ import type { Answer, AnswerSource, Id, QuestionSlide, Student } from '../domain
 import { studentById } from '../domain/roster';
 import type { DocumentStore, Unsubscribe } from '../ports/store';
 import type { Caller } from '../ports/caller';
-import { requireAdmin } from './AuthService';
+import { adminWatch, requireAdmin } from './AuthService';
 import type { SeatSource } from './SeatSource';
 import type { PresenceMarker } from './PresenceMarker';
 import type { SessionRosterSource } from './SessionRosterSource';
@@ -24,7 +24,7 @@ export class AnswerService {
   ) {}
 
   watchAnswers(sessionId: Id, listener: (answers: Answer[]) => void): Unsubscribe {
-    return this.store.watch('answers', { sessionId }, listener);
+    return adminWatch(this.caller, listener, (emit) => this.store.watch('answers', { sessionId }, emit));
   }
 
   /**

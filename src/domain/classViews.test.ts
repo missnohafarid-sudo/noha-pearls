@@ -1,16 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { seatAnswerer } from './admission';
 import { RewardIndex, studentReport } from './analytics';
 import { deviceAnswer } from './answering';
-import type { SessionRoster } from './models';
+import type { Participant, SessionRoster } from './models';
+import { seatAnswerer } from './admission';
 import { peerRewardTargets } from './rewards';
 import { pearlsEarned, publishedKeys, scoreboard } from './scoring';
 import { answers, classData, ended, hearts, lesson, live, reveal1, reveal2, roster, seatOf, students } from './visibility.fixtures';
-import { boardTotals, cardResults, readerOf, seatView, withoutKey, type ClassData, type SeatRef } from './visibility';
+import { resultsReport } from './resultRows';
+import { boardTotals, cardResults, seatView, withoutKey, type ClassData, type SeatRef } from './visibility';
 
-const sara: SeatRef = { groupId: 'g1', studentId: 's1' };
-const noor: SeatRef = { groupId: 'g1', studentId: 's2' };
-const sharedPearl: SeatRef = { groupId: 'g1', studentId: null };
+const sara = seatOf('p1', 'g1', 's1');
+const noor = seatOf('p2', 'g1', 's2');
+const sharedPearl = seatOf('p3', 'g1', null);
 const revealed1 = classData({ session: { ...live, reveals: reveal1 } });
 const revealed2 = classData({ session: { ...live, reveals: reveal2 } });
 const keyless = withoutKey(lesson);
@@ -52,10 +53,18 @@ describe('results by card', () => {
     const found = cardResults(revealed1, 1);
     expect(found?.name).toBe('Sara');
     expect(found?.group?.id).toBe('g1');
-    expect(found?.report).toEqual(studentReport(keyless, revealed1.session, roster, students[0], answers));
+    expect(found?.report).toEqual(resultsReport(studentReport(keyless, revealed1.session, roster, students[0], answers)));
     expect(found?.report.points).toBe(2);
     expect(found?.hearts).toEqual(new RewardIndex(hearts).of({ kind: 'student', id: 's1' }));
     expect(found?.hearts.total).toBe(2);
+  });
+
+  it('carries only what the lines draw: no prompt, no option she did not choose, no picture, no hidden text', () => {
+    const text = JSON.stringify(cardResults(revealed2, 1));
+    for (const absent of ['"?"', '"c"', 'a.example', 'secret text', 'hello', 'because', 'placeholder']) expect(text).not.toContain(absent);
+    expect(cardResults(revealed2, 1)?.report.results[0]).toEqual({
+      slideId: 'q1', title: 'Q1', answer: { kind: 'choice', index: 1, option: 'b' }, verdict: 'correct', byGroup: false,
+    });
   });
 
   it('carries no answer key', () => {
@@ -81,10 +90,11 @@ function today(seat: SeatRef, data: ClassData) {
   };
 }
 
-function expectParity(seat: SeatRef, data: ClassData) {
-  const view = seatView(seat, data);
+function expectParity(held: Participant, data: ClassData) {
+  const view = seatView(held, data);
+  const seat = seatAnswerer(held, data.roster.students);
   const expected = today(seat, data);
-  expect(view.seat).toBe(seat);
+  expect(view.seat).toEqual(seat);
   expect(view.pearls).toBe(expected.pearls);
   expect(Object.entries(view.answers)).toEqual(expected.answers);
   expect(view.classmates.map((c) => [c.id, c.hearts] as const)).toEqual(expected.classmates);
@@ -135,15 +145,16 @@ describe('what a let-in seat is shown', () => {
     expect(view).toMatchObject({ pearls: 0, answers: {}, own: { report: null } });
   });
 
-  it('follows a student moved to another group', () => {
+  it('follows a student moved to another group, in the same emission as the class data', () => {
     const movedStudents = students.map((s) => (s.id === 's3' ? { ...s, groupId: 'g1' } : s));
     const data = classData({ session: revealed1.session, roster: { ...roster, students: movedStudents } });
-    const reader = readerOf(false, seatOf('p', 'g2', 's3'), movedStudents);
-    expect(reader.seat).toEqual(seatAnswerer(seatOf('p', 'g2', 's3'), movedStudents));
-    const view = expectParity(reader.seat as SeatRef, data);
+    const held = seatOf('p', 'g2', 's3');
+    const view = expectParity(held, data);
+    expect(view.seat).toEqual({ groupId: 'g1', studentId: 's3' });
     expect(view.pearls).toBe(1);
     expect(view.answers.q1.answer).toBe(answers[2]);
     expect(view.classmates).toEqual([]);
+    expect(seatView(held, revealed1).seat).toEqual({ groupId: 'g2', studentId: 's3' });
   });
 
   it('gives no classmates once the class has ended, and keeps everything else', () => {

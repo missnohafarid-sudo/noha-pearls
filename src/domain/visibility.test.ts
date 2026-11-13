@@ -9,33 +9,35 @@ import { liveSessions } from './sessions';
 import { SLIDE_KIND_NAMES, slideKindSpec } from './slideKinds';
 import { answers, ended, lesson, live, reveal1, reveal2, roster, seatOf, students } from './visibility.fixtures';
 import {
-  anyClassLive, catalogueFor, classLessonFor, foldersFor, lessonFor, lessonSummaries, lessonSummary, nameClaims, readerOf, seenRoster, sessionFor, withoutKey,
+  anyClassLive, catalogueFor, classLessonFor, foldersFor, lessonFor, lessonSummaries, lessonSummary, nameClaims, readerOf, seatRef, seenRoster, sessionFor, withoutKey,
   type Reader,
 } from './visibility';
 
+const sara = seatOf('p', 'g1', 's1');
 const visitor: Reader = { isAdmin: false, seat: null };
-const named: Reader = { isAdmin: false, seat: { groupId: 'g1', studentId: 's1' } };
+const named: Reader = { isAdmin: false, seat: sara };
 const admin: Reader = { isAdmin: true, seat: null };
 
 describe('who is reading', () => {
   it('reads an admin with or without a seat', () => {
-    expect(readerOf(true, null, students)).toEqual({ isAdmin: true, seat: null });
-    expect(readerOf(true, seatOf('p', 'g1', 's1'), students)).toEqual({ isAdmin: true, seat: { groupId: 'g1', studentId: 's1' } });
+    expect(readerOf(true, null)).toEqual({ isAdmin: true, seat: null });
+    expect(readerOf(true, sara)).toEqual({ isAdmin: true, seat: sara });
   });
 
   it('gives no seat to a waiting or a removed device', () => {
-    expect(readerOf(false, seatOf('p', 'g1', 's1', false), students).seat).toBeNull();
-    expect(readerOf(false, null, students).seat).toBeNull();
+    expect(readerOf(false, seatOf('p', 'g1', 's1', false)).seat).toBeNull();
+    expect(readerOf(false, null).seat).toBeNull();
   });
 
   it('gives a let-in named seat her student and group, and a shared device only its group', () => {
-    expect(readerOf(false, seatOf('p', 'g1', 's1'), students).seat).toEqual({ groupId: 'g1', studentId: 's1' });
-    expect(readerOf(false, seatOf('p', 'g2', null), students).seat).toEqual({ groupId: 'g2', studentId: null });
+    expect(seatRef(readerOf(false, sara), students)).toEqual({ groupId: 'g1', studentId: 's1' });
+    expect(seatRef(readerOf(false, seatOf('p', 'g2', null)), students)).toEqual({ groupId: 'g2', studentId: null });
+    expect(seatRef(visitor, students)).toBeNull();
   });
 
   it('follows a student moved to another group', () => {
     const moved = students.map((s) => (s.id === 's3' ? { ...s, groupId: 'g1' } : s));
-    expect(readerOf(false, seatOf('p', 'g2', 's3'), moved).seat).toEqual({ groupId: 'g1', studentId: 's3' });
+    expect(seatRef(readerOf(false, seatOf('p', 'g2', 's3')), moved)).toEqual({ groupId: 'g1', studentId: 's3' });
   });
 });
 
@@ -150,19 +152,19 @@ describe('the class a caller receives', () => {
   const toAll: Session = { ...talked, message: { id: 'm', text: 'all', groupId: null } };
 
   it('gives the admin the session raw', () => {
-    expect(sessionFor(admin, talked)).toBe(talked);
+    expect(sessionFor(admin, talked, students)).toBe(talked);
   });
 
   it('gives a seat only the message meant for her group or for everyone, and keeps the rest', () => {
-    expect(sessionFor(named, talked)).toEqual({ ...talked, message: messageFor(talked, 'g1') });
-    expect(sessionFor(named, talked).message).toBeNull();
-    expect(sessionFor(named, toAll).message?.text).toBe('all');
-    expect(sessionFor({ isAdmin: false, seat: { groupId: 'g2', studentId: null } }, talked).message?.text).toBe('look');
-    expect(sessionFor(named, talked).reveals).toEqual(reveal1);
+    expect(sessionFor(named, talked, students)).toEqual({ ...talked, message: messageFor(talked, 'g1') });
+    expect(sessionFor(named, talked, students).message).toBeNull();
+    expect(sessionFor(named, toAll, students).message?.text).toBe('all');
+    expect(sessionFor({ isAdmin: false, seat: seatOf('q', 'g2', null) }, talked, students).message?.text).toBe('look');
+    expect(sessionFor(named, talked, students).reveals).toEqual(reveal1);
   });
 
   it('gives anyone outside no reveals and no message, and keeps the rest', () => {
-    expect(sessionFor(visitor, talked)).toEqual({ ...talked, reveals: {}, message: null });
+    expect(sessionFor(visitor, talked, students)).toEqual({ ...talked, reveals: {}, message: null });
   });
 
   it('says whether any class is live', () => {

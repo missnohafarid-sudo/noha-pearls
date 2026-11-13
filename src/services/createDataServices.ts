@@ -32,7 +32,7 @@ export function createDataServices(store: DocumentStore, caller: Caller): Servic
     folders: new FolderService(store, caller, lessons),
     lessons,
     sessions: new SessionService(store, caller, roster, sessionRoster, records),
-    classLookup: new ClassLookupService(store),
+    classLookup: new ClassLookupService(store, participants, sessionRoster),
     sessionRoster,
     participants,
     admission: new AdmissionService(store, caller, sessionRoster, sessionRoster),

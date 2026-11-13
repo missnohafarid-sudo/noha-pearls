@@ -5,7 +5,7 @@ import { acceptsChanges } from '../domain/sessions';
 import { seenRoster, type SeenRoster } from '../domain/visibility';
 import type { DocumentStore, Unsubscribe } from '../ports/store';
 import type { Caller } from '../ports/caller';
-import { requireAdmin } from './AuthService';
+import { adminWatch, requireAdmin } from './AuthService';
 import type { PresenceMarker } from './PresenceMarker';
 import { NO_ROSTER, type SessionRosterSource } from './SessionRosterSource';
 
@@ -25,7 +25,7 @@ export class SessionRosterService implements SessionRosterSource, PresenceMarker
   ) {}
 
   watchRoster(sessionId: Id, listener: (roster: SessionRoster) => void): Unsubscribe {
-    return this.watchRosterOf(sessionId, listener);
+    return adminWatch(this.caller, listener, (emit) => this.watchRosterOf(sessionId, emit));
   }
 
   /** The groups and students without the roll or card numbers: all a device needs to pick its group and name. Open to anyone. */

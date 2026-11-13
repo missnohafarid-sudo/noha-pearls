@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RewardIndex, studentReport } from '../domain/analytics';
+import { resultsReport } from '../domain/resultRows';
 import { groupById, studentByCard } from '../domain/roster';
 import { publishedKeys, scoreboard } from '../domain/scoring';
 import { answer, answers, heart, hearts, lesson, live, reveal1, roster } from '../domain/visibility.fixtures';
@@ -36,7 +37,7 @@ function oldTotals(session = live, given = hearts, answered = answers) {
   });
 }
 
-/** What the page shows of a report: the slide's own key is not shown, so slides are compared by id. */
+/** What the page shows of a report. */
 function shown(results: CardResults | null) {
   return (
     results && {
@@ -44,7 +45,7 @@ function shown(results: CardResults | null) {
       group: results.group,
       hearts: results.hearts,
       points: results.report.points,
-      rows: results.report.results.map(({ slide, answer: given, byGroup, verdict }) => ({ slide: slide.id, given, byGroup, verdict })),
+      rows: results.report.results,
     }
   );
 }
@@ -55,7 +56,7 @@ function oldResults(cardNumber: number, session = live, given = hearts, answered
   return {
     name: student.name,
     group: groupById(roster.groups, student.groupId),
-    report: studentReport(lesson, session, roster, student, answered),
+    report: resultsReport(studentReport(lesson, session, roster, student, answered)),
     hearts: new RewardIndex(given).of({ kind: 'student', id: student.id }),
   };
 }

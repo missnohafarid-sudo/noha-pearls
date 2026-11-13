@@ -42,7 +42,7 @@ export interface ServiceClasses {
 /**
  * The one table of what the interface may ask of the application: for each service, the names of its methods.
  * A method missing here is internal: `sessionRoster.rosterOf`, `watchRosterOf`, `joinRoll`, `addToRoll`,
- * `roster.rosterOfClass`, `lessons.moveLessons`, `participants.admittedSeat`, `watchReader`, `records.keep`, `retention.clearIfDue`.
+ * `roster.rosterOfClass`, `lessons.moveLessons`, `lessons.watchPlacements`, `participants.admittedSeat`, `watchReader`, `records.keep`, `retention.clearIfDue`.
  */
 export const UI_SURFACE = {
   content: ['watchSite', 'updateSite'],

@@ -51,28 +51,19 @@ describe('the reader of a caller', () => {
     await settle();
     expect(reading.last()?.seat).toBeNull();
     await store.put('participants', seatOf(seatId, 'g1', 's1'));
-    await vi.waitFor(() => expect(reading.last()?.seat).toEqual({ groupId: 'g1', studentId: 's1' }));
+    await vi.waitFor(() => expect(reading.last()?.seat).toEqual(seatOf(seatId, 'g1', 's1')));
     await store.remove('participants', seatId);
     await vi.waitFor(() => expect(reading.last()?.seat).toBeNull());
     reading.stop();
   });
 
-  it('follows a move of her student to another group', async () => {
+  it('carries the seat as stored, whatever the roster does: her group is read beside the class data', async () => {
     await store.put('participants', seatOf(seatId, 'g1', 's1'));
     const reading = watched<Reader>((l) => asDevice().watchReader('x', l));
-    await vi.waitFor(() => expect(reading.last()?.seat?.groupId).toBe('g1'));
-    await store.put('rosters', { ...roster, students: students.map((s) => (s.id === 's1' ? { ...s, groupId: 'g2' } : s)) });
-    await vi.waitFor(() => expect(reading.last()?.seat).toEqual({ groupId: 'g2', studentId: 's1' }));
-    reading.stop();
-  });
-
-  it('keeps her seat when the roll changes, and says again that nothing else moved', async () => {
-    await store.put('participants', seatOf(seatId, 'g2', null));
-    const reading = watched<Reader>((l) => asDevice().watchReader('x', l));
-    await vi.waitFor(() => expect(reading.seen).toHaveLength(1));
-    await store.put('rosters', { ...roster, present: ['s1'] });
-    await vi.waitFor(() => expect(reading.seen).toHaveLength(2));
-    expect(reading.last()).toEqual({ isAdmin: false, seat: { groupId: 'g2', studentId: null } });
+    await vi.waitFor(() => expect(reading.last()?.seat).toEqual(seatOf(seatId, 'g1', 's1')));
+    await store.put('rosters', { ...roster, present: ['s1'], students: students.map((s) => (s.id === 's1' ? { ...s, groupId: 'g2' } : s)) });
+    await settle();
+    expect(reading.last()).toEqual({ isAdmin: false, seat: seatOf(seatId, 'g1', 's1') });
     reading.stop();
   });
 

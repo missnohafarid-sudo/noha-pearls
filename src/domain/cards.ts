@@ -48,6 +48,11 @@ export interface CardReading {
   choice: number;
 }
 
+/** The label drawn over a card the camera sees without knowing any class: its number when it can be a card, otherwise none. */
+export function cardNumberLabel(marker: DetectedMarker): string | null {
+  return isCardNumber(marker.id) ? String(marker.id) : null;
+}
+
 /** Readings for a scan that only asks who is present: the option a card shows is irrelevant, so every sighting is the same reading. */
 export function presenceReadings(markers: readonly DetectedMarker[]): CardReading[] {
   return markers.map((marker) => ({ cardNumber: marker.id, choice: 0 }));

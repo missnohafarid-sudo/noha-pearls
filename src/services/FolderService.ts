@@ -1,10 +1,12 @@
 import { createFolder, FolderTree, movedFolder } from '../domain/folders';
 import { sortByOrder } from '../domain/lists';
 import type { Id, LessonFolder } from '../domain/models';
+import { foldersFor } from '../domain/visibility';
 import type { Caller } from '../ports/caller';
 import type { DocumentStore, Unsubscribe } from '../ports/store';
 import { requireAdmin } from './AuthService';
-import type { LessonShelf } from './LessonShelf';
+import { combineWatches } from './combineWatches';
+import type { LessonPlacement, LessonShelf } from './LessonShelf';
 import { FolderError, requireFolder } from './requireFolder';
 import { requireName } from './requireName';
 
@@ -16,8 +18,12 @@ export class FolderService {
     private readonly lessons: LessonShelf,
   ) {}
 
+  /** Every folder for the admin; for anyone else only those that hold a published lesson, each under its shown parent. Follows the lessons too. */
   watchFolders(listener: (folders: LessonFolder[]) => void): Unsubscribe {
-    return this.store.watch('folders', {}, (folders) => listener(sortByOrder(folders)));
+    return combineWatches<[LessonFolder[], LessonPlacement[]]>(
+      [(emit) => this.store.watch('folders', {}, emit), (emit) => this.lessons.watchPlacements(emit)],
+      (folders, lessons) => listener(sortByOrder(foldersFor(this.caller.isAdmin(), folders, lessons))),
+    );
   }
 
   /** Stores the repairs that make the stored tree agree with the shown one, and returns the folders as they now are. */

@@ -49,13 +49,17 @@ describe('the view of a seat', () => {
   it('equals the domain view once let in, and follows a move, the roll, a reveal, a classmate heart and the end', async () => {
     await store.put('participants', seatOf(seatId, 'g1', 's1'));
     const view = watched<SeatView | null>((l) => viewOfDevice().watchMine('x', l));
-    const seat = { groupId: 'g1', studentId: 's1' };
+    const seat = seatOf(seatId, 'g1', 's1');
     await vi.waitFor(() => expect(view.last()).toEqual(seatView(seat, classData())));
     expect(view.last()?.classmates.length).toBeGreaterThan(0);
 
     const moved = { ...roster, students: students.map((s) => (s.id === 's1' ? { ...s, groupId: 'g2' } : s)) };
     await store.put('rosters', moved);
-    await vi.waitFor(() => expect(view.last()).toEqual(seatView({ groupId: 'g2', studentId: 's1' }, classData({ roster: moved }))));
+    await vi.waitFor(() => expect(view.last()).toEqual(seatView(seat, classData({ roster: moved }))));
+    expect(view.last()?.seat.groupId).toBe('g2');
+    const before = seatView(seat, classData());
+    const after = seatView(seat, classData({ roster: moved }));
+    for (const frame of view.seen) expect([before, after]).toContainEqual(frame);
 
     await store.put('rosters', roster);
     const covered = { ...roster, present: ['s2'] };

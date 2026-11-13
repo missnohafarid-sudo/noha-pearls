@@ -16,7 +16,7 @@ import {
 } from '../domain/retention';
 import type { Caller } from '../ports/caller';
 import { SCHOOL_YEAR_CLEARED_COLLECTIONS, SESSION_CHILD_COLLECTIONS, type DocumentStore, type Unsubscribe } from '../ports/store';
-import { requireAdmin } from './AuthService';
+import { adminWatch, requireAdmin } from './AuthService';
 
 export type RetentionErrorCode = 'bad-range' | 'bad-year-end';
 
@@ -46,8 +46,7 @@ export class RetentionService {
   ) {}
 
   watchSettings(listener: (settings: RetentionSettings | null) => void): Unsubscribe {
-    requireAdmin(this.caller);
-    return this.store.watch('retention', {}, (docs) => listener(docs[0] ?? null));
+    return adminWatch(this.caller, listener, (emit) => this.store.watch('retention', {}, (docs) => emit(docs[0] ?? null)));
   }
 
   /** Tells which notices to show, now and whenever the settings change. */

@@ -1,5 +1,5 @@
 import { canClaimSeat, isAdmitted } from '../domain/admission';
-import type { Id, Participant, SessionRoster } from '../domain/models';
+import type { Id, Participant } from '../domain/models';
 import { acceptsChanges } from '../domain/sessions';
 import { nameClaims, readerOf, type NameClaims, type Reader } from '../domain/visibility';
 import type { Caller } from '../ports/caller';
@@ -8,6 +8,7 @@ import { combineWatches } from './combineWatches';
 import type { ReaderSource } from './ReaderSource';
 import type { SeatSource } from './SeatSource';
 import type { SessionRosterSource } from './SessionRosterSource';
+import { adminWatch } from './AuthService';
 
 /** This device's own seat in a session: asking for it, following it, giving it up. */
 export class ParticipantService implements SeatSource, ReaderSource {
@@ -17,8 +18,9 @@ export class ParticipantService implements SeatSource, ReaderSource {
     private readonly rosters: SessionRosterSource,
   ) {}
 
+  /** Every seat of the class, with the devices behind them. The teacher's only. */
   watchParticipants(sessionId: Id, listener: (participants: Participant[]) => void): Unsubscribe {
-    return this.store.watch('participants', { sessionId }, listener);
+    return adminWatch(this.caller, listener, (emit) => this.store.watch('participants', { sessionId }, emit));
   }
 
   /** Which names other devices hold and the request number of this device's own seat: no seat of another device is revealed. Open to anyone. */
@@ -34,12 +36,9 @@ export class ParticipantService implements SeatSource, ReaderSource {
     return this.store.watch('participants', { id: this.participantId(sessionId) }, (docs) => listener(docs[0] ?? null));
   }
 
-  /** Who this caller reads as: the admin or not, and the let-in seat it holds, which follows the roster as the teacher regroups. */
+  /** Who this caller reads as: the admin or not, and the let-in seat it holds. Asked of the caller at each emission. */
   watchReader(sessionId: Id, listener: (reader: Reader) => void): Unsubscribe {
-    return combineWatches<[Participant | null, SessionRoster]>(
-      [(emit) => this.watchMine(sessionId, emit), (emit) => this.rosters.watchRosterOf(sessionId, emit)],
-      (seat, roster) => listener(readerOf(this.caller.isAdmin(), seat, roster.students)),
-    );
+    return this.watchMine(sessionId, (seat) => listener(readerOf(this.caller.isAdmin(), seat)));
   }
 
   async admittedSeat(sessionId: Id): Promise<Participant | null> {

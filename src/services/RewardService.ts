@@ -4,7 +4,7 @@ import { canGivePeerHeart, canGiveTeacherHeart } from '../domain/rewards';
 import { studentById } from '../domain/roster';
 import type { DocumentStore, Unsubscribe } from '../ports/store';
 import type { Caller } from '../ports/caller';
-import { requireAdmin } from './AuthService';
+import { adminWatch, requireAdmin } from './AuthService';
 import type { SeatSource } from './SeatSource';
 import type { SessionRosterSource } from './SessionRosterSource';
 
@@ -18,7 +18,7 @@ export class RewardService {
   ) {}
 
   watchRewards(sessionId: Id, listener: (rewards: Reward[]) => void): Unsubscribe {
-    return this.store.watch('rewards', { sessionId }, listener);
+    return adminWatch(this.caller, listener, (emit) => this.store.watch('rewards', { sessionId }, emit));
   }
 
   /** How many hearts the class has been given, and nothing about whom. */

@@ -3,6 +3,8 @@ import { isolate } from './common';
 /** Text for the reinforcement board. */
 export const board = {
   empty: 'لم تبدأ أي حصة بعد.',
+  showBoard: 'عرض اللوحة',
+  codePrompt: 'اكتبي رمز الحصة لتري لوحة التعزيز.',
   leaderboard: 'ترتيب المجموعات',
   groupsHearts: 'قلوب الطالبات',
   noStudents: 'لا توجد طالبات في هذه المجموعة.',

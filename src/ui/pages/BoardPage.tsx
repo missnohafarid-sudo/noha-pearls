@@ -1,6 +1,5 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import type { Session, SubjectRef } from '../../domain/models';
-import { resultsReport } from '../../domain/resultRows';
 import { pearlsEarned, rankScores } from '../../domain/scoring';
 import { t } from '../../i18n';
 import pearlsRow from '../assets/brand/pearls-row.jpg';
@@ -10,6 +9,8 @@ import { PearlString } from '../common/PearlString';
 import { toneStyle } from '../common/tone';
 import { useAdmin, useBoardTotals, useCardResults, useSessionRoster } from '../hooks/data';
 import { useTeacherHearts } from '../hooks/useTeacherHearts';
+import { BoardCodeEntry } from '../board/BoardCodeEntry';
+import { CardProbe } from '../board/CardProbe';
 import { BoardHeartsGrid } from '../board/BoardHeartsGrid';
 import { MyResults } from '../board/MyResults';
 import { CardIdentify } from '../scanner/CardIdentify';
@@ -24,6 +25,7 @@ const banner = <img className="board__banner" src={pearlsRow} alt="" width={1792
 
 /** The reinforcement board of one class: group ranking by score, and every student's hearts. */
 export function BoardPage({ code }: { code: string | undefined }) {
+  const admin = useAdmin();
   const session = useShownSession('board', code);
   if (session === undefined) return <Loading />;
   if (session === null) {
@@ -31,7 +33,7 @@ export function BoardPage({ code }: { code: string | undefined }) {
       <div className="page">
         {banner}
         <h1 className="page__title">{t.shell.nav.board}</h1>
-        <SessionChooser page="board" code={code} empty={<p className="notice">{t.board.empty}</p>} />
+        {admin ? <SessionChooser page="board" code={code} empty={<p className="notice">{t.board.empty}</p>} /> : <BoardCodeEntry code={code} />}
       </div>
     );
   }
@@ -43,8 +45,11 @@ function BoardView({ session }: { session: Session }) {
   const totals = useBoardTotals(session.id);
   const roster = useSessionRoster(session);
   const [card, setCard] = useState<number | null>(null);
+  const [reads, setReads] = useState<number[]>([]);
   const [identifying, setIdentifying] = useState(false);
   const results = useCardResults(session.id, card);
+  const noteRead = useCallback((read: number) => setReads((now) => (now.includes(read) ? now : [...now, read])), []);
+  const showCard = useCallback((found: number) => setCard((now) => now ?? found), []);
   const heartFor = useTeacherHearts(session);
 
   if (!totals) return <Loading />;
@@ -87,7 +92,11 @@ function BoardView({ session }: { session: Session }) {
       ) : (
         <section className="stack">
           {results ? (
-            <MyResults student={results} group={results.group} report={resultsReport(results.report)} hearts={results.hearts} onHide={() => setCard(null)} />
+            <MyResults student={results} group={results.group} report={results.report} hearts={results.hearts} onHide={() => {
+                setCard(null);
+                setReads([]);
+                setIdentifying(false);
+              }} />
           ) : (
             <div className="card stack">
               <p className="muted">{t.board.showMineHint}</p>
@@ -98,16 +107,10 @@ function BoardView({ session }: { session: Session }) {
           )}
         </section>
       )}
-      {identifying && (
-        <CardIdentify
-          students={roster?.students ?? []}
-          onIdentified={(student) => {
-            setCard(student.cardNumber);
-            setIdentifying(false);
-          }}
-          onClose={() => setIdentifying(false)}
-        />
+      {identifying && !results && (
+        <CardIdentify onCard={noteRead} onClose={() => setIdentifying(false)} />
       )}
+      {card === null && reads.map((read) => <CardProbe key={read} sessionId={session.id} card={read} onFound={showCard} />)}
 
       <AdminPanel title={t.board.panelTitle}>
         <p className="muted">{t.board.panelBody}</p>

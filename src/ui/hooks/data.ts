@@ -23,6 +23,12 @@ export function useAdmin(): boolean {
   );
 }
 
+/** A live read whose result depends on who is signed in: it subscribes again when sign-in changes. */
+function useCallerLive<T>(subscribe: Subscribe<T> | null, deps: DependencyList): T | undefined {
+  const admin = useAdmin();
+  return useLive(subscribe, [...deps, admin]);
+}
+
 /** A live read only the teacher may make: nothing is asked of the services for anyone else, and it starts when she signs in. */
 function useAdminLive<T>(subscribe: Subscribe<T> | null, deps: DependencyList): T | undefined {
   const admin = useAdmin();
@@ -36,7 +42,7 @@ export function useSite(): SiteContent | null | undefined {
 
 export function useClasses(): SchoolClass[] | undefined {
   const { roster } = useServices();
-  return useLive((listener) => roster.watchClasses(listener), [roster]);
+  return useAdminLive((listener) => roster.watchClasses(listener), [roster]);
 }
 
 export function useTeachers(): Teacher[] | undefined {
@@ -46,7 +52,7 @@ export function useTeachers(): Teacher[] | undefined {
 
 export function useFolders(): LessonFolder[] | undefined {
   const { folders } = useServices();
-  return useLive((listener) => folders.watchFolders(listener), [folders]);
+  return useCallerLive((listener) => folders.watchFolders(listener), [folders]);
 }
 
 /** The lesson folders read once per change; every question about the tree is asked of it. */
@@ -58,7 +64,7 @@ export function useFolderTree(): FolderTree | undefined {
 /** The groups and students of one school class: what its list shows and edits. */
 export function useClassRoster(classId: MaybeId): ClassRoster | undefined {
   const { roster } = useServices();
-  return useLive(classId ? (listener) => roster.watchRoster(classId, listener) : null, [roster, classId]);
+  return useAdminLive(classId ? (listener) => roster.watchRoster(classId, listener) : null, [roster, classId]);
 }
 
 /**
@@ -68,7 +74,7 @@ export function useClassRoster(classId: MaybeId): ClassRoster | undefined {
 export function useSessionRoster(session: Session | null | undefined): SessionRoster | undefined {
   const { sessionRoster } = useServices();
   const sessionId = session?.id;
-  return useLive(sessionId ? (listener) => sessionRoster.watchRoster(sessionId, listener) : null, [sessionRoster, sessionId]);
+  return useAdminLive(sessionId ? (listener) => sessionRoster.watchRoster(sessionId, listener) : null, [sessionRoster, sessionId]);
 }
 
 /** The groups and students a device picks from: no roll, no card numbers. */
@@ -79,23 +85,23 @@ export function useSeenRoster(sessionId: MaybeId): SeenRoster | undefined {
 
 export function useLessons(): LessonSummary[] | undefined {
   const { lessons } = useServices();
-  return useLive((listener) => lessons.watchLessons(listener), [lessons]);
+  return useCallerLive((listener) => lessons.watchLessons(listener), [lessons]);
 }
 
 export function useLesson(lessonId: MaybeId): Lesson | null | undefined {
   const { lessons } = useServices();
-  return useLive(lessonId ? (listener) => lessons.watchLesson(lessonId, listener) : null, [lessons, lessonId]);
+  return useCallerLive(lessonId ? (listener) => lessons.watchLesson(lessonId, listener) : null, [lessons, lessonId]);
 }
 
 /** The lesson of one class, whether or not it is published; null when the class names none that is stored. */
 export function useLessonOf(sessionId: MaybeId): Lesson | null | undefined {
   const { seatView } = useServices();
-  return useLive(sessionId ? (listener) => seatView.watchLesson(sessionId, listener) : null, [seatView, sessionId]);
+  return useCallerLive(sessionId ? (listener) => seatView.watchLesson(sessionId, listener) : null, [seatView, sessionId]);
 }
 
 export function useSessions(): Session[] | undefined {
   const { sessions } = useServices();
-  return useLive((listener) => sessions.watchAll(listener), [sessions]);
+  return useAdminLive((listener) => sessions.watchAll(listener), [sessions]);
 }
 
 /** The classes running now, newest first. */
@@ -110,24 +116,24 @@ export function useAnyLive(): boolean | undefined {
   return useLive((listener) => classLookup.watchAnyLive(listener), [classLookup]);
 }
 
-export function useSessionByCode(code: string): Session | null | undefined {
+export function useSessionByCode(code: string | null): Session | null | undefined {
   const { classLookup } = useServices();
-  return useLive((listener) => classLookup.watchByCode(code, listener), [classLookup, code]);
+  return useCallerLive(code === null ? null : (listener) => classLookup.watchByCode(code, listener), [classLookup, code]);
 }
 
 export function useAnswers(sessionId: MaybeId): Answer[] | undefined {
   const { answers } = useServices();
-  return useLive(sessionId ? (listener) => answers.watchAnswers(sessionId, listener) : null, [answers, sessionId]);
+  return useAdminLive(sessionId ? (listener) => answers.watchAnswers(sessionId, listener) : null, [answers, sessionId]);
 }
 
 export function useRewards(sessionId: MaybeId): Reward[] | undefined {
   const { rewards } = useServices();
-  return useLive(sessionId ? (listener) => rewards.watchRewards(sessionId, listener) : null, [rewards, sessionId]);
+  return useAdminLive(sessionId ? (listener) => rewards.watchRewards(sessionId, listener) : null, [rewards, sessionId]);
 }
 
 export function useParticipants(sessionId: MaybeId): Participant[] | undefined {
   const { participants } = useServices();
-  return useLive(
+  return useAdminLive(
     sessionId ? (listener) => participants.watchParticipants(sessionId, listener) : null,
     [participants, sessionId],
   );

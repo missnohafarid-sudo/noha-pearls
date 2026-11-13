@@ -3,7 +3,7 @@ import { admittedDevices, awaitingAdmission, canClaimSeat, contestedRequestNumbe
 import { addToRoll, countedGroups, isOnRoll, isPresent, joinRoll, markAbsent, presentGroups, presentStudents, rollTaken, sightingChangesAnything } from './attendance';
 import { buildMonitor, RewardIndex, studentReport, tallyChoices } from './analytics';
 import { answersForWholeGroup, answerStatusByGroup, canAnswer, canScanCards, deviceAnswer, effectiveAnswer, nextManualChoice, nextManualChoiceFor, normalizeAnswerValue, subjectFor, tallyAnswerers } from './answering';
-import { CardReadStabilizer, choiceFromCorners, presenceReadings, type Point } from './cards';
+import { CardReadStabilizer, cardNumberLabel, choiceFromCorners, presenceReadings, type Point } from './cards';
 import { toAsciiDigits } from './digits';
 import { removeOption } from './choices';
 import { studentProgress } from './answerProgress';
@@ -1117,6 +1117,14 @@ describe('card lookup', () => {
     const corners: Point[] = [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }];
     expect(cardLabel(students, { id: 4, corners })).toBe('4');
     expect(cardLabel(students, { id: 9, corners })).toBeNull();
+  });
+
+  it('labels any seen card that can be a printed card by its number, and nothing else', () => {
+    const corners: Point[] = [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }];
+    expect(cardNumberLabel({ id: 9, corners })).toBe('9');
+    expect(cardNumberLabel({ id: 999, corners })).toBe('999');
+    expect(cardNumberLabel({ id: 0, corners })).toBeNull();
+    expect(cardNumberLabel({ id: 1000, corners })).toBeNull();
   });
 
   it('finds a student by id, and none for a shared device or an unknown id', () => {

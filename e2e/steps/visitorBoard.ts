@@ -20,8 +20,23 @@ export function visitorBoardSteps(world: World): void {
     await world.visitor.waitFor(t.common.notFoundTitle);
   });
 
-  it('the visitor board shows no student name', async () => {
+  it('a signed-out visitor\'s board without a code asks for the code and names no running class', async () => {
     await world.visitor.goto('#/board');
+    await world.visitor.waitFor(t.board.codePrompt);
+    const shown = await world.visitor.text();
+    expect(shown.includes(world.firstClassCode)).toBe(false);
+    expect(shown.includes(world.firstTeacherName)).toBe(false);
+    expect(shown.includes(world.firstClassName)).toBe(false);
+    expect(await world.visitor.has(t.board.leaderboard)).toBe(false);
+    expect(world.visitor.page.url().endsWith('#/board')).toBe(true);
+    await world.visitor.fill('.join-code input', world.firstClassCode);
+    await world.visitor.click(t.board.showBoard);
+    await world.visitor.waitFor(t.board.leaderboard);
+    expect(world.visitor.page.url()).toContain(`#/board/${world.firstClassCode}`);
+  });
+
+  it('the visitor board shows no student name', async () => {
+    await world.visitor.goto(`#/board/${world.firstClassCode}`);
     await world.visitor.waitFor(t.board.leaderboard);
     const shown = await world.visitor.text();
     const leaked = world.roster.filter((student) => shown.includes(student.name) || shown.includes(`${student.name.split(' ')[0]} `));

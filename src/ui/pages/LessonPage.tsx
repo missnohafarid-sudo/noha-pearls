@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { isQuestion } from '../../domain/answering';
-import { canViewLesson, clampIndex } from '../../domain/lessonOps';
+import { clampIndex } from '../../domain/lessonOps';
 import { answerKey } from '../../domain/scoring';
 import { t } from '../../i18n';
 import { Loading, NotFound } from '../common/PageState';
@@ -23,7 +23,7 @@ export function LessonPage({ lessonId, slideIndex }: { lessonId: string; slideIn
   const [shownSlideId, setShownSlideId] = useState<string | null>(null);
 
   if (lesson === undefined) return <Loading />;
-  if (lesson === null || !canViewLesson(lesson, admin)) return <NotFound />;
+  if (lesson === null) return <NotFound />;
 
   const index = clampIndex(slideIndex, lesson.slides.length);
   const slide = lesson.slides[index];

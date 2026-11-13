@@ -12,7 +12,7 @@ export function scoringSteps(world: World): void {
   let before = 0;
 
   it('a group score does not change when a student answers an unrevealed question correctly', async () => {
-    board = await Device.open(world.browser, 'scoreboard', new URL('#/board', world.baseUrl).href, DESKTOP, world.errors);
+    board = await Device.open(world.browser, 'scoreboard', new URL(`#/board/${world.firstClassCode}`, world.baseUrl).href, DESKTOP, world.errors);
     group = (await groupNames(board)).get(world.roster[0].groupId) ?? '';
     await board.until('the ranking', () => board.exists('.board__rank'));
     before = await boardScore(board, group);

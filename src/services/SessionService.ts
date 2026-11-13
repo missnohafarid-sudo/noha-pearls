@@ -10,7 +10,7 @@ import { acceptsChanges, isLive, newUniqueJoinCode, sessionBasis } from '../doma
 import { cleanMessage } from '../domain/text';
 import type { DocumentStore, Unsubscribe } from '../ports/store';
 import type { Caller } from '../ports/caller';
-import { requireAdmin } from './AuthService';
+import { adminWatch, requireAdmin } from './AuthService';
 import type { ClassRosterSource } from './ClassRosterSource';
 import type { RecordKeeper } from './RecordKeeper';
 import type { SessionRosterSource } from './SessionRosterSource';
@@ -25,9 +25,9 @@ export class SessionService {
     private readonly records: RecordKeeper,
   ) {}
 
-  /** Every class, live or ended. */
+  /** Every class, live or ended. The teacher's only. */
   watchAll(listener: (sessions: Session[]) => void): Unsubscribe {
-    return this.store.watch('sessions', {}, listener);
+    return adminWatch(this.caller, listener, (emit) => this.store.watch('sessions', {}, emit));
   }
 
   /**
@@ -86,6 +86,7 @@ export class SessionService {
 
   /** Sets how the given groups of the session's roster move through the lesson; any other id is ignored. */
   async setPacing(sessionId: Id, groupIds: readonly Id[], mode: PacingMode): Promise<void> {
+    requireAdmin(this.caller);
     const roster = await this.rosters.rosterOf(sessionId);
     const own = groupIds.filter((groupId) => isOnRoster(roster, { kind: 'group', id: groupId }));
     await this.update(sessionId, (session) => {
@@ -97,6 +98,7 @@ export class SessionService {
 
   /** Shows a message to all groups (`groupId` null) or to one group of the session's roster. A blank message, or a group that is not the session's, sends nothing. */
   async sendMessage(sessionId: Id, text: string, groupId: Id | null): Promise<void> {
+    requireAdmin(this.caller);
     const cleaned = cleanMessage(text);
     if (cleaned === null || (groupId !== null && !isOnRoster(await this.rosters.rosterOf(sessionId), { kind: 'group', id: groupId }))) return;
     await this.update(sessionId, () => ({ message: { id: newId(), text: cleaned, groupId } }));

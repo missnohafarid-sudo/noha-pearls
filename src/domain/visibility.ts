@@ -5,6 +5,7 @@ import { FolderTree } from './folders';
 import { canViewLesson } from './lessonOps';
 import type { Answer, ClassRoster, Group, Id, Lesson, LessonFolder, LessonSummary, Participant, Reward, Session, SessionRoster, Student } from './models';
 import { messageFor } from './pacing';
+import { resultsReport, type ResultsReport } from './resultRows';
 import { peerRewardTargets } from './rewards';
 import { groupById, studentByCard, studentById } from './roster';
 import { pearlsEarned, publishedKeys, questionSlides, scoreboard, type GroupScore } from './scoring';
@@ -19,15 +20,19 @@ import { slideKindSpec } from './slideKinds';
 /** Who a let-in seat answers for right now (`seatAnswerer`). */
 export type SeatRef = { groupId: Id; studentId: Id | null };
 
-/** `seat` is set only for a device the teacher let in; a waiting or removed seat reads like a visitor. */
+/** `seat` is the seat the teacher let in; a waiting or removed seat reads like a visitor. Her group is read from the roster she is shown with (`seatRef`). */
 export interface Reader {
   isAdmin: boolean;
-  seat: SeatRef | null;
+  seat: Participant | null;
+}
+
+export function readerOf(isAdmin: boolean, seat: Participant | null): Reader {
+  return { isAdmin, seat: seat && isAdmitted(seat) ? seat : null };
 }
 
 /** The roster's students decide her group now: a student moved to another group reads as a member of it. */
-export function readerOf(isAdmin: boolean, seat: Participant | null, students: readonly Pick<Student, 'id' | 'groupId'>[]): Reader {
-  return { isAdmin, seat: seat && isAdmitted(seat) ? seatAnswerer(seat, students) : null };
+export function seatRef(reader: Reader, students: readonly Pick<Student, 'id' | 'groupId'>[]): SeatRef | null {
+  return reader.seat && seatAnswerer(reader.seat, students);
 }
 
 /**
@@ -73,9 +78,10 @@ export function foldersFor(isAdmin: boolean, folders: readonly LessonFolder[], l
   return folders.filter((folder) => visible.has(folder.id)).map((folder) => ({ ...folder, parentId: tree.parentOf(folder.id) }));
 }
 
-export function sessionFor(reader: Reader, session: Session): Session {
+export function sessionFor(reader: Reader, session: Session, students: readonly Pick<Student, 'id' | 'groupId'>[]): Session {
   if (reader.isAdmin) return session;
-  return reader.seat ? { ...session, message: messageFor(session, reader.seat.groupId) } : { ...session, reveals: {}, message: null };
+  const seat = seatRef(reader, students);
+  return seat ? { ...session, message: messageFor(session, seat.groupId) } : { ...session, reveals: {}, message: null };
 }
 
 export function anyClassLive(sessions: readonly Session[]): boolean {
@@ -130,10 +136,11 @@ export function boardTotals({ session, lesson, roster, answers, rewards }: Class
   });
 }
 
+/** What the public board gives anyone who shows a card number: only what the results lines draw, never a slide. */
 export interface CardResults {
   name: string;
   group: Group | null;
-  report: StudentReport;
+  report: ResultsReport;
   hearts: RewardTally;
 }
 
@@ -149,7 +156,7 @@ export function cardResults(data: ClassData, cardNumber: number): CardResults | 
   return {
     name: student.name,
     group: groupById(data.roster.groups, student.groupId),
-    report,
+    report: resultsReport(report),
     hearts: new RewardIndex(data.rewards).of({ kind: 'student', id: student.id }),
   };
 }
@@ -172,8 +179,10 @@ export interface SeatView {
   classmates: Classmate[];
 }
 
-export function seatView(seat: SeatRef, data: ClassData): SeatView {
+/** The seat's group is read from the same roster as everything else in the view, so one emission never mixes two groupings. */
+export function seatView(held: Participant, data: ClassData): SeatView {
   const { session, lesson, roster, answers, rewards } = data;
+  const seat = seatAnswerer(held, roster.students);
   const index = new RewardIndex(rewards);
   const group = boardTotals(data).find((total) => total.groupId === seat.groupId);
   const student = studentById(roster.students, seat.studentId);

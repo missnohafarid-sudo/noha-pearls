@@ -1,12 +1,12 @@
 import { importLesson, lessonFileText, type ImportResult } from '../domain/lessonFormat';
 import { createLesson } from '../domain/lessonOps';
 import type { Id, Lesson, LessonSummary } from '../domain/models';
-import { lessonSummaries } from '../domain/visibility';
+import { catalogueFor, lessonFor } from '../domain/visibility';
 import { canRemoveLesson } from '../domain/sessions';
 import type { DocumentStore, Unsubscribe } from '../ports/store';
 import type { Caller } from '../ports/caller';
 import { requireAdmin } from './AuthService';
-import type { LessonShelf } from './LessonShelf';
+import type { LessonPlacement, LessonShelf } from './LessonShelf';
 import { requireFolder } from './requireFolder';
 
 export class LessonError extends Error {
@@ -23,13 +23,17 @@ export class LessonService implements LessonShelf {
     private readonly caller: Caller,
   ) {}
 
-  /** Newest first. */
+  /**
+   * Newest first: the summaries of every lesson for the admin, of the published ones for anyone else. Who the caller is
+   * is asked at each emission; a change of sign-in is followed by subscribing again.
+   */
   watchLessons(listener: (lessons: LessonSummary[]) => void): Unsubscribe {
-    return this.store.watch('lessons', {}, (lessons) => listener(lessonSummaries(lessons)));
+    return this.store.watch('lessons', {}, (lessons) => listener(catalogueFor(this.caller.isAdmin(), lessons)));
   }
 
+  /** The whole lesson for the admin; for anyone else the published lesson without its answer key, else null. */
   watchLesson(lessonId: Id, listener: (lesson: Lesson | null) => void): Unsubscribe {
-    return this.store.watch('lessons', { id: lessonId }, (lessons) => listener(lessons[0] ?? null));
+    return this.store.watch('lessons', { id: lessonId }, (lessons) => listener(lessonFor(this.caller.isAdmin(), lessons[0] ?? null)));
   }
 
   async create(title: string, folderId: Id | null): Promise<Lesson> {
@@ -52,6 +56,11 @@ export class LessonService implements LessonShelf {
     requireAdmin(this.caller);
     await requireFolder(this.store, folderId);
     if (!(await this.store.update('lessons', lessonId, (current) => ({ ...current, folderId })))) throw new LessonError('lesson-missing');
+  }
+
+  /** Where each lesson sits and whether it is published: nothing else of it. */
+  watchPlacements(listener: (placements: LessonPlacement[]) => void): Unsubscribe {
+    return this.store.watch('lessons', {}, (lessons) => listener(lessons.map(({ folderId, published }) => ({ folderId, published }))));
   }
 
   async moveLessons(fromFolderId: Id, toFolderId: Id | null): Promise<void> {

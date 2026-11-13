@@ -11,7 +11,7 @@ import { applyRoster, exportRosterText, parseRosterText, type ImportMode, type R
 import { canRemoveClass } from '../domain/sessions';
 import type { DocumentStore, Unsubscribe } from '../ports/store';
 import type { Caller } from '../ports/caller';
-import { requireAdmin } from './AuthService';
+import { adminWatch, requireAdmin } from './AuthService';
 import type { ClassRosterSource } from './ClassRosterSource';
 import { combineWatches } from './combineWatches';
 import { requireName } from './requireName';
@@ -35,14 +35,16 @@ export class RosterService implements ClassRosterSource {
   ) {}
 
   watchClasses(listener: (classes: SchoolClass[]) => void): Unsubscribe {
-    return this.store.watch('classes', {}, (classes) => listener(sortByOrder(classes)));
+    return adminWatch(this.caller, listener, (emit) => this.store.watch('classes', {}, (classes) => emit(sortByOrder(classes))));
   }
 
   /** The groups of one class and the students in them, each in its order. */
   watchRoster(classId: Id, listener: (roster: ClassRoster) => void): Unsubscribe {
-    return combineWatches<[Group[], Student[]]>(
-      [(emit) => this.store.watch('groups', { classId }, emit), (emit) => this.store.watch('students', {}, emit)],
-      (groups, students) => listener(rosterOf(groups, students)),
+    return adminWatch(this.caller, listener, (emit) =>
+      combineWatches<[Group[], Student[]]>(
+        [(next) => this.store.watch('groups', { classId }, next), (next) => this.store.watch('students', {}, next)],
+        (groups, students) => emit(rosterOf(groups, students)),
+      ),
     );
   }
 
@@ -137,6 +139,7 @@ export class RosterService implements ClassRosterSource {
 
   /** `header` names the columns in a comment line on top; the caller supplies its words. */
   async exportToText(classId: Id, header: string): Promise<string> {
+    requireAdmin(this.caller);
     const { groups, students } = await this.rosterOfClass(classId);
     return exportRosterText(groups, students, header);
   }

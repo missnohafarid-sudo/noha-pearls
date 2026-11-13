@@ -84,7 +84,8 @@ describe('the seen roster', () => {
 
 describe('whether any class is live', () => {
   it('flips when a class ends and when another starts', async () => {
-    const lookup = new ClassLookupService(store);
+    const { caller, rosters } = device('d1');
+    const lookup = new ClassLookupService(store, new ParticipantService(store, caller, rosters), rosters);
     const any = watched<boolean>((l) => lookup.watchAnyLive(l));
     await vi.waitFor(() => expect(any.last()).toBe(true));
     await store.put('sessions', ended);

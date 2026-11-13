@@ -41,8 +41,10 @@ export function twoClassesSteps(world: World): void {
     expect(await second.has(t.session.startTitle)).toBe(true);
     const rows = await second.texts('.session-list__item');
     const rowOf = (code: string) => rows.find((row) => row.includes(code)) ?? '';
-    expect(rowOf(world.firstClassCode)).toContain(t.session.whose(world.firstClassName, world.firstTeacherName));
-    expect(rowOf(secondCode)).toContain(t.session.whose(SECOND_CLASS.className, SECOND_CLASS.teacherName));
+    expect(rowOf(world.firstClassCode)).toContain(t.session.classOf(world.firstClassName));
+    expect(rowOf(world.firstClassCode)).toContain(world.firstTeacherName);
+    expect(rowOf(secondCode)).toContain(t.session.classOf(SECOND_CLASS.className));
+    expect(rowOf(secondCode)).toContain(SECOND_CLASS.teacherName);
   });
 
   it('the join codes of the second class show only its own group', async () => {

@@ -6,6 +6,8 @@ const JOIN_CODE = 'رمز الحصة';
 
 const startedFormat = new Intl.DateTimeFormat('ar-u-nu-latn', { dateStyle: 'medium', timeStyle: 'short' });
 
+const classOf = (className: string) => `الشعبة: ${isolate(className)}`;
+
 export const session = {
   startTitle: 'ابدئي حصة',
   chooser: {
@@ -16,8 +18,9 @@ export const session = {
     started: (time: number) => `بدأت ${startedFormat.format(time)}`,
     lessonGone: 'درس محذوف',
   },
-  /** Whose a class is: shown beside its lesson in every list of classes. */
-  whose: (className: string, teacherName: string) => `الشعبة: ${isolate(className)} · المعلّمة: ${isolate(teacherName)}`,
+  /** The school class of a session, and whose it is: the card of a class shows the first; the panel of a class shows both. */
+  classOf,
+  whose: (className: string, teacherName: string) => `${classOf(className)} · المعلّمة: ${isolate(teacherName)}`,
   pickLesson: 'اختيار هذا الدرس',
   startForm: {
     class: 'الشعبة',

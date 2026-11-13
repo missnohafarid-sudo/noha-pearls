@@ -1,24 +1,23 @@
 .session-list {
   display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+  gap: var(--gap);
 }
 
 .session-list__item {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 16px;
-  align-items: center;
-  justify-content: space-between;
-  padding-block: 12px;
-  border-block-end: 1px solid var(--line);
+  display: grid;
+  gap: var(--gap);
+  align-content: space-between;
 }
 
-.session-list__item:first-child {
-  padding-block-start: 0;
-}
-
-.session-list__item:last-child {
-  padding-block-end: 0;
-  border-block-end: 0;
+/* The card is named by its teacher: the largest, first line. */
+.session-list__teacher {
+  display: block;
+  font-family: var(--font-display);
+  font-weight: var(--weight-heading);
+  font-size: 1.5rem;
+  line-height: 1.4;
+  color: var(--accent);
 }
 
 .session-list__code {

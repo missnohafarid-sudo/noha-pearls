@@ -9,19 +9,21 @@ import './sessionLists.css';
 
 const ts = t.session.chooser;
 
-/** One class per row: its lesson, whose it is, when it started, its code, and the links the caller gives it. */
+/** One card per class: its teacher first, then its lesson, its school class, when it started, its code, and the links the caller gives it. */
 function SessionRows({ sessions, actions }: { sessions: readonly Session[]; actions: (session: Session) => ReactNode }) {
   const lessons = useLessons();
   const titleOf = (session: Session) => lessons?.find((lesson) => lesson.id === session.lessonId)?.title ?? ts.lessonGone;
   return (
     <ul className="session-list list-reset">
       {sessions.map((session) => (
-        <li key={session.id} className="session-list__item">
+        <li key={session.id} className="card session-list__item">
           <div className="stack stack--tight">
+            <bdi className="session-list__teacher">{session.teacherName}</bdi>
             <strong>{titleOf(session)}</strong>
-            <span className="muted">{t.session.whose(session.className, session.teacherName)}</span>
+            <span className="muted">{t.session.classOf(session.className)}</span>
+            <span className="muted">{ts.started(session.startedAt)}</span>
             <span className="muted">
-              {ts.started(session.startedAt)} · {t.session.joinCode}: <bdi className="session-list__code">{session.code}</bdi>
+              {t.session.joinCode}: <bdi className="session-list__code">{session.code}</bdi>
             </span>
           </div>
           <div className="row">{actions(session)}</div>

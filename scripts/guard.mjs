@@ -6,21 +6,16 @@ import { posix } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { Writable } from 'node:stream';
 import { stop } from './lib/process.mjs';
+import { isProtectedPath } from './lib/protected.mjs';
 
 const KEY_FILE = '.guard/key.sha256';
 const MANIFEST_FILE = '.guard/manifest.json';
-const CONFIG_FILE = '.guard/protected.json';
 const MIN_KEY_LENGTH = 12;
 const SKIPPED_FOLDERS = new Set(['node_modules', '.git', 'dist']);
 const SCRIPTS_ENTRY = 'package.json#scripts';
 
 const sha256 = (data) => createHash('sha256').update(data).digest('hex');
 const readJson = (path) => JSON.parse(readFileSync(path, 'utf8'));
-
-function globToRegExp(glob) {
-  const source = glob.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*\*/g, '\u0000').replace(/\*/g, '[^/]*').replace(/\u0000/g, '.*');
-  return new RegExp(`^${source}$`);
-}
 
 function listFiles(folder = '') {
   return readdirSync(folder || '.', { withFileTypes: true }).flatMap((entry) => {
@@ -32,9 +27,7 @@ function listFiles(folder = '') {
 
 /** path -> fingerprint, for every protected file plus the `scripts` section of package.json. */
 function fingerprints() {
-  const { patterns, exclude } = readJson(CONFIG_FILE);
-  const protectedPath = (path) => patterns.some((glob) => globToRegExp(glob).test(path)) && !exclude.includes(path);
-  const prints = Object.fromEntries(listFiles().filter(protectedPath).sort().map((path) => [path, sha256(readFileSync(path))]));
+  const prints = Object.fromEntries(listFiles().filter(isProtectedPath).sort().map((path) => [path, sha256(readFileSync(path))]));
   prints[SCRIPTS_ENTRY] = sha256(JSON.stringify(readJson('package.json').scripts ?? {}));
   return prints;
 }

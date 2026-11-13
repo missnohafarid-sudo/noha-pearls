@@ -61,7 +61,7 @@ record), `ctl` (needs PIN), `pin` / `gpin` (check teacher / guest PIN), `like`,
 | 7 | Reinforcement board (لوحة التعزيز) | Hearts per student from four sources, group totals, a celebration every 5 hearts | Keep. Prototype has teacher and classmate hearts; guests and supervisors in phase 4. |
 | 8 | Scoring | Group score = average of members' individual points + the group's shared points, shown as 7 "spectrum colours" | Keep the formula. Prototype shows score / max. |
 | 9 | Activity types | `mcq`, `mcq` as prediction (no right answer), `text` (group hypothesis), `sort` (classify items), `levels` (three-tier ladder), `claim` (judge a statement with evidence), `quiz` (teacher-paced question series), `exit` (exit ticket), `lab` (custom simulation) | Prototype: choice (incl. poll/prediction), text (group or individual; covers hypothesis and exit ticket). Rest in phase 3 through the slide-kind registry. |
-| 10 | Shared-device rotation | One tablet per group: hands the device from student to student for individual questions | Phase 2. |
+| 10 | Shared-device rotation | One tablet per group: hands the device from student to student for individual questions | A shared device already answers for its whole group (2.4). Handing it from student to student, so each is counted by name, is phase 2. |
 | 11 | Messages to groups | Short text or a 15 s voice note, to one group or all | Text in prototype; voice in phase 4. |
 | 12 | Guests view | Password-protected page: watch a group live, give hearts as "guest" or "supervisor" | Phase 4. |
 | 13 | Slide timers, progressive bullets, "student work" wall, coaching toasts by name, lion animation | Presentation extras | Phase 3/4, each small. |
@@ -129,7 +129,7 @@ imitates) has its own proprietary card format. We do not need it.
 | Password in a GitHub env var, deployed from GitHub | GitHub Actions secret `ADMIN_PASSWORD` (8 characters or more). GitHub Actions checks every push and deploys it to the server (2.4). See 2.5 for what the password protects. |
 | A second factor shared by the teachers | One authenticator code (TOTP), set up once as a QR and a text key that every teacher adds to her phone. See 2.5. |
 | Weekly backup, restorable on demand | Encrypted export every weekend to a private repository; a one-button restore. See 2.7. |
-| A proper database and a proper server, free and permanent | GitHub Pages serves files only: it cannot hold a database or run a server. Cloudflare's free plan does both, with no pausing and no expiry: a Worker (our server) and D1 (the database), behind the same ports; see 2.4. |
+| A proper database and a proper server, free and permanent | GitHub Pages serves files only: it cannot hold a database or run a server. Cloudflare's free plan does both, with no pausing and no expiry: one Worker (our server) and one Durable Object with its own SQLite storage (the hub, which holds all the data), behind the same ports; see 2.4. |
 | Fully Arabic | RTL throughout, all text in `src/i18n`, code identifiers in English. |
 | Prepare lessons, present them, ask questions | Lessons are documents of slides; question slides collect answers live. |
 | **Lessons from a file, AI-generated, then editable** | One lesson file format; a ready-made guided interview for any AI assistant, built on the nine-axes planning method; upload or paste; edit in the panel. See 2.6. This is the main authoring path. |
@@ -158,7 +158,7 @@ concrete adapters, so changing the backend is a change in one place.
 
 | Port | Prototype adapter | Production adapter |
 |---|---|---|
-| `DocumentStore` (typed collections, live queries) | `LocalDocumentStore` (browser storage + cross-tab notices) | `D1DocumentStore` (Cloudflare D1), used by the server only |
+| `DocumentStore` (typed collections, live queries) | `LocalDocumentStore` (browser storage + cross-tab notices) | A store over the hub's SQLite storage (2.4), used by the server only |
 | `AuthGateway` | `PrototypeAuthGateway` (UI gate only) | Server-verified: the Worker checks both factors and issues the session (2.5) |
 | `MarkerDetector`, `MarkerRenderer` | `ArucoCardCodec` (js-aruco2, vendored as an ES module) | same |
 | `QrRenderer` | `QrSvgRenderer` (qrcode-generator) | same |
@@ -166,7 +166,7 @@ concrete adapters, so changing the backend is a change in one place.
 In production the services run **on the server**. The browser is handed the
 same `Services` interface, implemented as thin stubs that send each call to the
 server and receive live results back; it holds no store and no secret. The
-server builds the real service classes over `D1DocumentStore`, so every rule in
+server builds the real service classes over the hub's store, so every rule in
 `domain` and every admin check in `services` is enforced where a visitor cannot
 reach it, and still has exactly one home (2.4).
 
@@ -177,9 +177,10 @@ reach it, and still has exactly one home (2.4).
 | Data shapes | `domain/models.ts` |
 | Slide kinds: blank template, file reading/writing, repairs | `domain/slideKinds.ts` |
 | Slide kinds: editing fields and rendering | `ui/slides/slideUi.tsx` |
-| Lesson file format and validation | `domain/lessonFormat.ts` |
-| Lesson edits (add/move/remove/update slide) | `domain/lessonOps.ts` |
-| Who may answer what, and when | `domain/answering.ts` |
+| Lesson file format and validation; the file's kinds and its markdown wrapping | `domain/lessonFormat.ts` |
+| Lesson edits (add/move/remove/update/copy slide) | `domain/lessonOps.ts` |
+| Lesson folders: the tree, moving, deleting, which folders a visitor sees | `domain/folders.ts` |
+| Who may answer what, and when; the answer that counts for a student (her own, else her group's) | `domain/answering.ts` |
 | Marking and group scores | `domain/scoring.ts` |
 | Pearls a group has earned | `domain/scoring.ts` |
 | Live tallies, monitor table, heart totals | `domain/analytics.ts` |
@@ -189,7 +190,7 @@ reach it, and still has exactly one home (2.4).
 | Roster rules (card numbers, colours, group order, public names) | `domain/roster.ts` |
 | Class list format (paste, upload, export; card numbers kept) | `domain/rosterFormat.ts` |
 | Who may give a heart to whom (the teacher's, live or ended; a student's, live only) | `domain/rewards.ts` |
-| Who is let into a class, one device per name | `domain/admission.ts` |
+| Who is let into a class, one device per name, and where a returning device lands | `domain/admission.ts` |
 | Who is here: the roll, and who counts in tallies and scores | `domain/attendance.ts` |
 | A session's minimum of interactions, and who is unresponsive | `domain/engagement.ts` |
 | A class session: live or ended, starting one, which one a page shows | `domain/sessions.ts` |
@@ -198,6 +199,7 @@ reach it, and still has exactly one home (2.4).
 | Cumulative results of a class list over a period, and what a student or a visitor may see of them | `domain/standings.ts` |
 | What a media link shows and how: its type, its address, its frame | `domain/media.ts` |
 | Moving through a list with the keyboard | `domain/listNavigation.ts` |
+| What class data is cleared and when: a range of dates, the end of the school year | `domain/retention.ts` |
 | Our own form controls and floating layers | `ui/forms/`, `ui/common/useAnchoredLayer.ts`, `ui/styles/widgets.css` |
 | The list of teachers | `domain/teachers.ts` |
 | Session codes: making and reading one | `domain/ids.ts` |
@@ -215,7 +217,7 @@ presenter and the student device pick it up without edits.
 
 ### 2.4 Data model and backend
 
-Collections (one table each in production):
+Collections (how the hub lays them out as rows is described under Backend, below):
 
 | Collection | Key fields |
 |---|---|
@@ -224,12 +226,15 @@ Collections (one table each in production):
 | `teachers` | name |
 | `groups` | class, name, colour |
 | `students` | class, name, group, card number (unique within the class) |
-| `lessons` | title, subject, grade, published, slides[] |
+| `lessons` | title, subject, grade, published, folder, slides[] |
+| `folders` | name, parent folder (empty = top level), order |
 | `sessions` | join code, lesson, class, teacher, its own copy of the class's groups and students, status, current slide, reveals{}, pacing{}, message, minimum of interactions (empty = the default) |
 | `records` | one per ended class, written once: class, start time, and per student (present, answers, points, unresponsive) and per group (score, maximum) what the class came to |
+| `rosters` | session; the roll: who is present or absent, by hand or by card |
 | `participants` | session, group, student or null (shared device) |
 | `answers` | session, slide, subject (student or group), value, source (device / card / manual) |
 | `rewards` | session, target, source. Append-only: totals are counted, never overwritten |
+| `retention` | one document: the last day of the school year (or none), when it was set, when students' data was last cleared |
 
 Design points:
 
@@ -264,9 +269,12 @@ Design points:
   roll, the teacher can mark any student present or absent by hand, in the
   class's group list and in the monitor table. Each session has a minimum
   number of interactions: by default the possible ones minus two, never below
-  zero, and she can change it during the class. An interaction is a student's
-  own answer to an individual question, by device, card or the teacher's
-  hand; a group question's answer belongs to the group and does not count.
+  zero, and she can change it during the class. An interaction is the answer
+  that counts for a student on an individual question: her own, by device,
+  card or the teacher's hand, or, when she gave none, her group's shared
+  device's answer while she is present (see "A group's shared device answers
+  for its students" below). A group question's answer belongs to the group
+  and is not an individual interaction.
   The possible ones are the individual questions that are still open or that
   at least one student answered: a question the class never reached, or one
   nobody could answer (a written question in a class with cards only), is
@@ -349,6 +357,58 @@ Design points:
 - **Teachers' names have one home** (2026-11-12). The home page lists every
   teacher from the teachers list; the single name in the site content is
   gone.
+- **Lesson folders** (2026-11-12, `domain/folders.ts`). Lessons live in nested
+  folders, for example subject, then weeks or months, then lessons. Deleting a
+  folder moves what is in it to its parent and never deletes a lesson, so
+  tidying up cannot lose work. A folder cannot be put inside itself. Stored
+  links that are broken (a missing parent, a loop) show their folder at the
+  top level and are repaired at the next change, so bad data cannot hang or hide
+  anything. A visitor sees only folders that hold a published lesson. A lesson
+  or folder is moved by dragging or by a move dialog, and the open folder is part of the address, so a link or the
+  back button returns to it.
+- **A lesson is one file** (2026-11-12). One button exports a lesson as a
+  markdown file that holds the importable lesson, and the import reads `.md`,
+  `.json` and `.txt` (2.6). Reason: teachers keep, share and hand lessons to an
+  assistant as ordinary files, and one format keeps all three working.
+- **More on a slide** (2026-11-12). A normal slide and a written-answer
+  question can show several pictures (public links, at most six; Drive photos
+  go through the media rule, `domain/media.ts`). A normal slide can hold a
+  hidden section that a button opens into a bluish box. It is opened per
+  screen and is not pushed to students' phones: it is for the teacher's talk,
+  and the box keeps it from being mistaken for the slide's text. A slide can be
+  copied in the lesson maker, right below the original.
+- **Keeping and clearing class data** (the teachers' request, 2026-11-12,
+  `domain/retention.ts`). Class data is students' data, so it does not pile up
+  forever. Two ways to clear it, both by the admin:
+  - Deleting the ended classes of one class list that started between two
+    dates. The page first lists the classes that were counted; only those, as
+    confirmed, are removed, each with everything it kept (answers, hearts, the
+    roll, seats, the record). A class that is still running is never removed.
+  - A yearly clearing at the end of the school year. The teachers switch it
+    on and choose the last day themselves. It never runs sooner than seven
+    days after the date was set, so a mistaken date can be corrected. In the
+    week before it the interface says it is coming, and afterwards a line says
+    when it ran. It empties every class's data, running classes included:
+    classes, class lists, students, groups, rolls, seats, answers, hearts and
+    records. It keeps lessons, folders, the teachers' list, the site's content
+    and the setting itself. An interrupted clearing repeats instead of being
+    skipped, because the date it ran is written last.
+  Today the page of a signed-in teacher starts the yearly clearing. On the
+  server it runs from the hub's own alarm on the server's clock (2.4, Backend),
+  so no browser can trigger it or hold it back.
+- **Presenting** (2026-11-12 and 13). The presenting bar is docked under the
+  slide and stays inside full screen, so the teacher never leaves full screen
+  to control the class. The class code is always on the stage. While the join
+  codes show, next and previous are blocked, so a slide cannot be skipped by
+  accident in front of the class. The pearl button sits inside the slide's
+  bottom-left corner and opens a panel over the slide with tabs («الكل» and one
+  per group) showing who has answered and giving hearts. Every question carries
+  a badge saying whether it is for each student or for the group. Other
+  changes follow the same reasoning, a thing the teacher needs must not scroll
+  away: the header stays in view and folds its tabs into a menu on narrow
+  screens, and a dialog keeps its title and its final buttons in view. The
+  password field has our own show and hide button (2.4, own controls). Running
+  and ended classes are shown as cards, and the monitor has a presence column.
 - **One teacher, several devices** (the teacher's request, 2026-11-11). She
   signs in on each device and opens the same class: a laptop on the projector
   and a phone in her hand. Every command names its target ("go to slide 5",
@@ -365,6 +425,22 @@ Design points:
   fields are simply not readable by visitors.
 - **One answer per subject per question** (the id is derived), changeable until
   the teacher reveals.
+- **A group's shared device answers for its students** (the owner's decision,
+  2026-11-13; it replaces the earlier rule that a group device's answer is
+  separate and counts for no student). A shared device can answer every
+  question. On a group question one answer is stored for the group, as before.
+  On an individual question one answer is stored for the group too, and a
+  student's effective answer is her own if she gave one (whenever it
+  arrives), otherwise her group's, if she is present; an absent student is
+  never covered. Reason: a group with one tablet and a few phones should count
+  as taking part, and the teacher should not have to mark each girl by hand.
+  One rule decides it (`effectiveAnswer` in `domain/answering.ts`), and every
+  reader asks it: tallies, points, group scores, a student's own results, the
+  monitor, the minimum of interactions and the kept record. A student's device
+  shows her group's answer, marked as the group's, until she answers herself,
+  and her own unsent draft is kept when her group answers. Letting a shared
+  device in puts its group's students on the roll, because the group is in the
+  room.
 - **Commands change the stored record, not the caller's copy.** "Reveal" then
   "next" in quick succession cannot undo each other, and an answer is checked
   against the session as it is now, not as the device last saw it.
@@ -383,10 +459,18 @@ Design points:
   neither answer nor give a heart; the services check the stored seat, not the
   device's own copy of it. The reference let anyone pick any name.
 
-**Backend: Cloudflare's free plan** (decided 2026-11-11, replacing Supabase).
-One Cloudflare Worker is the whole deployment: it serves the built site and
-answers `/api`, at one address. The teacher never sees Cloudflare; it is set up
-once by the maintainer.
+**Backend: Cloudflare's free plan** (hosting decided 2026-11-11, replacing
+Supabase; the storage design revised 2026-11-12, replacing "D1 plus a hub that
+only relays": one Durable Object now holds the data). Nothing in this section
+is built yet.
+
+One Cloudflare Worker, `noha-pearls`, on the free plan is the whole
+deployment: it serves the built site and answers `/api/*`, at one address,
+`https://noha-pearls.miss-noha-farid.workers.dev`. GitHub Actions is the only
+thing that deploys it. GitHub Pages is no longer used; the workflow's last
+Pages deployment is a small page that forwards to the new address, because a
+workflow cannot unpublish a Pages site. The teacher never sees Cloudflare; it
+is set up once by the maintainer.
 
 Why this and not Supabase, which the plan named first:
 
@@ -402,58 +486,104 @@ Why this and not Supabase, which the plan named first:
   server as one version, at one origin: no cross-site requests, and the admin
   session can live in a cookie that page scripts cannot read.
 
+Why one Durable Object and no D1 database. ONE Durable Object, "the hub"
+(a single instance, with SQLite storage of its own), holds all the data and
+every device's connection, and runs every command one at a time, in order. The
+reasons:
+
+- A command reads and writes the data without a network trip to a database, so
+  several classes answering at once do not queue behind round trips.
+- The free plan's limit of 50 database calls per request does not apply.
+- The database cannot sit in a different place from the hub, which would add
+  delay to every command.
+- Its history can be rewound for 30 days (D1's free plan: 7).
+- There is one store to build, test, back up and clear, not a database plus a
+  hub that caches it.
+
+What it costs, honestly:
+
+- **There is no vendor export command** for a Durable Object's storage. The
+  weekly backup is therefore our own export endpoint (2.7), and it is the only
+  way out of Cloudflare.
+- **Deleting the Worker, or removing the hub's class from the configuration,
+  deletes the data.** So that configuration is a protected file (2.9), and the
+  weekly backup lives outside Cloudflare.
+- **Whether the free plan includes the 30-day rewind and the dashboard's data
+  viewer is not stated in Cloudflare's documentation** (checked 2026-11-12), so
+  nothing depends on either.
+- **More of our own code** than a ready-made backend: the transport, the
+  sign-in check, the hub and the export are ours, so they carry tests (4,
+  phase 1).
+- **Where the data sits.** Students' names are stored in Cloudflare's storage
+  outside Qatar, as they would have been with Supabase. The public repository
+  still never holds them.
+
 The pieces:
 
 | Piece | Job |
 |---|---|
-| Worker `noha-pearls` | Serves the static site; routes `/api/*` to the server code; verifies sign-in (2.5) |
-| D1 database | The system of record: one table per collection (id, the document as JSON, a version number), with an index on each field a query filters by. Adding a field to a document needs no migration |
-| Durable Object "class hub" | Holds each device's one open connection (WebSocket, hibernating when idle) and pushes changes, replacing polling |
-| GitHub Actions | Runs the check, applies database migrations, deploys the Worker, then smoke-tests the live address |
+| Worker `noha-pearls` | Serves the static site; routes `/api/*`; verifies sign-in (2.5); hands every command and live query to the hub |
+| The hub (Durable Object, one instance, SQLite storage) | The system of record: every collection. Holds each device's one open connection (WebSocket, hibernating when idle), runs commands one at a time, pushes live results, runs the yearly clearing from its own alarm, serves the backup export |
+| GitHub Actions | Runs the check, deploys the Worker with its secrets, then smoke-tests the live address |
+
+Documents are stored as JSON, so adding a field to a document needs no
+migration. Indexes exist only for the fields queries filter by.
 
 How a request is kept honest:
 
 - **Commands.** The browser stub sends "service, method, arguments". The
   server works out who is calling (admin session or not; which device) from
   the request itself, never from the arguments, and runs the real service.
+  Only the service methods listed in one table are callable from outside;
+  everything else, including methods meant for the server's own jobs, is
+  refused.
 - **Reads are projected on the server.** What a visitor may see is a domain
-  rule with its own home and tests: published lessons only and without answer
-  keys; the live session; her own group's and her own answers; totals on the
-  board. The admin sees everything. A device learns a right answer only from
-  `session.reveals`.
-- **Stored changes are atomic.** `update` reads the document with its version
-  and writes it back only if the version is unchanged, retrying otherwise, so
-  two commands at once cannot undo each other.
+  rule with its own home and tests (`domain/visibility.ts`, built first, in the
+  browser, 4 phase 1): published lessons only and without answer keys; the live
+  session; her own group's and her own answers; totals on the board. The admin
+  sees everything. A device learns a right answer only from `session.reveals`.
+- **One command is one transaction.** The hub runs one command at a time, in
+  order, so two commands at once cannot undo each other and a check followed by
+  a write cannot be interleaved with another command. No version number or
+  retry is needed.
 - **Live queries are shared.** The hub runs each distinct query once per
   change and fans the result out, not once per connected device. This is what
   keeps a class inside the free limits, and the stress test measures it.
+- **One WebSocket per page.** Commands and live queries travel over it. Only
+  sign-in, sign-out, a "me" call (who am I) and the backup export are plain
+  requests.
 
-The address is `https://noha-pearls.<name>.workers.dev`, where `<name>` is
-chosen once when the Cloudflare account is created. It is free, permanent and
-served over HTTPS; no domain has to be bought. A domain of the school's own
-can be attached later without changing anything else: join links and QR codes
-are made per session from whatever address the page is opened at, and printed
-answer cards carry no address.
+The address is free, permanent and served over HTTPS; no domain has to be
+bought. A domain of the school's own can be attached later without changing
+anything else: join links and QR codes are made per session from whatever
+address the page is opened at, and printed answer cards carry no address.
 
-What "free" gives today (checked against Cloudflare's pricing and limits pages
-on 2026-11-11; re-check when the account is created): requests for the site's
-files are free and unlimited; 100,000 server requests a day; D1 with 5 GB,
-5 million rows read and 100,000 rows written a day; the Durable Object with
-100,000 requests a day. A class of 30 over a full lesson is a few thousand
-requests and writes. The limits are hard: when one is exceeded, further
-operations of that kind fail until midnight UTC rather than costing money. A
-server request also gets only about 10 ms of processor time, so nothing slow
-(such as deliberately expensive password hashing) may run in one; see 2.5.
+**The capacity the design must hold** (the owner's bar): 4 teachers, 4 classes
+each, 35 students in a class, in one day, with up to 4 classes at once, all on
+the free plan. Free limits as checked on 2026-11-12 (re-check at the first
+deploy):
 
-What it costs us:
+- Worker: 100,000 requests a day. Static files are free and unlimited.
+- Durable Object: 100,000 requests a day, where an incoming WebSocket message
+  counts 20 for 1; 5 million rows read and 100,000 rows written a day; no
+  duration charge while the object hibernates. A hibernatable object forgets
+  its memory after about 10 idle seconds, so nothing may live only in memory.
+- The limits are hard: when one is exceeded, further operations of that kind
+  fail until midnight UTC rather than costing money. A Worker request also gets
+  only about 10 ms of processor time, so nothing slow (such as deliberately
+  expensive password hashing) may run in one; see 2.5.
 
-- **More of our own code** than a ready-made backend: the transport, the
-  sign-in check and the hub are ours, so they carry tests (4, phase 1).
-- **Backups are short by default.** D1 can be rewound to any minute of the
-  last 7 days on the free plan. Longer history is our own weekly export (2.7).
-- **Where the data sits.** Students' names are stored in Cloudflare's
-  database outside Qatar, as they would have been with Supabase. The public
-  repository still never holds them.
+What the design does about them:
+
+- Commands and live queries use one WebSocket per page, which keeps the worst
+  day near 7,000 Worker requests.
+- The answers, seats and hearts of a class are stored as ONE row per class and
+  collection. Reading a class's answers is one row read; each answer is one row
+  written. A year of worst-case use is a few thousand rows to clear instead of
+  millions.
+- Indexes exist only for the fields queries filter by.
+- A stress test at exactly the owner's worst day must show every daily limit
+  used well under half.
 
 ### 2.5 Admin access, honestly
 
@@ -473,27 +603,41 @@ ship inside the page, and all data is local anyway. Use throwaway values.
 
 1. There is one shared admin, not one account per teacher.
 2. `ADMIN_PASSWORD` (8 characters or more) and `ADMIN_TOTP_SECRET` are GitHub
-   Actions secrets. On deploy the workflow hands them to the Worker as
-   encrypted secrets. They are never part of the built page, and the build
-   variables that put them there in the prototype are removed.
+   Actions secrets, beside `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`
+   (the deploy's own; no database identifier is needed). On deploy the workflow
+   hands the two admin secrets to the Worker as encrypted secrets. They are
+   never part of the built page, and the build variables that put them there
+   in the prototype are removed. A deployed Worker without the admin secrets
+   refuses every sign-in and never falls back to development values.
 3. The second factor is made **once** with `npm run admin:2fa`, which prints a
    QR and a text key. Every teacher scans the same QR (or types the key) into
    her authenticator app.
 4. At the prompt the page sends the password and the code to the server in one
    request. The server compares both in constant time and answers yes or no,
    never which one was wrong.
-5. On yes it sets a signed session cookie that page scripts cannot read, sent
-   only to this site, valid for one school day. Every admin command is checked
-   against it on the server, so a changed page can change nothing.
-6. Guessing is shut out on the server: after five wrong attempts sign-in is
-   refused for fifteen minutes. Because a server request has little processor
-   time (2.4) the password is compared, not slow-hashed; its strength is its
-   length plus the second factor plus this limit.
+5. On yes it sets a session cookie: signed with HMAC, `HttpOnly` (page
+   scripts cannot read it), `Secure`, `SameSite=Strict`, sent only to this
+   site, valid for 7 days (the owner's choice). Its signing key is derived from
+   the two admin secrets. Every admin command is checked against it on the
+   server, so a changed page can change nothing. The consequence of seven
+   days: a device left signed in stays a teacher's device for a week unless
+   she signs out, and replacing either admin secret signs everyone out.
+6. Guessing is shut out on the server: after five wrong attempts, sign-in is
+   refused for fifteen minutes for THAT NETWORK ADDRESS, not for everyone. A
+   visitor must not be able to lock every teacher out by typing wrong
+   passwords. Known and accepted: a student on the school's own network shares
+   an address with the teachers and could still lock that network. Because a
+   server request has little processor time (2.4) the password is compared, not
+   slow-hashed; its strength is its length plus the second factor plus this
+   limit.
 7. A code may be used more than once while it is valid (about half a minute),
    so two teachers can sign in at the same moment with the code they both see
    (decided 2026-11-11). The cost: someone who watched a code being typed
    could reuse it within that half-minute, but only together with the
    password.
+8. A device's identity is a random token the server issues in a cookie; the
+   stored device id is a hash of it. A seat id that the teacher's page shows
+   cannot therefore be used to pose as a student's phone (4, phase 1).
 
 What a shared second factor does and does not do:
 
@@ -519,7 +663,7 @@ The teacher's flow, with no technical step:
    with a number. She never has to come up with a verse, a strategy or a
    real-life example herself; she chooses among viable ones.
 4. The assistant writes the lesson file. She copies it into the box (or
-   uploads it) and presses **import**.
+   uploads a `.md`, `.json` or `.txt` file) and presses **import**.
 5. The lesson opens in the editor, unpublished. She fixes anything in the side
    panel, then publishes.
 
@@ -561,12 +705,13 @@ The format (`spectrum-lesson`, version 1), deliberately small:
   "version": 1,
   "title": "…", "subject": "…", "grade": "…",
   "slides": [
-    { "kind": "content", "title": "…", "tag": "…", "body": "…\n- نقطة", "imageUrl": "" },
+    { "kind": "content", "title": "…", "tag": "…", "body": "…\n- نقطة",
+      "images": [], "hidden": "" },
     { "kind": "choice", "title": "…", "tag": "…", "prompt": "…",
       "options": ["…", "…"], "correct": 2, "explanation": "…",
       "scope": "individual", "points": 1 },
     { "kind": "text", "title": "…", "tag": "…", "prompt": "…",
-      "placeholder": "…", "scope": "group", "points": 2 }
+      "placeholder": "…", "images": [], "scope": "group", "points": 2 }
   ]
 }
 ```
@@ -575,7 +720,14 @@ The format (`spectrum-lesson`, version 1), deliberately small:
   prediction.
 - `scope` is `individual` (every student answers) or `group` (one answer per
   group).
+- `images` is a list of public links (at most six; Drive photos go through the
+  media rule). `hidden` is an optional section in the same format as `body`,
+  opened by a button on the slide; it stays empty unless the teacher asks.
 - The importer tolerates chat wrapping (prose and code fences around the JSON).
+- Export is one button and writes a markdown file that holds nothing but the
+  lesson in a fenced block (`domain/lessonFormat.ts`). Free text beside the
+  lesson is avoided on purpose, because the reader takes the outermost braces
+  and a brace in a title line would mislead it.
 - The instructions for the AI are generated from the same registry the
   validator uses, so the two cannot disagree. Export writes the same format, so
   lessons can be backed up, shared between teachers, or handed back to an AI to
@@ -587,26 +739,34 @@ API key, so it waits for the backend.
 
 ### 2.7 Backups and restore
 
-Two layers, because the free plan's own history is short.
+Two layers, because the platform's own history is short and may not be there.
 
-- **The last 7 days, to the minute.** D1 keeps this by itself ("Time
-  Travel"). It is the answer to "something went wrong today": the maintainer
-  rewinds the database to a chosen minute with one command.
-- **Half a year, weekly.** The project keeps its own exports in a **private**
-  GitHub repository next to the public one. The public repository must never
-  hold student data, and files attached to its workflow runs are readable by
-  anyone, so nothing is stored there.
+- **The hub's own history, where it is available.** Cloudflare can rewind a
+  SQLite-backed Durable Object for 30 days. If the free plan includes it, it
+  is the answer to "something went wrong today". Cloudflare's documentation
+  does not say whether the free plan includes it, or the dashboard's data
+  viewer (checked 2026-11-12), so nothing depends on either. It is checked
+  once on the real account (5).
+- **Half a year, weekly.** The project keeps its own encrypted exports in a
+  **private** GitHub repository, `missnohafarid-sudo/noha-pearls-ops`, next to
+  the public one. The public repository must never hold student data, and
+  files attached to its workflow runs are readable by anyone, so nothing is
+  stored there. This layer is the real one: it lives outside Cloudflare, which
+  matters because deleting the Worker or the hub's class deletes the data (2.4).
 
 The weekly layer:
 
 - **Weekly backup.** A scheduled workflow in the private repository runs every
-  weekend (Friday night, Qatar time). It exports the database, encrypts the
-  file with a passphrase held as a secret, and commits it to that same
-  repository. The last 26 weekly files are kept (half a year).
+  weekend (Friday night, Qatar time). It fetches the data from the hub's own
+  **export endpoint**, which is protected by its own secret (there is no vendor
+  export command to use instead, 2.4), encrypts the file with a passphrase held
+  as a secret in that repository, and commits it there. The last 26 weekly
+  files are kept (half a year). The passphrase never goes on the teacher's
+  laptop.
 - **What is in it.** Everything the platform stores: site content, groups,
-  students, lessons, and the history of sessions, answers and hearts. The
-  admin password and authenticator key are not in the database; they stay in
-  the public repository's secrets.
+  students, lessons and folders, and the history of sessions, answers and
+  hearts. The admin password and authenticator key are not in the data; they
+  stay in the public repository's secrets.
 - **Restore.** A second workflow with a "Run workflow" button on the GitHub
   website. It asks which backup (the latest by default) and for the word
   `RESTORE` typed out, saves a safety copy of the current data first, then
@@ -618,9 +778,12 @@ The weekly layer:
   public repositories only, and this one also commits to itself every week. If
   a schedule is ever switched off, re-enabling it is one button. The cost is a
   few minutes of the free monthly allowance.
-- Nothing has to be kept awake: the database does not pause (2.4).
+- Nothing has to be kept awake: the hub does not pause (2.4).
 - Separately, any single lesson can be exported and re-imported as a file from
   the lesson page at any time.
+
+The yearly clearing of students' data (2.4) removes data from the hub, not from
+backups already made. Old weekly files age out after 26 weeks.
 
 ### 2.8 Who may see a student's results
 
@@ -637,6 +800,18 @@ the card on the board; nobody but the teacher sees another student's totals,
 the roll, or who was unresponsive. One consequence is accepted: a group with
 a single member, or a single girl present, shows that girl's hearts as the
 group's.
+
+Three more lines, each settled with the owner:
+
+- **Students keep seeing their classmates' heart counts** on the board and in
+  the class. Hearts are meant to be seen; only results, the roll and who was
+  unresponsive stay private.
+- **A signed-out visitor on the board without a class code** gets a field to
+  type the code, not a list of running classes. A list would show every
+  teacher's class code and its name to anyone with the link.
+- **An unpublished lesson is readable, without its answer key, by the let-in
+  seats of a class that uses it.** A teacher may start a class from a lesson
+  she has not published; the students' devices still need its slides.
 
 These are light locks on purpose. The reference left all of this public, the
 teachers are not technical, and anything that adds work for them (new printouts,
@@ -690,13 +865,15 @@ one. These do:
    layer boundary, when Arabic text appears outside `src/i18n`, when the
    interface touches browser storage, when a stylesheet uses left/right or a
    colour that is not a design token. Each failure says where the code belongs.
-2. **The browser walkthrough is a test.** The 44-step run through the whole
-   product lives in the repository and runs on every check.
+2. **The browser walkthrough is a test.** The run through the whole product
+   (243 steps as of 2026-11-13) lives in the repository and runs on every
+   check.
 3. **One way to finish.** `npm run check` runs everything. `npm run ship` runs
    the check and only then commits and pushes. A git hook refuses a push when
    the check fails.
 4. **Deploys are gated.** On every push to `main`, CI runs the same check and
-   deploys only if it passes. A failed change leaves the live site as it was.
+   (from phase 1; until then a push only runs the check) deploys only if it
+   passes. A failed change leaves the live site as it was.
 5. **One way back.** `npm run undo` reverts the last shipped change and ships
    the revert.
 6. **Protected files.** The guidance, the checks, the workflows and the scripts
@@ -722,10 +899,11 @@ repository, started by one command that the agent runs for her:
 | `npm run ops -- backup` | Take a backup now |
 | `npm run ops -- restore` | Restore the latest backup (or a named one), after a safety copy and a typed confirmation |
 
-These exist from phase 1, when the backend does. Changes to the shape of the
-data go through migration files that CI applies on deploy, before the new
-server goes out: they may only add, never drop or delete, and the database's
-restore point is recorded before each one is applied.
+These exist from phase 1, when the backend does. Documents are JSON, so a new
+field needs no migration. A change to the layout of the hub's storage goes
+through a migration step that may only add, never drop or delete, and the
+deploy takes an export first. The Worker's configuration, which names the
+hub's class, is a protected file: removing that class deletes the data (2.4).
 
 What her laptop needs, once: Node, git with her SSH key, the GitHub CLI signed
 in (an SSH key does not sign the CLI in), and Antigravity set to ask before
@@ -747,9 +925,11 @@ to test every flow on one computer; it is not multi-device yet.
 | Admin sign-in button (password plus authenticator code; development values in the README) | Yes |
 | Side editing panel on every page, invisible to visitors | Yes |
 | Home page content editing | Yes |
-| Lessons: create, edit slides in the panel, reorder, publish, delete | Yes |
-| Lesson import (paste or upload), guided AI interview on the nine axes, export | Yes |
+| Lessons: create, edit slides in the panel, reorder, copy a slide, publish, delete | Yes |
+| Lesson library with nested folders, moving by drag or dialog | Yes |
+| Lesson import (paste or upload `.md`, `.json`, `.txt`), guided AI interview on the nine axes, export as a markdown file | Yes |
 | Slide kinds: content, choice (incl. poll), text, media from a public link | Yes |
+| Several pictures on a slide or a written question; a hidden section opened by a button | Yes |
 | Students see cumulative results: group totals on the board, her own on her device | Yes |
 | Leaving a class without losing the seat, and returning by its code | Yes |
 | Our own drop-downs, check boxes, file pickers and number fields | Yes |
@@ -772,13 +952,17 @@ to test every flow on one computer; it is not multi-device yet.
 | The teacher's hearts after a class has ended | Yes |
 | Present or absent by hand, a minimum of interactions per class, and the «غير متفاعلة» mark | Yes |
 | A kept record of each ended class; cumulative results per class list by week and month | Yes |
+| Clearing class data: ended classes of a class list between two dates, and a yearly clearing the teachers switch on | Yes (started by a signed-in teacher's page; the server's alarm is phase 1) |
+| A group's shared device answers for its students | Yes |
+| Presenting: docked bar inside full screen, class code on the stage, pearl panel with tabs, group/individual badge | Yes |
 | One teacher controlling a class from two devices (two tabs here; real devices need the backend) | Yes |
 | Real database, multi-device, real access control | No (phase 1) |
 
 Run it: `npm install`, `npm run dev`, open the printed address. See `README.md`
 for a ten-minute walkthrough.
 
-Quality gates: `npm run typecheck`, `npm test`.
+Quality gates: `npm run typecheck`, `npm test`. As of 2026-11-13 there are 492
+unit tests and 243 walkthrough steps.
 
 ---
 
@@ -810,105 +994,132 @@ checked by running whole classes from both sides and by code review.
   (2.4): her hearts after a class, the minimum of interactions and the
   unresponsive mark, the kept record and cumulative results by week and
   month, and the two-device lane in the walkthrough.
+- Added on 2026-11-12 and 13, still before the backend (all in 2.4): lesson
+  folders, the lesson as one markdown file, several pictures and a hidden
+  section on slides, clearing class data by date and at year end, a group's
+  shared device answering for its students (a change to the earlier rule),
+  and the presenting changes (docked bar, class code on the stage, pearl panel
+  with tabs, badges, header and dialogs that stay in view, class cards,
+  presence column). The reading rules of 2.8 were settled in the same days.
 
 **Phase 1: real backend and deployment.** *Makes it usable in a classroom.*
 Built and proven on this computer first: Cloudflare's local runtime runs the
-same Worker, D1 and Durable Object with no account, so nothing is deployed
-until it passes here. In this order, structure before behaviour:
+same Worker and hub with no account, so nothing is deployed until it passes
+here. The services already receive their caller as an input (done, so that a
+server can build them). In this order, structure before behaviour:
 
-1. Structure, no behaviour change: `Services` becomes interfaces the browser
-   and the server can both implement; the caller (admin or not, which device)
-   becomes an explicit input of the services instead of browser memory. The
-   layer map and the architecture test gain the server's place.
-2. The visitor's view as a domain rule with tests (2.4): what each kind of
-   caller may read.
-3. `D1DocumentStore` with additive migrations, passing the same store tests
-   as the browser store, plus the atomic-update test under concurrent writes.
-4. The server: command and live-query transport, the class hub, sign-in with
-   both factors, the attempt limit and the session cookie (2.5).
-5. The browser side: service stubs in `app/container.ts`; the admin secrets
+1. Reads projected per caller, as a domain rule with tests
+   (`domain/visibility.ts`, 2.4): what each kind of caller may read. It is
+   built and proven in the browser first, where it can be seen and tested
+   without a server.
+2. The store over the hub's SQLite storage, passing the same store tests as the
+   browser store, tested in Node.
+3. The hub: command transport, live queries, sign-in, cookies, the attempt
+   limit per network address, and the alarm (2.4, 2.5).
+4. The browser side: service stubs in `app/container.ts`; the admin secrets
    and the browser-storage adapters leave the shipped page.
-6. The walkthrough and the stress test run against the local server, so the
+5. The walkthrough and the stress test run against the local server, so the
    check exercises what is deployed. New walkthrough steps: a signed-out
    browser's command is refused; the password without the code is refused; no
-   answer key appears in anything a student's device receives.
-7. Deployment: one workflow that checks, applies migrations, deploys the
-   Worker with its secrets, then smoke-tests the live address. The GitHub
-   Pages workflow is removed.
-8. Private repository: weekly encrypted backup, one-button restore (2.7), the
-   `npm run ops` commands and the daily check of the protected files (2.9). A
-   restore is rehearsed once before the first real class.
+   answer key appears in anything a student's device receives; a seat id seen
+   by the teacher cannot be used as a phone's identity; a method that is not
+   in the callable table is refused. The stress test runs exactly the owner's
+   worst day (4 teachers, 4 classes each, 35 students, 4 classes at once) and
+   must show every daily limit used well under half (2.4).
+6. Deployment: one workflow that checks, deploys the Worker with its secrets,
+   then smoke-tests the live address; its last Pages deployment becomes the
+   forwarding page.
+7. Backups and the private repository: the weekly encrypted export, the
+   one-button restore (2.7), the `npm run ops` commands and the daily check of
+   the protected files (2.9). A restore is rehearsed once before the first
+   real class.
 
 What the server must close that the browser store cannot (found by review of
-the joining rules; each needs a test in step 4):
+the joining rules and later reviews; each needs a test in step 3). Most of it
+reads "one command is one transaction in the hub", because the hub runs one
+command at a time:
 
-- A device's identity comes from a token the server issued and keeps in a
-  cookie, never from an id the page holds. The same phone then keeps its seat
-  across a closed tab.
-- Asking for a seat checks the facts and writes in one step.
-- Letting a device in is one transaction: only if the seat still exists, is
-  still waiting and is still the student the teacher saw; it removes every
-  other seat for that student in that session. At most one admitted seat per
-  student per session is a database constraint.
-- A card sweep and "let everyone in" choose their seats and admit them
-  together, re-checked at write time.
+- A device's identity comes from a random token the server issued and keeps in
+  a cookie, never from an id the page holds; the stored device id is a hash of
+  the token. The same phone then keeps its seat across a closed tab, and a seat
+  id seen by the teacher cannot be used to pose as a phone.
+- Asking for a seat checks the facts and writes in one command.
+- Letting a device in is one command: only if the seat still exists, is still
+  waiting and is still the student the teacher saw; it removes every other seat
+  for that student in that session, so at most one admitted seat per student
+  per session holds.
+- A card sweep and "let everyone in" choose their seats and admit them in one
+  command.
 - An answer or a heart is checked against the seat, the session and the
-  reveal at the moment it is written, so a late answer cannot follow a reveal.
+  reveal in the same command that writes it, so a late answer cannot follow a
+  reveal.
 - A waiting or removed device can read nothing of the class: "sees no slide"
   is enforced by the server's projection, not by the page.
-- A session and its roster are created in one transaction, and a session
-  code is unique by a database index, with a retry.
-- "Is this class or teacher in use" and the removal are one transaction; so
+- A session and its roster are created in one command, and a session code is
+  checked for being unused in it, with a retry.
+- "Is this class or teacher in use" and the removal are one command; so
   are removing a class with its groups and students, and a class-list import.
 - An answer and its mark on the roll, letting a device in and its mark on the
-  roll, and the roll-call scan's marks and admissions are each one
-  transaction.
+  roll, and the roll-call scan's marks and admissions are each one command.
+- A group's shared device and the roll: the shared device answers for its
+  group (2.4), its answer is stored for the group and never under a student id
+  the page sends, and letting it in puts its group's students on the roll.
 - A class that has ended accepts no change except the teacher's hearts,
-  checked on the server with the write.
-- Ending a class and writing its record are one transaction, and a record is
-  unique per session by a database constraint, so it is written exactly once.
+  checked in the same command as the write.
+- Ending a class and writing its record are one command, and a record exists
+  once per session. An ended class without a record (a failed write) is
+  repaired by the hub's alarm, since the page has no "end" button left to press.
 - "Is this lesson in use by a running class" and its removal are one
-  transaction, and starting a class re-checks its lesson, class and teacher
-  in the write, so none can be removed between the check and the start.
+  command, and starting a class re-checks its lesson, class and teacher in the
+  same command, so none can be removed between the check and the start.
 - An answer, a roll change or a group change is written only if the class is
-  still live in the same statement, so none can land after the record was
-  built. An ended class without a record (a failed write) is repaired by a
-  job, since the page has no "end" button left to press.
-- Times (`startedAt`, an answer's or a heart's `at`) are the server's, not
-  the device's.
+  still live, checked in the same command, so none can land after the record
+  was built.
+- Every clock is the server's: `startedAt`, an answer's or a heart's `at`,
+  the notice before a clearing, and the moment a clearing is due. Weeks and
+  months come from the domain's school clock (`domain/periods.ts`), never from
+  the server's own time zone.
+- The yearly clearing (2.4) runs from the hub's own alarm. It has no signed-in
+  teacher, so it needs a system caller that no remote request can claim; today
+  it is started by a teacher's page. The same alarm repairs records.
+- Internal service methods are not callable remotely. Only the methods listed
+  in one table are; the clearing, the repair of records and the like are
+  absent from it.
 - The full records and cumulative results are for the admin only. Two
   narrower reads are public and projected on the server: the group totals of
   a class list for a period, and one student's own totals, found from the
-  calling device's let-in seat and never from an id it sends. A device's
-  seat is proven by a token the server issued, kept across tabs and days, not
-  by the seat's id, and a student's device never receives other seats' ids.
-  A lesson is checked by the same slide and media rules when it is saved,
-  not only when a file is imported. Sessions stored
-  before the minimum existed have none and use the default; classes ended
-  before records existed have no record and are not counted.
+  calling device's let-in seat and never from an id it sends. A student's
+  device never receives other seats' ids.
+- A lesson is checked by the same slide and media rules when it is saved,
+  not only when a file is imported. Sessions stored before the minimum existed
+  have none and use the default; classes ended before records existed have no
+  record and are not counted.
 - Cumulative results are computed on the server from the records and hearts
-  of one class list, read by index, not by loading whole tables. Weeks and
-  months come from the domain's school clock, never from the server's own
-  time zone; "now" is the server's clock.
+  of one class list, not by loading whole tables. The class's answers, seats
+  and hearts are one row each per class and collection (2.4), so reading them
+  is cheap.
 - The teacher's sign-in is per device and any number of her devices may hold
   one at a time. Two signed-in devices on one class is a test of the server:
   both press "next" together and the class moves one slide; each sees the
   other's reveal, admission, roll change and end without reloading.
-- The functions that change a stored document are pure, so the server can
-  retry them: new ids are made before the update, not inside it.
+- The functions that change a stored document stay pure, and new ids are made
+  before the update, not inside it, so the browser store and the hub's store
+  pass the same tests.
 - What each caller may read: the roll and students' names never reach a
   visitor; a device receives its own group's answers only; the list of all
   classes with their codes and names, the class lists and a session's roster
-  are for the admin.
+  are for the admin; the board without a class code shows a code field and no
+  list of classes (2.8).
 - Values that TypeScript alone guards today (a pacing mode, an answer's
   source and value) are validated where they enter the server.
 
 Done when: a laptop and two phones on different networks, one of them the
 school's own Wi-Fi, run a full session; a signed-out browser, and a browser
 with the password but no code, can neither write nor read anything they should
-not; a simulated class of 30 devices through a whole lesson uses under a tenth
-of each daily free limit; and a deliberately deleted lesson comes back both
-from the 7-day history and from a weekly backup.
+not; the simulated worst day (4 teachers, 4 classes each, 35 students, 4
+classes at once) uses every daily free limit well under half; and a
+deliberately deleted lesson comes back from a weekly backup (and from the
+hub's 30-day history too, if the free plan has it).
 
 **Phase 2: classroom hardening.**
 - Shared-device rotation (reference feature 10).
@@ -946,13 +1157,17 @@ from the 7-day history and from a weekly backup.
 Settled:
 
 1. **Backend and hosting:** Cloudflare's free plan: one Worker serving the
-   site and the server, D1 as the database (2.4). Decided 2026-11-11 in place
-   of Supabase with GitHub Pages, because it does not pause, runs our own
-   rules on a server, and ships site and server as one version.
+   site and the server, and one Durable Object, the hub, holding all the data
+   in its own SQLite storage; no D1 (2.4). Decided 2026-11-11 in place of
+   Supabase with GitHub Pages, because it does not pause, runs our own rules on
+   a server, and ships site and server as one version; the storage design
+   revised 2026-11-12 (commands without database round trips, no 50-call limit,
+   30-day history, one store). GitHub Actions is the only deployer.
 2. **Admin access:** password of 8 characters or more, plus one shared
    authenticator code, both checked on the server.
-3. **Backups:** the database's own 7-day history, plus a weekly export on the
-   weekend with a restore that can be triggered on demand.
+3. **Backups:** the hub's own history where the plan has it, plus a weekly
+   encrypted export on the weekend, fetched from our own export endpoint into
+   a private repository, with a restore that can be triggered on demand (2.7).
 4. **Repository:** public, `missnohafarid-sudo/noha-pearls`; GitHub holds the
    code and runs the checks and the deploy, and no longer hosts the site.
 5. **Student results:** unlocked by showing the answer card to the camera
@@ -984,15 +1199,40 @@ Settled:
     leaving keeps the seat; re-entry by card on a later day and attendance
     per day were considered and left out (2.4).
 16. **Controls:** the site's own, not the browser's (2.4).
+17. **The address:** `https://noha-pearls.miss-noha-farid.workers.dev`. The
+    Pages site only forwards to it (2.4).
+18. **The private repository:** `missnohafarid-sudo/noha-pearls-ops` (2.7).
+19. **Sign-in lasts 7 days** (the owner's choice) in a cookie; a device left
+    signed in stays a teacher's for that week, and replacing an admin secret
+    signs everyone out (2.5).
+20. **Sign-in lock per network address:** five wrong attempts lock that
+    address for 15 minutes, not everyone; a student on the school's network
+    could lock that network, which is accepted (2.5).
+21. **Capacity bar:** 4 teachers, 4 classes each, 35 students, up to 4 classes
+    at once, inside the free plan, proven by a stress test with every daily
+    limit well under half (2.4).
+22. **Group answers:** a group's shared device answers every question; a
+    student's answer is her own, else her group's while she is present
+    (2.4, decided 2026-11-13).
+23. **Clearing class data:** by date range, and yearly at a date the teachers
+    set, never sooner than seven days after it was set; run by the server's
+    alarm once there is a server (2.4).
+24. **Reading rules:** students see classmates' heart counts; the board
+    without a code asks for the code; an unpublished lesson is readable,
+    without its key, by the let-in seats of a class that uses it (2.8).
 
 Still open:
 
-1. **The Cloudflare account:** whose email it is created with (the teacher's,
-   like the repository, is the default), and the `<name>` in the site's
-   address, which is chosen once and is awkward to change. Also the name of
-   the private operations repository.
-2. **The lesson interview's defaults:** it addresses the teacher and students
+1. **The free plan's 30-day rewind and the dashboard's data viewer:** whether
+   the free plan includes them is not stated in Cloudflare's documentation
+   (checked 2026-11-12). Check once on the real account. Nothing depends on
+   the answer (2.7).
+2. **The Worker's configuration as a protected file:** it names the hub's
+   class, and removing that class deletes the data (2.4). When the file is
+   created, the maintainer must add it to the protected list in `AGENTS.md`
+   and to the guard; the list there does not name it yet.
+3. **The lesson interview's defaults:** it addresses the teacher and students
    in the feminine and offers Qatari contexts, as the Zad method does. Say if
    the platform will also serve boys' classes or schools outside Qatar.
-3. **Existing cards:** if the reference class's printed cards are available,
+4. **Existing cards:** if the reference class's printed cards are available,
    phase 2 tests against them; otherwise we print ours (identical encoding).

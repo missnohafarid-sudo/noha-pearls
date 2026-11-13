@@ -22,6 +22,15 @@ export function useAdmin(): boolean {
   );
 }
 
+/** Whether the page can reach its data. */
+export function useConnected(): boolean {
+  const { connection } = useServices();
+  return useSyncExternalStore(
+    (listener) => connection.subscribe(listener),
+    () => connection.isUp(),
+  );
+}
+
 /** A live read whose result depends on who is signed in: it subscribes again when sign-in changes. */
 function useCallerLive<T>(subscribe: Subscribe<T> | null, deps: DependencyList): T | undefined {
   const admin = useAdmin();

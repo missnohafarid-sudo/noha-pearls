@@ -1,5 +1,7 @@
 import { useCallback, useState } from 'react';
 import { t } from '../../i18n';
+import { ConnectionLostError } from '../../services/errorRegistry';
+import { LimitError } from '../../services/LimitError';
 import { LessonError } from '../../services/LessonService';
 import { FolderError } from '../../services/requireFolder';
 import { NameError } from '../../services/requireName';
@@ -7,7 +9,20 @@ import { RetentionError } from '../../services/RetentionService';
 import { RosterError } from '../../services/RosterService';
 import { TeacherError } from '../../services/TeacherService';
 
+const LIMIT_WORDS = {
+  lookups: 'lookups',
+  joins: 'joins',
+  cards: 'cards',
+  'seats-full': 'seatsFull',
+  'hearts-used': 'heartsUsed',
+  'answer-changes': 'answerChanges',
+  'day-used': 'dayUsed',
+  watches: 'watches',
+} as const satisfies Record<LimitError['code'], keyof typeof t.shell.limits>;
+
 function serviceErrorMessage(error: unknown): string {
+  if (error instanceof ConnectionLostError) return t.shell.connection.lost;
+  if (error instanceof LimitError) return t.shell.limits[LIMIT_WORDS[error.code]];
   if (error instanceof LessonError || error instanceof FolderError) return t.lesson.errors[error.code];
   if (error instanceof RetentionError) return t.retention.errors[error.code];
   return error instanceof RosterError || error instanceof TeacherError || error instanceof NameError ? t.roster.errors[error.code] : t.roster.errors.unknown;

@@ -233,3 +233,12 @@
     max-inline-size: none;
   }
 }
+
+.shell__notice {
+  margin: 0;
+  padding: 8px 24px;
+  text-align: center;
+  font-size: 0.95rem;
+  color: var(--gold-ink);
+  background: var(--gold-soft);
+}

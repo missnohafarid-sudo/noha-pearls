@@ -6,6 +6,8 @@ import { RouteLink } from '../routing/useRoute';
 import { useServices } from '../ServicesContext';
 import { PanelHostContext } from './AdminPanel';
 import { AdminUnlock } from './AdminUnlock';
+import { AllowanceNotice } from './AllowanceNotice';
+import { ConnectionNotice } from './ConnectionNotice';
 import { NAV, NavLink } from './NavLink';
 import { NavMenu } from './NavMenu';
 import './shell.css';
@@ -46,6 +48,8 @@ export function AppShell({ route, children }: { route: Route; children: ReactNod
           </div>
         )}
       </header>
+      <ConnectionNotice />
+      <AllowanceNotice />
       {signingIn && <AdminUnlock onClose={() => setSigningIn(false)} />}
       <div className={`shell__body${admin ? ' shell__body--admin' : ''}`}>
         <PanelHostContext.Provider value={panelHost}>

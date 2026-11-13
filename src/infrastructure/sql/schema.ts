@@ -19,6 +19,14 @@ const MIGRATIONS: readonly (readonly string[])[] = [
        PRIMARY KEY (collection, field, value, id)
      ) WITHOUT ROWID`,
   ],
+  [
+    `CREATE TABLE sign_in_attempts (
+       address TEXT NOT NULL PRIMARY KEY, failures INTEGER NOT NULL, last_at INTEGER NOT NULL, locked_until INTEGER NOT NULL
+     ) WITHOUT ROWID`,
+  ],
+  ['CREATE INDEX sign_in_attempts_last_at ON sign_in_attempts (last_at)'],
+  ['CREATE TABLE address_locks (address TEXT NOT NULL PRIMARY KEY, locked_until INTEGER NOT NULL) WITHOUT ROWID'],
+  ['CREATE TABLE daily_writes (day INTEGER NOT NULL PRIMARY KEY, rows INTEGER NOT NULL) WITHOUT ROWID'],
 ];
 
 const SCHEMA_VERSION = 'schema-version';

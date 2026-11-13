@@ -6,7 +6,6 @@ import { browserStorage } from '../infrastructure/storage';
 import { AuthService } from '../services/AuthService';
 import { createDataServices } from '../services/createDataServices';
 import type { CardCodec, Services } from '../services/Services';
-import sampleLesson from '../domain/sampleLesson.json';
 import { ADMIN_PASSWORD_SHA256, ADMIN_TOTP_SECRET, STORAGE_NAMESPACE } from './config';
 import { seedIfEmpty } from '../services/seed';
 
@@ -20,7 +19,7 @@ export async function createServices(): Promise<Services> {
     new StorageEventChangeBus(STORAGE_NAMESPACE, window),
     STORAGE_NAMESPACE,
   );
-  await seedIfEmpty(store, sampleLesson);
+  await seedIfEmpty(store);
 
   // Per-tab memory, so each browser tab behaves as a separate classroom device.
   const tabMemory = browserStorage(sessionStorage);

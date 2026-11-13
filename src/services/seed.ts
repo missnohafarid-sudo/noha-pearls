@@ -2,6 +2,7 @@ import { importLesson } from '../domain/lessonFormat';
 import type { Group, SchoolClass, SiteContent, Student, Teacher } from '../domain/models';
 import { GROUP_COLORS } from '../domain/roster';
 import type { DocumentStore } from '../ports/store';
+import sampleLesson from '../domain/sampleLesson.json';
 
 /** Sample data so a fresh install has something to click through. Invented names only. */
 
@@ -24,7 +25,8 @@ const STUDENT_NAMES = [
   'جود عمر', 'شهد ماجد', 'ميار سعيد', 'تالا فهد', 'غلا ناصر', 'رزان هادي',
 ];
 
-export async function seedIfEmpty(store: DocumentStore, sampleLesson: unknown): Promise<void> {
+/** Fills an empty store with the sample school and lesson: the browser-only mode and the hub's first start both call it. */
+export async function seedIfEmpty(store: DocumentStore): Promise<void> {
   if (await store.get('site', SITE.id)) return;
 
   const groups: Group[] = GROUP_NAMES.map((name, i) => ({ id: `g${i + 1}`, classId: CLASS.id, name, color: GROUP_COLORS[i], order: i + 1 }));

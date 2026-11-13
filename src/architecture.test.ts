@@ -128,7 +128,7 @@ const RULES: Rule[] = [
   },
   {
     name: '2. No Arabic text outside src/i18n and the seed data',
-    applies: (file) => isCode(file) && !inside(file, 'i18n') && file.path !== 'src/app/seed.ts',
+    applies: (file) => isCode(file) && !inside(file, 'i18n') && file.path !== 'src/services/seed.ts',
     pattern: ARABIC_LETTER,
     message: (_match, file) => `${file.path} contains Arabic text. Move the text to src/i18n/<feature>.ts and use t.<feature>.<key>.`,
   },

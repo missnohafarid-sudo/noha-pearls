@@ -8,7 +8,7 @@ import { createDataServices } from '../services/createDataServices';
 import type { CardCodec, Services } from '../services/Services';
 import sampleLesson from '../domain/sampleLesson.json';
 import { ADMIN_PASSWORD_SHA256, ADMIN_TOTP_SECRET, STORAGE_NAMESPACE } from './config';
-import { seedIfEmpty } from './seed';
+import { seedIfEmpty } from '../services/seed';
 
 /**
  * Composition root: the only place that names concrete adapters.

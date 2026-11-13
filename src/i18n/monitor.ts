@@ -1,3 +1,5 @@
+import { common } from './common';
+
 export const monitor = {
   none: 'لا توجد حصة بعد.',
   goSession: 'الذهاب إلى الحصة المباشرة',
@@ -14,6 +16,8 @@ export const monitor = {
   lowerMin: 'أنقصي الحدّ الأدنى',
   raiseMin: 'زيدي الحدّ الأدنى',
   noAnswer: 'لا إجابة',
+  /** What a screen reader and a tooltip say for an answer the group's shared device gave, after what it was. */
+  groupAnswerOf: (what: string) => `${what}: ${common.groupAnswer}`,
   textAnswer: 'إجابة نصية',
   groupAnswers: 'إجابات المجموعة',
   noGroupAnswers: 'لا أسئلة جماعية.',

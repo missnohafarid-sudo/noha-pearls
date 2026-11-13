@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { findAnswer, nextManualChoice, subjectFor, tallyAnswerers } from '../../domain/answering';
+import { effectiveAnswer, nextManualChoiceFor, tallyAnswerers } from '../../domain/answering';
 import { tallyChoices } from '../../domain/analytics';
 import type { Answer, ChoiceSlide, Participant, Session, SessionRoster, Student } from '../../domain/models';
 import { choiceLetter, t } from '../../i18n';
@@ -45,7 +45,7 @@ function ScanResults({ session, slide, roster, participants, answers, forget }: 
   const { answered, expected } = tallyAnswerers(slide, roster, participants, answers);
 
   const cycle = (student: Student) => {
-    const next = nextManualChoice(currentChoice(answers, slide, student), slide.options.length);
+    const next = nextManualChoiceFor(effectiveAnswer(roster, answers, slide, student.id), slide.options.length);
     // Whatever the hand did, the camera may read this card again afterwards.
     const done = next === null
       ? answerService.clearForStudent(session.id, slide.id, student.id)
@@ -72,12 +72,14 @@ function ScanResults({ session, slide, roster, participants, answers, forget }: 
       <p className="muted">{t.scanner.manualHint}</p>
       <ul className="list-reset stack--tight stack">
         {roster.students.map((student) => {
-          const choice = currentChoice(answers, slide, student);
+          const found = effectiveAnswer(roster, answers, slide, student.id);
+          const choice = typeof found?.answer.value === 'number' ? found.answer.value : null;
           return (
             <li key={student.id}>
               <button type="button" className="btn scanner__student" onClick={() => cycle(student)}>
                 <span className="chip">{student.cardNumber}</span>
                 <span className="scanner__student-name">{student.name}</span>
+                {found?.from === 'group' && <span className="chip">{t.common.groupAnswer}</span>}
                 <strong>{choice === null ? t.scanner.noAnswer : choiceLetter(choice)}</strong>
               </button>
             </li>
@@ -86,11 +88,4 @@ function ScanResults({ session, slide, roster, participants, answers, forget }: 
       </ul>
     </aside>
   );
-}
-
-/** The option a student currently has on this question, or null. */
-function currentChoice(answers: readonly Answer[], slide: ChoiceSlide, student: Student): number | null {
-  const subject = subjectFor(slide, { groupId: student.groupId, studentId: student.id });
-  const value = findAnswer(answers, slide.id, subject)?.value;
-  return typeof value === 'number' ? value : null;
 }

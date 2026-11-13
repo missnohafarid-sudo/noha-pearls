@@ -7,6 +7,7 @@ import { classesSteps } from './steps/classes';
 import { dialogsSteps } from './steps/dialogs';
 import { endOfClassSteps } from './steps/endOfClass';
 import { engagementSteps } from './steps/engagement';
+import { groupAnswersSteps } from './steps/groupAnswers';
 import { foldersSteps } from './steps/folders';
 import { lessonEditingSteps } from './steps/lessonEditing';
 import { liveClassSteps } from './steps/liveClass';
@@ -60,6 +61,7 @@ describe('walkthrough', () => {
   twoClassesSteps(world);
   classCardsSteps(world);
   scoringSteps(world);
+  groupAnswersSteps(world);
   scanningSteps(world);
   visitorBoardSteps(world);
   attendanceSteps(world);

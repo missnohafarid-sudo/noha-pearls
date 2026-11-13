@@ -73,7 +73,7 @@ function earned(slides: readonly QuestionSlide[], scope: AnswerScope, answerOf: 
     }, 0);
 }
 
-/** A student's points from the answers that count for her (`effectiveAnswer`). */
+/** A student's points from the answers that count for her (`effectiveAnswer`): her own, else her group's. */
 export function studentPoints(lesson: Lesson, roster: AttendedRoster, studentId: Id, answers: readonly Answer[], keys: KeySource): number {
   return earned(questionSlides(lesson), 'individual', (slide) => effectiveAnswer(roster, answers, slide, studentId)?.answer ?? null, keys);
 }

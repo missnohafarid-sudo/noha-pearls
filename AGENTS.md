@@ -56,7 +56,7 @@ A teacher. She is not a programmer and cannot judge your code.
 | Which folders a reader sees, and the folder a page shows for a requested one | `domain/folders.ts` |
 | Where an item may be put (by drag or by the move dialog), and repairing a stored folder tree | `domain/folders.ts` |
 | Drag wiring (what carries a drag, what is dropped on) | `ui/library/useDragMove.tsx` |
-| Who may answer what, text length limit | `domain/answering.ts` |
+| Who may answer what, whose answer counts for a student (her own, else her group's shared device's), text length limit | `domain/answering.ts` |
 | Who has answered the slide on screen, group by group (the pearl panel) | `domain/answering.ts` (`answerStatusByGroup`) |
 | Marking and group scores | `domain/scoring.ts` |
 | Pearls a group has earned | `domain/scoring.ts` |
@@ -73,7 +73,7 @@ A teacher. She is not a programmer and cannot judge your code.
 | What class data is cleared and when: a date range, the end of the school year | `domain/retention.ts` |
 | Cumulative results of a class list over a period, and what anyone may see of them: group totals, one student's own line | `domain/standings.ts` |
 | Who may give a heart (the teacher's, live or ended; a student's, live only) | `domain/rewards.ts` |
-| Who is let into a class, one device per name, and where a returning device lands | `domain/admission.ts` |
+| Who is let into a class, one device per name, who joins the roll when a device is let in (a shared device brings its whole group), and where a returning device lands | `domain/admission.ts` |
 | Who is here: the roll, and who counts in tallies and scores | `domain/attendance.ts` |
 | A session's minimum of interactions, and who is unresponsive | `domain/engagement.ts` |
 | A class session: live or ended, starting one, which one a page shows, and what a running class keeps from being removed (its class list, teacher, lesson) | `domain/sessions.ts` |

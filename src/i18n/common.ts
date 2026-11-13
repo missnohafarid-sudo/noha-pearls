@@ -20,6 +20,9 @@ export const common = {
   decrease: 'إنقاص',
   increase: 'زيادة',
   hearts: 'قلوب',
+  /** The one name of an answer a group's shared device gave: to the teacher, and to the student it counts for. */
+  groupAnswer: 'إجابة المجموعة',
+  yourGroupAnswer: 'إجابة مجموعتكِ',
   /** What a screen reader says for a heart count: whose hearts, then how many. */
   heartsOf: (owner: string, count: number) => `قلوب ${isolate(owner)}: ${count}`,
   sessionLive: 'الحصة جارية',

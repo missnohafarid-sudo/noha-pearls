@@ -43,7 +43,10 @@ export function MyResults({ student, group, report, hearts, onHide, children }: 
         {report.results.map((result) => (
           <li key={result.slide.id} className="board__result">
             <strong>{result.slide.title}</strong>
-            <span className="board__answer">{result.answer && <AnswerLabel slide={result.slide} answer={result.answer} />}</span>
+            <span className="board__answer">
+              {result.answer && <AnswerLabel slide={result.slide} answer={result.answer} />}
+              {result.byGroup && <span className="muted board__by-group">{t.common.yourGroupAnswer}</span>}
+            </span>
             <VerdictChip verdict={result.verdict}>{t.board.verdict[result.verdict]}</VerdictChip>
           </li>
         ))}

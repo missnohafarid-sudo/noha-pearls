@@ -28,7 +28,8 @@ export class AnswerService {
   }
 
   /**
-   * This device answers for its own student, or for its group on a group question. Judged on the seat the device
+   * This device answers for its own student, or for its group on a group question or when it is a shared group
+   * device (whose answer then stands for the group's students, see `effectiveAnswer`). Judged on the seat the device
    * holds as stored, in the group her student is in now: a device that has not been let in cannot answer.
    * Returns false when not accepted.
    */
@@ -63,8 +64,9 @@ export class AnswerService {
   async clearForStudent(sessionId: Id, slideId: Id, studentId: Id): Promise<void> {
     requireAdmin(this.caller);
     const [student, question] = await Promise.all([this.studentOf(sessionId, studentId), this.openQuestion(sessionId, slideId, true)]);
-    const subject = student && question && subjectFor(question, { groupId: student.groupId, studentId: student.id });
-    if (subject) await this.store.remove('answers', answerId(sessionId, slideId, subject));
+    if (student && question) {
+      await this.store.remove('answers', answerId(sessionId, slideId, subjectFor(question, { groupId: student.groupId, studentId: student.id })));
+    }
   }
 
   private async studentOf(sessionId: Id, studentId: Id): Promise<Student | null> {
@@ -80,7 +82,7 @@ export class AnswerService {
   ): Promise<boolean> {
     const subject = subjectFor(question, answerer);
     const normalized = normalizeAnswerValue(question, value);
-    if (!subject || normalized === null) return false;
+    if (normalized === null) return false;
     await this.store.put('answers', {
       id: answerId(sessionId, question.id, subject),
       sessionId,

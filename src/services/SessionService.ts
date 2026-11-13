@@ -115,8 +115,8 @@ export class SessionService {
     requireAdmin(this.caller);
     const lesson = await this.lessonOf(sessionId);
     if (!lesson) return;
-    const answers = await this.store.list('answers', { sessionId });
-    await this.store.update('sessions', sessionId, (current) => (acceptsChanges(current) ? withMinInteractions(current, lesson, answers, value) : current));
+    const [roster, answers] = await Promise.all([this.rosters.rosterOf(sessionId), this.store.list('answers', { sessionId })]);
+    await this.store.update('sessions', sessionId, (current) => (acceptsChanges(current) ? withMinInteractions(current, lesson, roster, answers, value) : current));
   }
 
   /** The lesson of the stored session; read before an update, never inside its change function. */

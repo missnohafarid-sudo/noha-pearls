@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { seatAnswerer } from '../domain/admission';
+import { effectiveAnswer } from '../domain/answering';
 import { newId } from '../domain/ids';
 import { dateOf, inPeriod, periodAt, SCHOOL_UTC_OFFSET_MS } from '../domain/periods';
 import type { Answer, ChoiceSlide, Id, Lesson, Reward, Student, TextSlide } from '../domain/models';
@@ -227,10 +228,41 @@ describe('a live class', () => {
     expect(await answers.submitFromDevice(second.id, 'q1', 1)).toBe(false);
   });
 
-  it('refuses a shared group device on an individual question', async () => {
+  it('lets a shared group device answer an individual question for its group', async () => {
     const session = await begin();
     const { answers } = await seated(session.id, 'g1', null);
+    expect(await answers.submitFromDevice(session.id, 'q1', 0)).toBe(true);
+    const stored = await ctx.store.list('answers', { sessionId: session.id });
+    expect(stored.map((a) => ({ subject: a.subject, slideId: a.slideId, value: a.value }))).toEqual([{ subject: { kind: 'group', id: 'g1' }, slideId: 'q1', value: 0 }]);
+  });
+
+  it('refuses a shared group device on an individual question after the reveal, like any answer', async () => {
+    const session = await begin();
+    const { answers } = await seated(session.id, 'g1', null);
+    await ctx.sessions.reveal(session.id, 'q1');
     expect(await answers.submitFromDevice(session.id, 'q1', 0)).toBe(false);
+    expect(await ctx.store.list('answers', { sessionId: session.id })).toEqual([]);
+  });
+
+  it('keeps one group answer per question, changeable, and answering leaves the roll as the admission made it', async () => {
+    const session = await begin();
+    const { answers } = await seated(session.id, 'g1', null);
+    const roll = (await ctx.store.get('rosters', session.id))!.present;
+    expect(await answers.submitFromDevice(session.id, 'q1', 0)).toBe(true);
+    expect(await answers.submitFromDevice(session.id, 'q1', 1)).toBe(true);
+    const stored = await ctx.store.list('answers', { sessionId: session.id });
+    expect(stored.map((a) => a.value)).toEqual([1]);
+    expect((await ctx.store.get('rosters', session.id))!.present).toEqual(roll);
+  });
+
+  it('keeps a named student answer beside the group answer of her shared device', async () => {
+    const session = await begin();
+    const shared = await seated(session.id, 'g1', null);
+    const named = await seated(session.id, 'g1', 's1');
+    await shared.answers.submitFromDevice(session.id, 'q1', 0);
+    await named.answers.submitFromDevice(session.id, 'q1', 1);
+    const stored = await ctx.store.list('answers', { sessionId: session.id });
+    expect(stored.map((a) => [a.subject.kind, a.subject.id, a.value]).sort()).toEqual([['group', 'g1', 0], ['student', 's1', 1]]);
   });
 
   it('applies overlapping commands to the stored session without losing one', async () => {
@@ -1087,7 +1119,7 @@ describe('a live class', () => {
       await ctx.participants('c').join(everyone.id, 'g2', 's2');
       await ctx.participants('d').join(everyone.id, 'g1', null);
       await ctx.admission.admitAll(everyone.id);
-      expect((await rollOf(everyone.id))!.slice().sort()).toEqual(['s1', 's2']);
+      expect((await rollOf(everyone.id))!.slice().sort()).toEqual(['s1', 's2', 's3']);
 
       const carded = await begin();
       await ctx.participants('e').join(carded.id, 'g2', 's2');
@@ -1095,11 +1127,67 @@ describe('a live class', () => {
       expect(await rollOf(carded.id)).toEqual(['s2']);
     });
 
-    it('does not start a roll for a shared device let in', async () => {
-      const session = await begin();
-      const seat = (await ctx.participants('shared').join(session.id, 'g1', null))!;
-      await ctx.admission.admit(seat.id, null);
-      expect(await rollOf(session.id)).toBeNull();
+    describe('a shared device of a group', () => {
+      const sorted = async (sessionId: string) => (await rollOf(sessionId))!.slice().sort();
+      const askShared = async (sessionId: string, groupId: string) => (await ctx.participants(`shared-${groupId}`).join(sessionId, groupId, null))!;
+
+      it('puts exactly the students of its group on the roll when it is let in, starting a roll if none was taken', async () => {
+        const session = await begin();
+        await ctx.admission.admit((await askShared(session.id, 'g1')).id, null);
+        expect(await sorted(session.id)).toEqual(['s1', 's3']);
+      });
+
+      it('adds its group to a roll that exists and leaves the others on it', async () => {
+        const session = await begin();
+        await ctx.admission.takeRoll(session.id, ['s2']);
+        await ctx.admission.admit((await askShared(session.id, 'g1')).id, null);
+        expect(await sorted(session.id)).toEqual(['s1', 's2', 's3']);
+      });
+
+      it('puts the groups of every shared device that let everyone in admits on the roll, and a group without one stays off', async () => {
+        const session = await begin();
+        await askShared(session.id, 'g2');
+        await ctx.admission.admitAll(session.id);
+        expect(await sorted(session.id)).toEqual(['s2']);
+      });
+
+      it('is not admitted by the card sweep, which marks only the cards seen', async () => {
+        const session = await begin();
+        const seat = await askShared(session.id, 'g1');
+        await ctx.admission.takeRoll(session.id, ['s2']);
+        expect((await ctx.store.get('participants', seat.id))!.admitted).toBe(false);
+        expect(await sorted(session.id)).toEqual(['s2']);
+      });
+
+      it('leaves a student the teacher marks absent afterwards off the roll, also when the device is let in again', async () => {
+        const { sessionRoster } = ctx;
+        const session = await begin();
+        const seat = await askShared(session.id, 'g1');
+        await ctx.admission.admit(seat.id, null);
+        expect(await sessionRoster.markAbsent(session.id, 's3')).toBe(true);
+        expect(await sorted(session.id)).toEqual(['s1']);
+        await ctx.admission.admit(seat.id, null);
+        expect(await sorted(session.id)).toEqual(['s1']);
+      });
+
+      it('changes nothing on the roll when it is removed', async () => {
+        const session = await begin();
+        const seat = await askShared(session.id, 'g1');
+        await ctx.admission.admit(seat.id, null);
+        await ctx.admission.remove(seat.id);
+        expect(await sorted(session.id)).toEqual(['s1', 's3']);
+      });
+
+      it('covers the present students of its group when it answers an individual question, and not one marked absent', async () => {
+        const session = await begin();
+        const { answers } = await seated(session.id, 'g1', null);
+        await ctx.sessionRoster.markAbsent(session.id, 's3');
+        await answers.submitFromDevice(session.id, 'q1', 0);
+        const roster = (await ctx.store.get('rosters', session.id))!;
+        const stored = await ctx.store.list('answers', { sessionId: session.id });
+        const covered = roster.students.filter((student) => effectiveAnswer(roster, stored, question, student.id) !== null);
+        expect(covered.map((student) => student.id)).toEqual(['s1']);
+      });
     });
 
     it('adds a student whose answer the teacher enters to a roll that exists, but starts none', async () => {

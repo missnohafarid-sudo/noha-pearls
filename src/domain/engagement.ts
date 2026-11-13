@@ -5,9 +5,11 @@ import { questionSlides } from './scoring';
 
 /**
  * The single home for a session's minimum of interactions and for who is unresponsive.
- * An interaction is a student's own answer to an individual question; a group question's answer belongs to the group.
- * An individual question counts in a session while it still takes answers or once any student has answered it,
- * so a question the class never got to, or that nobody answered before it closed, is held against no one.
+ * An interaction is the answer that counts for a student on an individual question (`effectiveAnswer`: her own, else her group's
+ * shared device's); a group question's answer belongs to the group.
+ * An individual question counts in a session while it still takes answers or once an answer counts for some present
+ * student (`isAnswered`), so a question the class never got to, or that nobody who counts answered before it closed,
+ * is held against no one.
  */
 
 /** How many individual questions a student may leave unanswered before she is short of the default minimum. */
@@ -18,12 +20,12 @@ export function individualQuestions(lesson: Lesson): QuestionSlide[] {
 }
 
 /** The individual questions that count in this session, in lesson order. */
-export function countingQuestions(session: Session, lesson: Lesson, answers: readonly Answer[]): QuestionSlide[] {
-  return individualQuestions(lesson).filter((slide) => canAnswer(session, slide) || isAnswered(slide, answers));
+export function countingQuestions(session: Session, lesson: Lesson, roster: AttendedRoster, answers: readonly Answer[]): QuestionSlide[] {
+  return individualQuestions(lesson).filter((slide) => canAnswer(session, slide) || isAnswered(slide, roster, answers));
 }
 
-export function possibleInteractions(session: Session, lesson: Lesson, answers: readonly Answer[]): number {
-  return countingQuestions(session, lesson, answers).length;
+export function possibleInteractions(session: Session, lesson: Lesson, roster: AttendedRoster, answers: readonly Answer[]): number {
+  return countingQuestions(session, lesson, roster, answers).length;
 }
 
 function defaultMinimum(possible: number): number {
@@ -35,8 +37,8 @@ function clamped(possible: number, value: number): number {
 }
 
 /** The minimum the session asks for: the one the teacher set (absent in the default and in older sessions), else the default, within what can be answered. */
-export function minInteractions(session: Session, lesson: Lesson, answers: readonly Answer[]): number {
-  const possible = possibleInteractions(session, lesson, answers);
+export function minInteractions(session: Session, lesson: Lesson, roster: AttendedRoster, answers: readonly Answer[]): number {
+  const possible = possibleInteractions(session, lesson, roster, answers);
   return clamped(possible, session.minInteractions ?? defaultMinimum(possible));
 }
 
@@ -44,9 +46,9 @@ export function minInteractions(session: Session, lesson: Lesson, answers: reado
  * The session with the teacher's minimum applied. A value that is not a finite number changes nothing.
  * The default is not stored, so it goes on following the questions that count.
  */
-export function withMinInteractions(session: Session, lesson: Lesson, answers: readonly Answer[], value: number): Session {
+export function withMinInteractions(session: Session, lesson: Lesson, roster: AttendedRoster, answers: readonly Answer[], value: number): Session {
   if (!Number.isFinite(value)) return session;
-  const possible = possibleInteractions(session, lesson, answers);
+  const possible = possibleInteractions(session, lesson, roster, answers);
   const wanted = clamped(possible, value);
   const { minInteractions: _replaced, ...rest } = session;
   return wanted === defaultMinimum(possible) ? rest : { ...rest, minInteractions: wanted };
@@ -64,6 +66,6 @@ export function interactionsOf(lesson: Lesson, roster: AttendedRoster, answers: 
  */
 export function isUnresponsive(session: Session, lesson: Lesson, roster: AttendedRoster, answers: readonly Answer[], studentId: Id): boolean {
   if (!isPresent(roster, studentId)) return false;
-  const reachable = countingQuestions(session, lesson, answers).filter((slide) => effectiveAnswer(roster, answers, slide, studentId) !== null || canAnswer(session, slide));
-  return reachable.length < minInteractions(session, lesson, answers);
+  const reachable = countingQuestions(session, lesson, roster, answers).filter((slide) => effectiveAnswer(roster, answers, slide, studentId) !== null || canAnswer(session, slide));
+  return reachable.length < minInteractions(session, lesson, roster, answers);
 }

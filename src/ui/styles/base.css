@@ -194,6 +194,13 @@ textarea {
   white-space: nowrap;
 }
 
+.group-glyph {
+  inline-size: 1em;
+  block-size: 0.75em;
+  margin-inline-start: 4px;
+  fill: currentColor;
+}
+
 .chip--accent {
   background: var(--accent-soft);
   color: var(--accent);

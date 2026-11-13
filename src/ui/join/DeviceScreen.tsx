@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { canAnswer, findAnswer, isQuestion, subjectFor } from '../../domain/answering';
+import { answersForWholeGroup, canAnswer, deviceAnswer, isQuestion } from '../../domain/answering';
 import { RewardIndex } from '../../domain/analytics';
 import { seatAnswerer } from '../../domain/admission';
 import type { Group, Participant, Session, SessionRoster } from '../../domain/models';
@@ -104,8 +104,9 @@ export function DeviceScreen({ session, group, participant, roster, onChooseName
   const heartTargets = peerRewardTargets(session, participant, roster.students);
   const message = messageFor(session, group.id);
   const slide = view.state === 'slide' ? lesson.slides[view.slideIndex] : null;
-  const subject = slide && isQuestion(slide) ? subjectFor(slide, seatAnswerer(participant, roster.students)) : null;
-  const open = slide !== null && subject !== null && canAnswer(session, slide);
+  const question = slide && isQuestion(slide) ? slide : null;
+  const shown = question && deviceAnswer(roster, answers, question, seatAnswerer(participant, roster.students));
+  const open = question !== null && canAnswer(session, question);
 
   return (
     <div className="stack">
@@ -120,16 +121,13 @@ export function DeviceScreen({ session, group, participant, roster, onChooseName
       )}
       {slide && (
         <>
-          {isQuestion(slide) && subject === null && <p className="notice">{t.join.needNameToAnswer}</p>}
+          {open && answersForWholeGroup(question, participant) && <p className="notice">{t.join.answersForWholeGroup}</p>}
+          {shown?.coveredByGroup && <p className="notice">{open ? t.join.groupAnswered : t.join.groupAnswerKept}</p>}
           <SlideView
             slide={slide}
-            answer={isQuestion(slide) ? (findAnswer(answers, slide.id, subject)?.value ?? null) : null}
+            answer={shown?.answer.value ?? null}
             reveal={session.reveals[slide.id] ?? null}
-            onAnswer={
-              open && subject
-                ? (value) => void answerService.submitFromDevice(session.id, slide.id, value)
-                : null
-            }
+            onAnswer={open ? (value) => void answerService.submitFromDevice(session.id, slide.id, value) : null}
           />
         </>
       )}

@@ -1,6 +1,6 @@
 import { admittedDevices } from './admission';
 import { isPresent } from './attendance';
-import { countedAnswers, effectiveAnswer, findAnswer, subjectKey } from './answering';
+import { countedAnswers, effectiveAnswer, findAnswer, subjectKey, type EffectiveAnswer } from './answering';
 import { individualQuestions, interactionsOf, isUnresponsive } from './engagement';
 import type {
   Answer,
@@ -48,6 +48,8 @@ export interface MonitorCell {
   slide: QuestionSlide;
   answer: Answer | null;
   verdict: Verdict | 'none';
+  /** True when the answer is her group's shared device's, not her own. Never true for a group question's cell. */
+  byGroup: boolean;
 }
 
 export interface MonitorRow {
@@ -73,8 +75,12 @@ export interface MonitorGroup {
   groupCells: MonitorCell[];
 }
 
-function cell(slide: QuestionSlide, answer: Answer | null, keys: KeySource): MonitorCell {
-  return { slide, answer, verdict: answer ? verdictFor(slide, answer, keys) : 'none' };
+function cell(slide: QuestionSlide, answer: Answer | null, byGroup: boolean, keys: KeySource): MonitorCell {
+  return { slide, answer, verdict: answer ? verdictFor(slide, answer, keys) : 'none', byGroup };
+}
+
+function studentCell(slide: QuestionSlide, found: EffectiveAnswer | null, keys: KeySource): MonitorCell {
+  return cell(slide, found?.answer ?? null, found?.from === 'group', keys);
 }
 
 export function buildMonitor(
@@ -103,9 +109,9 @@ export function buildMonitor(
         points: studentPoints(lesson, roster, student.id, answers, keys),
         answered: interactionsOf(lesson, roster, answers, student.id),
         unresponsive: isUnresponsive(session, lesson, roster, answers, student.id),
-        cells: individual.map((slide) => cell(slide, effectiveAnswer(roster, answers, slide, student.id)?.answer ?? null, keys)),
+        cells: individual.map((slide) => studentCell(slide, effectiveAnswer(roster, answers, slide, student.id), keys)),
       })),
-    groupCells: shared.map((slide) => cell(slide, findAnswer(answers, slide.id, { kind: 'group', id: group.id }), keys)),
+    groupCells: shared.map((slide) => cell(slide, findAnswer(answers, slide.id, { kind: 'group', id: group.id }), false, keys)),
   }));
 }
 
@@ -113,6 +119,8 @@ export interface StudentResult {
   slide: QuestionSlide;
   answer: Answer | null;
   verdict: Verdict | 'none';
+  /** True when the answer is her group's shared device's, not her own. */
+  byGroup: boolean;
 }
 
 export interface StudentReport {
@@ -133,10 +141,10 @@ export function studentReport(
   const keys = publishedKeys(session);
   let points = 0;
   const results = individualQuestions(lesson).map((slide): StudentResult => {
-    const answer = effectiveAnswer(roster, answers, slide, student.id)?.answer ?? null;
-    if (!answer) return { slide, answer, verdict: 'none' };
-    points += pointsFor(slide, answer, keys);
-    return { slide, answer, verdict: verdictFor(slide, answer, keys) };
+    const found = effectiveAnswer(roster, answers, slide, student.id);
+    if (!found) return { slide, answer: null, verdict: 'none', byGroup: false };
+    points += pointsFor(slide, found.answer, keys);
+    return { slide, answer: found.answer, verdict: verdictFor(slide, found.answer, keys), byGroup: found.from === 'group' };
   });
   return { points, results };
 }

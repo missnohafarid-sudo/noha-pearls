@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { admittedDevices, awaitingAdmission, contestedRequestNumber, seatGroupId, seatsForBulkAdmission } from '../../domain/admission';
+import { admittedDevices, awaitingAdmission, isAdmitted, contestedRequestNumber, seatGroupId, seatsForBulkAdmission } from '../../domain/admission';
 import type { Id, Participant, SessionRoster } from '../../domain/models';
 import { presentStudents, rollTaken } from '../../domain/attendance';
 import { groupById, studentById } from '../../domain/roster';
@@ -31,7 +31,7 @@ export function AdmissionPanel({ sessionId, participants, roster, onScan }: Admi
   );
 
   const whoIs = (device: Participant): string => {
-    if (device.studentId === null) return t.join.sharedDeviceLabel;
+    if (device.studentId === null) return isAdmitted(device) ? t.join.sharedDeviceLabel : t.join.sharedDevice;
     return studentById(students, device.studentId)?.name ?? t.session.admission.unknownStudent;
   };
 
@@ -53,6 +53,7 @@ export function AdmissionPanel({ sessionId, participants, roster, onScan }: Admi
         <span>{whoIs(device)}</span>
         <span className="chip">{groupById(groups, seatGroupId(device, students))?.name}</span>
         {contestedChips(device)}
+        {device.studentId === null && !isAdmitted(device) && <span className="chip chip--accent">{t.session.admission.answersForGroup}</span>}
       </span>
       {action}
     </li>
@@ -84,6 +85,7 @@ export function AdmissionPanel({ sessionId, participants, roster, onScan }: Admi
           )}
         </ul>
       )}
+      {waiting.some((device) => device.studentId === null) && <p className="muted">{t.session.admission.sharedNote}</p>}
       {bulk.length >= 2 && (
         <button type="button" className="btn btn--small" onClick={() => void admission.admitAll(sessionId)}>
           {t.session.admission.admitAll}

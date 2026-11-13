@@ -61,8 +61,8 @@ export function sightingChangesAnything(roster: AttendedRoster, participants: re
 }
 
 /**
- * The groups a group question counts: those with a present member, those with a device let in (named or shared,
- * where a shared one marks nobody on the roll), and those that have answered it already.
+ * The groups a group question counts: those with a present member, those with a device let in (named or shared; a group
+ * whose students the teacher then marked all absent still has its device), and those that have answered it already.
  */
 export function countedGroups(roster: AttendedRoster, participants: readonly Participant[], answeredGroupIds: ReadonlySet<Id>): Group[] {
   const withPresentMember = new Set(presentGroups(roster).map((group) => group.id));

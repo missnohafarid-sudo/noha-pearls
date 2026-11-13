@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { admittedDevices, awaitingAdmission, canClaimSeat, contestedRequestNumber, isAdmitted, isNameHeldElsewhere, isSeatOfGroupPage, joinLanding, namesHeldByOthers, returnGroupId, seatAnswerer, requestNumber, seatGroupId, seatLoss, seatsDisplacedBy, seatsForBulkAdmission, seatsForCards, seatsNeedingTap } from './admission';
+import { admittedDevices, awaitingAdmission, canClaimSeat, contestedRequestNumber, isAdmitted, isNameHeldElsewhere, isSeatOfGroupPage, joinLanding, namesHeldByOthers, returnGroupId, seatAnswerer, requestNumber, seatGroupId, seatLoss, seatsDisplacedBy, seatsForBulkAdmission, seatsForCards, seatsNeedingTap, studentsJoiningRoll } from './admission';
 import { addToRoll, countedGroups, isOnRoll, isPresent, joinRoll, markAbsent, presentGroups, presentStudents, rollTaken, sightingChangesAnything } from './attendance';
 import { buildMonitor, RewardIndex, studentReport, tallyChoices } from './analytics';
-import { answerStatusByGroup, canAnswer, canScanCards, nextManualChoice, normalizeAnswerValue, subjectFor, tallyAnswerers } from './answering';
+import { answersForWholeGroup, answerStatusByGroup, canAnswer, canScanCards, deviceAnswer, effectiveAnswer, nextManualChoice, nextManualChoiceFor, normalizeAnswerValue, subjectFor, tallyAnswerers } from './answering';
 import { CardReadStabilizer, choiceFromCorners, presenceReadings, type Point } from './cards';
 import { toAsciiDigits } from './digits';
 import { removeOption } from './choices';
@@ -23,7 +23,7 @@ import { inPeriod, periodAt, periodDates, shiftPeriod, SCHOOL_UTC_OFFSET_MS } fr
 import { classRecord } from './records';
 import { ownStanding, recordsIn, standings } from './standings';
 import { nextOrder, onlyOne, sortByOrder } from './lists';
-import { optionMark, pearlsEarned, PEARL_COUNT, pointsFor, publishedKeys, rankScores, scoreboard, teacherKeys, verdictFor } from './scoring';
+import { optionMark, pearlsEarned, PEARL_COUNT, pointsFor, publishedKeys, rankScores, scoreboard, studentPoints, teacherKeys, verdictFor } from './scoring';
 
 const choice: ChoiceSlide = {
   id: 'q1', kind: 'choice', title: 'س', tag: '', prompt: '؟', options: ['a', 'b', 'c'],
@@ -488,7 +488,7 @@ describe('answering rules', () => {
   it('decides who a device answers for', () => {
     expect(subjectFor(groupText, { groupId: 'g1', studentId: null })).toEqual({ kind: 'group', id: 'g1' });
     expect(subjectFor(choice, { groupId: 'g1', studentId: 's1' })).toEqual({ kind: 'student', id: 's1' });
-    expect(subjectFor(choice, { groupId: 'g1', studentId: null })).toBeNull();
+    expect(subjectFor(choice, { groupId: 'g1', studentId: null })).toEqual({ kind: 'group', id: 'g1' });
   });
 
   it('offers card scanning for individual choice questions only', () => {
@@ -1424,67 +1424,81 @@ describe('engagement', () => {
     const three = lessonOf(3);
 
     it('counts a question that still takes answers', () => {
-      expect(ids(countingQuestions(session, three, []))).toEqual(['i0', 'i1', 'i2']);
-      expect(possibleInteractions(session, three, [])).toBe(3);
+      expect(ids(countingQuestions(session, three, everyone, []))).toEqual(['i0', 'i1', 'i2']);
+      expect(possibleInteractions(session, three, everyone, [])).toBe(3);
     });
 
     it('counts a closed question a student answered, and not one nobody answered', () => {
       const closed = revealing(session, 'i0', 'i1');
-      expect(ids(countingQuestions(closed, three, given('s2', ['i0'])))).toEqual(['i0', 'i2']);
-      expect(ids(countingQuestions(revealing(ended, 'i0'), three, given('s2', ['i1'])))).toEqual(['i1']);
+      expect(ids(countingQuestions(closed, three, everyone, given('s2', ['i0'])))).toEqual(['i0', 'i2']);
+      expect(ids(countingQuestions(revealing(ended, 'i0'), three, everyone, given('s2', ['i1'])))).toEqual(['i1']);
     });
 
-    it('never counts a group question, answered or not', () => {
-      expect(ids(countingQuestions(session, three, [answer('q2', 'group', 'g1', 'ن')]))).toEqual(['i0', 'i1', 'i2']);
-      expect(ids(countingQuestions(ended, three, [answer('i0', 'group', 's1', 0)]))).toEqual([]);
+    it('never counts a group question, and counts an individual one only once an answer, even the shared device\'s, stands for a present student', () => {
+      expect(ids(countingQuestions(session, three, everyone, [answer('q2', 'group', 'g1', 'ن')]))).toEqual(['i0', 'i1', 'i2']);
+      expect(ids(countingQuestions(ended, three, everyone, [answer('q2', 'group', 'g1', 'ن')]))).toEqual([]);
+      expect(ids(countingQuestions(ended, three, everyone, [answer('i0', 'group', 'g1', 0)]))).toEqual(['i0']);
     });
 
     it('counts nothing in an ended class where nobody answered', () => {
-      expect(possibleInteractions(ended, three, [])).toBe(0);
+      expect(possibleInteractions(ended, three, everyone, [])).toBe(0);
     });
   });
 
   it('asks for all but two counting questions by default, never below zero', () => {
-    expect([0, 1, 2, 3, 5].map((count) => minInteractions(session, lessonOf(count), []))).toEqual([0, 0, 0, 1, 3]);
+    expect([0, 1, 2, 3, 5].map((count) => minInteractions(session, lessonOf(count), everyone, []))).toEqual([0, 0, 0, 1, 3]);
   });
 
-  it('counts individual questions only in what a student answered, not the group ones', () => {
+  it('counts an individual question in what she answered or her own group\'s shared device did, never in the group questions or another group\'s answer', () => {
     expect(interactionsOf(lessonOf(3), everyone, [...given('s1', ['i0', 'i2']), answer('q2', 'group', 'g1', 'ن')], 's1')).toBe(2);
-    expect(interactionsOf(lessonOf(3), everyone, [answer('i0', 'group', 's1', 0)], 's1')).toBe(0);
+    expect(interactionsOf(lessonOf(3), everyone, [answer('i0', 'group', 'g1', 0)], 's1')).toBe(1);
+    expect(interactionsOf(lessonOf(3), everyone, [answer('i0', 'group', 'g2', 0)], 's1')).toBe(0);
+  });
+
+  it('does not count a question answered only by a shared device whose group nobody on the roll belongs to, and leaves the default minimum alone', () => {
+    const five = lessonOf(5);
+    const roll = markAbsent(everyone, 's3')!;
+    const revealedAll = revealing(session, 'i0', 'i1', 'i2', 'i3', 'i4');
+    const sharedOfG2 = ['i0', 'i1', 'i2', 'i3', 'i4'].map((id) => answer(id, 'group', 'g2', 0));
+    expect(roll.present).toEqual(['s1', 's2']);
+    expect(ids(countingQuestions(revealedAll, five, roll, sharedOfG2))).toEqual([]);
+    expect(possibleInteractions(revealedAll, five, roll, sharedOfG2)).toBe(0);
+    expect(minInteractions(revealedAll, five, roll, sharedOfG2)).toBe(minInteractions(revealedAll, five, roll, []));
+    expect(ids(countingQuestions(revealedAll, five, everyone, sharedOfG2))).toEqual(['i0', 'i1', 'i2', 'i3', 'i4']);
   });
 
   it('keeps the chosen minimum within zero and the counting questions', () => {
     const five = lessonOf(5);
-    expect(minInteractions({ ...session, minInteractions: 4 }, five, [])).toBe(4);
-    expect(minInteractions({ ...session, minInteractions: 9 }, five, [])).toBe(5);
-    expect(minInteractions({ ...session, minInteractions: -3 }, five, [])).toBe(0);
+    expect(minInteractions({ ...session, minInteractions: 4 }, five, everyone, [])).toBe(4);
+    expect(minInteractions({ ...session, minInteractions: 9 }, five, everyone, [])).toBe(5);
+    expect(minInteractions({ ...session, minInteractions: -3 }, five, everyone, [])).toBe(0);
   });
 
   describe('setting the minimum', () => {
     const five = lessonOf(5);
 
     it('stores a number within zero and the counting questions, rounded', () => {
-      expect(withMinInteractions(session, five, [], 4).minInteractions).toBe(4);
-      expect(withMinInteractions(session, five, [], 9).minInteractions).toBe(5);
-      expect(withMinInteractions(session, five, [], -2).minInteractions).toBe(0);
-      expect(withMinInteractions(session, five, [], 3.6).minInteractions).toBe(4);
+      expect(withMinInteractions(session, five, everyone, [], 4).minInteractions).toBe(4);
+      expect(withMinInteractions(session, five, everyone, [], 9).minInteractions).toBe(5);
+      expect(withMinInteractions(session, five, everyone, [], -2).minInteractions).toBe(0);
+      expect(withMinInteractions(session, five, everyone, [], 3.6).minInteractions).toBe(4);
     });
 
     it('refuses a value that is not a finite number and changes nothing', () => {
       const set = { ...session, minInteractions: 4 };
-      for (const value of [NaN, Infinity, -Infinity]) expect(withMinInteractions(set, five, [], value)).toBe(set);
+      for (const value of [NaN, Infinity, -Infinity]) expect(withMinInteractions(set, five, everyone, [], value)).toBe(set);
     });
 
     it('clears the stored setting when the value is the current default', () => {
       const set = { ...session, minInteractions: 4 };
-      const cleared = withMinInteractions(set, five, [], 3);
+      const cleared = withMinInteractions(set, five, everyone, [], 3);
       expect('minInteractions' in cleared).toBe(false);
-      expect('minInteractions' in withMinInteractions(session, five, [], 3)).toBe(false);
+      expect('minInteractions' in withMinInteractions(session, five, everyone, [], 3)).toBe(false);
     });
 
     it('lets the default go on following the counting questions after it was cleared', () => {
-      const cleared = withMinInteractions({ ...session, minInteractions: 4 }, five, [], 3);
-      expect(minInteractions(revealing(cleared, 'i0', 'i1'), five, [])).toBe(1);
+      const cleared = withMinInteractions({ ...session, minInteractions: 4 }, five, everyone, [], 3);
+      expect(minInteractions(revealing(cleared, 'i0', 'i1'), five, everyone, [])).toBe(1);
     });
   });
 
@@ -1512,7 +1526,7 @@ describe('engagement', () => {
       expect(flagged(stored, everyone, answers)).toBe(false);
       expect(flagged(revealing(stored, 'i0'), everyone, answers)).toBe(false);
       expect(flagged(revealing(stored, 'i0'), everyone, [], 's2')).toBe(false);
-      expect(possibleInteractions(revealing(stored, 'i0'), five, answers)).toBe(4);
+      expect(possibleInteractions(revealing(stored, 'i0'), five, everyone, answers)).toBe(4);
     });
 
     it('is exactly "answered fewer than the minimum" among the questions that counted once the class has ended', () => {
@@ -1524,7 +1538,7 @@ describe('engagement', () => {
     it('asks only for what the class got to when it ended early', () => {
       const eight = lessonOf(8);
       const bySomeone = given('s2', ['i0', 'i1', 'i2', 'i3']);
-      expect(minInteractions(ended, eight, bySomeone)).toBe(2);
+      expect(minInteractions(ended, eight, everyone, bySomeone)).toBe(2);
       const check = (answers: Answer[]) => isUnresponsive(ended, eight, everyone, [...bySomeone, ...answers], 's1');
       expect(check(given('s1', ['i0']))).toBe(true);
       expect(check(given('s1', ['i0', 'i3']))).toBe(false);
@@ -1834,5 +1848,216 @@ describe('typing to jump to an option', () => {
     expect(typeaheadIndex(labels, 0, 'z')).toBe(-1);
     expect(typeaheadIndex(labels, 0, '')).toBe(-1);
     expect(typeaheadIndex([], 0, 'a')).toBe(-1);
+  });
+});
+
+describe('a shared device answering an individual question', () => {
+  const team: Student[] = [
+    ...['a1', 'a2', 'a3', 'a4', 'a5'].map((id, i): Student => ({ id, name: id, cardNumber: i + 1, groupId: 'g1' })),
+    ...['b1', 'b2'].map((id, i): Student => ({ id, name: id, cardNumber: i + 6, groupId: 'g2' })),
+  ];
+  const full: AttendedRoster = { groups, students: team, present: null };
+  const rolled = (present: string[]): AttendedRoster => ({ ...full, present });
+  const groupChoice: ChoiceSlide = { ...choice, id: 'gq', scope: 'group', points: 3 };
+  const mixed: Lesson = { ...lesson, slides: [choice, groupChoice] };
+  const revealed: Session = { ...session, reveals: { q1: { correctIndex: 1, explanation: '' }, gq: { correctIndex: 1, explanation: '' } } };
+  const keys = publishedKeys(revealed);
+  const forGroup = (value: number, groupId = 'g1') => answer('q1', 'group', groupId, value);
+  const own = (studentId: string, value: number) => answer('q1', 'student', studentId, value);
+  const sourceOf = (roster: AttendedRoster, answers: Answer[], studentId: string) => effectiveAnswer(roster, answers, choice, studentId)?.from ?? null;
+  const waitingIds = (statuses: ReturnType<typeof answerStatusByGroup>) =>
+    statuses.flatMap((entry) => entry.students.filter((s) => s.mark === 'waiting').map((s) => s.student.id)).sort();
+
+  describe('whose answer counts for a student', () => {
+    it('is her own answer when she gave one, whichever arrived first', () => {
+      for (const answers of [[forGroup(0), own('a1', 2)], [own('a1', 2), forGroup(0)]]) {
+        expect(effectiveAnswer(full, answers, choice, 'a1')).toMatchObject({ from: 'own', answer: { value: 2 } });
+        expect(effectiveAnswer(full, answers, choice, 'a2')).toMatchObject({ from: 'group', answer: { value: 0 } });
+      }
+    });
+
+    it('is none when neither she nor her group answered, and never reads another group', () => {
+      expect(effectiveAnswer(full, [forGroup(0, 'g2')], choice, 'a1')).toBeNull();
+      expect(effectiveAnswer(full, [], choice, 'a1')).toBeNull();
+    });
+
+    it('covers everyone on the list while no roll was taken, and only the present once one was', () => {
+      expect(sourceOf(full, [forGroup(0)], 'a5')).toBe('group');
+      expect(sourceOf(rolled(['a1']), [forGroup(0)], 'a5')).toBeNull();
+      expect(sourceOf(rolled(['a1']), [forGroup(0)], 'a1')).toBe('group');
+    });
+
+    it('follows the group she is in now', () => {
+      const moved: AttendedRoster = { ...moveStudent(full, 'a1', 'g2')!, present: null };
+      const answers = [forGroup(0, 'g1'), forGroup(2, 'g2')];
+      expect(effectiveAnswer(full, answers, choice, 'a1')).toMatchObject({ answer: { value: 0 } });
+      expect(effectiveAnswer(moved, answers, choice, 'a1')).toMatchObject({ answer: { value: 2 } });
+    });
+
+    it('is nothing on a group question', () => {
+      expect(effectiveAnswer(full, [answer('gq', 'group', 'g1', 1)], groupChoice, 'a1')).toBeNull();
+    });
+  });
+
+  describe('the tally', () => {
+    it('adds one per covered present student, and a self-answering one under her own option', () => {
+      expect(tallyChoices(choice, full, [], [forGroup(1)])).toEqual([0, 5, 0]);
+      expect(tallyChoices(choice, full, [], [forGroup(1), own('a3', 0)])).toEqual([1, 4, 0]);
+      expect(tallyChoices(choice, full, [], [own('a3', 0), forGroup(1)])).toEqual([1, 4, 0]);
+    });
+
+    it('moves a student\'s count with her: her old group\'s tally drops by one and her new group\'s answer covers her', () => {
+      const moved: AttendedRoster = { ...moveStudent(full, 'a1', 'g2')!, present: null };
+      const answers = [forGroup(0, 'g1'), forGroup(2, 'g2')];
+      expect(tallyChoices(choice, full, [], answers)).toEqual([5, 0, 2]);
+      expect(tallyChoices(choice, moved, [], answers)).toEqual([4, 0, 3]);
+    });
+
+    it('adds nothing for an absent member', () => {
+      expect(tallyChoices(choice, rolled(['a1', 'a2', 'b1']), [], [forGroup(1)])).toEqual([0, 2, 0]);
+    });
+
+    it('answers N of M for the covered, and the waiting marks equal the waiting list in every case', () => {
+      const cases: [AttendedRoster, Answer[]][] = [
+        [full, [forGroup(1)]],
+        [full, [forGroup(1), own('b1', 0)]],
+        [rolled(['a1', 'a2', 'b1']), [forGroup(1)]],
+        [rolled(['a1', 'a2', 'b1']), [forGroup(1, 'g2')]],
+        [full, []],
+      ];
+      for (const [roster, answers] of cases) {
+        const tally = tallyAnswerers(choice, roster, [], answers);
+        expect(waitingIds(answerStatusByGroup(choice, roster, [], answers))).toEqual(tally.waiting.map((w) => w.id).sort());
+      }
+      expect(tallyAnswerers(choice, full, [], [forGroup(1)])).toMatchObject({ answered: 5, expected: 7 });
+      expect(tallyAnswerers(choice, rolled(['a1', 'a2', 'b1']), [], [forGroup(1)])).toMatchObject({ answered: 2, expected: 3, waiting: [{ id: 'b1' }] });
+    });
+
+    it('counts a text question answered by the shared device', () => {
+      const text: TextSlide = { ...groupText, id: 'tx', scope: 'individual' };
+      expect(tallyAnswerers(text, full, [], [answer('tx', 'group', 'g2', 'نص')])).toMatchObject({ answered: 2, expected: 7 });
+    });
+
+    it('leaves a group question as it was: one answer, counted once', () => {
+      const answers = [answer('gq', 'group', 'g1', 1)];
+      expect(tallyChoices(groupChoice, full, [], answers)).toEqual([0, 1, 0]);
+      expect(tallyAnswerers(groupChoice, full, [], answers)).toMatchObject({ answered: 1, expected: 2 });
+    });
+  });
+
+  describe('points and scores', () => {
+    it('gives each covered student the points of the group answer, and the group their average', () => {
+      const answers = [forGroup(1)];
+      expect(team.map((s) => studentPoints(mixed, full, s.id, answers, keys))).toEqual([2, 2, 2, 2, 2, 0, 0]);
+      expect(scoreboard(mixed, full, answers, keys).map((entry) => entry.score)).toEqual([2, 0]);
+    });
+
+    it('lets a student who answered herself earn from her own answer only', () => {
+      const answers = [forGroup(1), own('a3', 0)];
+      expect(studentPoints(mixed, full, 'a3', answers, keys)).toBe(0);
+      expect(scoreboard(mixed, full, answers, keys)[0].score).toBe(1.6);
+    });
+
+    it('earns nothing for an absent member and averages over the present ones', () => {
+      const roster = rolled(['a1', 'a2', 'b1']);
+      expect(studentPoints(mixed, roster, 'a5', [forGroup(1)], keys)).toBe(0);
+      expect(scoreboard(mixed, roster, [forGroup(1)], keys)[0].score).toBe(2);
+    });
+
+    it('adds a group question once, to the group, as before', () => {
+      expect(scoreboard(mixed, full, [answer('gq', 'group', 'g1', 1)], keys).map((entry) => entry.score)).toEqual([3, 0]);
+    });
+  });
+
+  describe('what each reader shows', () => {
+    it('shows a student her results with the group answer, its verdict and where it came from', () => {
+      const report = studentReport(mixed, revealed, full, team[0], [forGroup(1)]);
+      expect(report.points).toBe(2);
+      expect(report.results).toMatchObject([{ answer: { value: 1 }, verdict: 'correct', byGroup: true }]);
+      expect(studentReport(mixed, revealed, full, team[0], [forGroup(0), own('a1', 1)]).results).toMatchObject([{ answer: { value: 1 }, byGroup: false }]);
+    });
+
+    it('marks the monitor cells given by the group, and counts them as interactions and points', () => {
+      const [first, second] = buildMonitor(mixed, revealed, full, [forGroup(1), own('a2', 0)], [], keys);
+      expect(first.rows.map((row) => row.cells[0])).toMatchObject([
+        { byGroup: true, verdict: 'correct' }, { byGroup: false, verdict: 'wrong' }, { byGroup: true }, { byGroup: true }, { byGroup: true },
+      ]);
+      expect(first.rows.map((row) => [row.answered, row.points])).toEqual([[1, 2], [1, 0], [1, 2], [1, 2], [1, 2]]);
+      expect(second.rows.map((row) => row.cells[0].answer)).toEqual([null, null]);
+      expect(first.score).toBe(1.6);
+    });
+
+    it('counts the group answer as her interaction and spares her the unresponsive flag', () => {
+      const five: Lesson = { ...lesson, slides: Array.from({ length: 5 }, (_, i) => ({ ...choice, id: `i${i}` })) };
+      const closed: Session = { ...session, reveals: Object.fromEntries(['i0', 'i1', 'i2', 'i3'].map((id) => [id, { correctIndex: 1, explanation: '' }])) };
+      const answers = ['i0', 'i1', 'i2', 'i3'].map((id) => answer(id, 'group', 'g1', 1));
+      expect(interactionsOf(five, full, answers, 'a1')).toBe(4);
+      expect(interactionsOf(five, full, answers, 'b1')).toBe(0);
+      expect(isUnresponsive(closed, five, full, answers, 'a1')).toBe(false);
+      expect(isUnresponsive(closed, five, full, answers, 'b1')).toBe(true);
+    });
+
+    it('keeps the covered answers and points in the kept record, and nothing for the absent', () => {
+      const record = classRecord(session, mixed, rolled(['a1', 'a2', 'b1']), [forGroup(1)]);
+      const row = (id: string) => record.students.find((s) => s.studentId === id)!;
+      expect(row('a1')).toMatchObject({ answered: 1, points: 2 });
+      expect(row('a5')).toMatchObject({ answered: 0, points: 0, present: false });
+      expect(row('b1')).toMatchObject({ answered: 0, points: 0 });
+    });
+  });
+
+  describe('entering an answer by hand', () => {
+    it('starts from what counts for her now: the first option when nothing does, her group\'s option when it covers her, her own otherwise', () => {
+      expect(nextManualChoiceFor(null, 3)).toBe(0);
+      expect(nextManualChoiceFor(effectiveAnswer(full, [forGroup(1)], choice, 'a1'), 3)).toBe(2);
+      expect(nextManualChoiceFor(effectiveAnswer(full, [forGroup(1), own('a1', 0)], choice, 'a1'), 3)).toBe(1);
+    });
+
+    it('lets her own answer step to none after the last option, but wraps a covered student round to the first', () => {
+      expect(nextManualChoiceFor(effectiveAnswer(full, [own('a1', 2)], choice, 'a1'), 3)).toBeNull();
+      expect(nextManualChoiceFor(effectiveAnswer(full, [forGroup(2)], choice, 'a1'), 3)).toBe(0);
+    });
+  });
+
+  describe('what letting a shared device in puts on the roll', () => {
+    const seat = (studentId: string | null, groupId = 'g1'): Participant => ({ id: 'p', sessionId: 'x', groupId, studentId, joinedAt: 0, admitted: true });
+
+    it('is her own name for a named seat, and every student of the group for a shared device', () => {
+      expect(studentsJoiningRoll(seat('a2'), team)).toEqual(['a2']);
+      expect(studentsJoiningRoll(seat(null), team)).toEqual(['a1', 'a2', 'a3', 'a4', 'a5']);
+      expect(studentsJoiningRoll(seat(null, 'g2'), team)).toEqual(['b1', 'b2']);
+    });
+
+    it('follows the students of the group now, and is empty for a group without students', () => {
+      const moved = moveStudent(full, 'a1', 'g2')!.students;
+      expect(studentsJoiningRoll(seat(null), moved)).toEqual(['a2', 'a3', 'a4', 'a5']);
+      expect(studentsJoiningRoll(seat(null, 'g9'), team)).toEqual([]);
+    });
+
+    it('covers its group once on the roll, and not a member the teacher then marks absent', () => {
+      const roll = joinRoll(full, studentsJoiningRoll(seat(null), team));
+      expect(roll.present).toEqual(['a1', 'a2', 'a3', 'a4', 'a5']);
+      expect(sourceOf(roll, [forGroup(1)], 'a3')).toBe('group');
+      expect(sourceOf(markAbsent(roll, 'a3')!, [forGroup(1)], 'a3')).toBeNull();
+      expect(sourceOf(roll, [forGroup(1, 'g2')], 'b1')).toBeNull();
+    });
+  });
+
+  describe('what a device shows', () => {
+    const shared = { groupId: 'g1', studentId: null };
+    const named = { groupId: 'g1', studentId: 'a1' };
+
+    it('shows a shared device its own group answer and a named one what counts for her', () => {
+      expect(deviceAnswer(full, [forGroup(2)], choice, shared)).toMatchObject({ coveredByGroup: false, answer: { value: 2 } });
+      expect(deviceAnswer(full, [forGroup(2)], choice, named)).toMatchObject({ coveredByGroup: true, answer: { value: 2 } });
+      expect(deviceAnswer(full, [forGroup(2), own('a1', 0)], choice, named)).toMatchObject({ coveredByGroup: false, answer: { value: 0 } });
+      expect(deviceAnswer(full, [answer('gq', 'group', 'g1', 1)], groupChoice, named)).toMatchObject({ coveredByGroup: false, answer: { value: 1 } });
+    });
+
+    it('says a shared device answers for the whole group only on an individual question', () => {
+      expect(answersForWholeGroup(choice, shared)).toBe(true);
+      expect(answersForWholeGroup(choice, named)).toBe(false);
+      expect(answersForWholeGroup(groupChoice, shared)).toBe(false);
+    });
   });
 });

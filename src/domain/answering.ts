@@ -1,7 +1,7 @@
 import { countedGroups, isPresent, presentStudents } from './attendance';
 import { acceptsChanges } from './sessions';
 import type { Answer, AnswerScope, AttendedRoster, ChoiceSlide, Group, Id, Participant, QuestionSlide, Session, Slide, Student, SubjectRef } from './models';
-import { membersOf } from './roster';
+import { membersOf, studentById } from './roster';
 import { cleanText } from './text';
 
 /** The single home for the rules of answering: who may answer what, and when. */
@@ -30,12 +30,14 @@ function sameSubject(a: SubjectRef, b: SubjectRef): boolean {
 }
 
 /**
- * Who a device answers for on a given question. A shared group device
- * (no student chosen) can only answer group questions, hence the null.
+ * Who a device answers for on a given question: the student on an individual question, the group on a group
+ * question. A shared group device (no student chosen) always answers for its group; `effectiveAnswer` says
+ * how that group answer stands for the students of an individual question.
  */
-export function subjectFor(slide: QuestionSlide, device: { groupId: Id; studentId: Id | null }): SubjectRef | null {
-  if (slide.scope === 'group') return { kind: 'group', id: device.groupId };
-  return device.studentId ? { kind: 'student', id: device.studentId } : null;
+export function subjectFor(slide: QuestionSlide, device: { groupId: Id; studentId: Id | null }): SubjectRef {
+  return slide.scope === 'individual' && device.studentId
+    ? { kind: 'student', id: device.studentId }
+    : { kind: 'group', id: device.groupId };
 }
 
 /** One answer per subject per question, so the id is derived, not random. */
@@ -64,7 +66,7 @@ export function subjectKindOf(scope: AnswerScope): SubjectRef['kind'] {
   return scope === 'group' ? 'group' : 'student';
 }
 
-/** Where the answer that counts for a student came from. */
+/** Where the answer that counts for a student came from: her own, or her group's shared device. */
 export type AnswerFrom = 'own' | 'group';
 
 export interface EffectiveAnswer {
@@ -73,18 +75,49 @@ export interface EffectiveAnswer {
 }
 
 /**
- * The answer that counts for a student on an individual question. The one place that decides which answer that is;
- * every reader of individual answers asks it.
+ * The answer that counts for a student on an individual question: her own, whenever it arrives, else her group's
+ * (the group she is in on the roster now) when she is present. An absent student is never covered by it.
+ * The one place that decides "own, else group"; every reader of individual answers asks it.
  */
 export function effectiveAnswer(
-  _roster: AttendedRoster,
+  roster: AttendedRoster,
   answers: readonly Answer[],
   slide: QuestionSlide,
   studentId: Id,
 ): EffectiveAnswer | null {
   if (slide.scope !== 'individual') return null;
   const own = findAnswer(answers, slide.id, { kind: 'student', id: studentId });
-  return own && { answer: own, from: 'own' };
+  if (own) return { answer: own, from: 'own' };
+  const student = studentById(roster.students, studentId);
+  if (!student || !isPresent(roster, studentId)) return null;
+  const shared = findAnswer(answers, slide.id, { kind: 'group', id: student.groupId });
+  return shared ? { answer: shared, from: 'group' } : null;
+}
+
+export interface DeviceAnswer {
+  answer: Answer;
+  /** True when a named student is shown her group's answer because she gave none of her own. */
+  coveredByGroup: boolean;
+}
+
+/** What a device shows as the answer that currently counts for it: its student's effective answer, or its group's own answer for a shared device and on a group question. */
+export function deviceAnswer(
+  roster: AttendedRoster,
+  answers: readonly Answer[],
+  slide: QuestionSlide,
+  device: { groupId: Id; studentId: Id | null },
+): DeviceAnswer | null {
+  if (device.studentId && slide.scope === 'individual') {
+    const found = effectiveAnswer(roster, answers, slide, device.studentId);
+    return found && { answer: found.answer, coveredByGroup: found.from === 'group' };
+  }
+  const answer = findAnswer(answers, slide.id, subjectFor(slide, device));
+  return answer && { answer, coveredByGroup: false };
+}
+
+/** Whether this device's answer stands for all the students of its group: a shared device on an individual question. */
+export function answersForWholeGroup(slide: QuestionSlide, device: { studentId: Id | null }): boolean {
+  return slide.scope === 'individual' && device.studentId === null;
 }
 
 export interface AnswerTally {
@@ -102,21 +135,26 @@ export interface CountedAnswer {
   answer: Answer | null;
 }
 
-/** Whether some student has an answer to the individual question: the one rule `tallyAnswerers` and the interactions both ask. */
-export function isAnswered(slide: QuestionSlide, answers: readonly Answer[]): boolean {
-  return answers.some((answer) => answer.slideId === slide.id && answer.subject.kind === 'student');
+function countedStudents(slide: QuestionSlide, roster: AttendedRoster, answers: readonly Answer[]): CountedAnswer[] {
+  return presentStudents(roster).map(({ id, name }) => ({ id, name, answer: effectiveAnswer(roster, answers, slide, id)?.answer ?? null }));
 }
 
-/** The people a question counts, each with the answer that counts for her: the present students, or for a group question the groups `countedGroups` names. */
+/** Whether an individual question has an answer that counts for some present student: the one rule `tallyAnswerers` and the interactions both ask. */
+export function isAnswered(slide: QuestionSlide, roster: AttendedRoster, answers: readonly Answer[]): boolean {
+  return countedStudents(slide, roster, answers).some(({ answer }) => answer !== null);
+}
+
+/**
+ * The people a question counts, each with the answer that counts for her: the present students (own answer, else her
+ * group's), or for a group question the groups `countedGroups` names.
+ */
 export function countedAnswers(
   slide: QuestionSlide,
   roster: AttendedRoster,
   participants: readonly Participant[],
   answers: readonly Answer[],
 ): CountedAnswer[] {
-  if (slide.scope === 'individual') {
-    return presentStudents(roster).map(({ id, name }) => ({ id, name, answer: effectiveAnswer(roster, answers, slide, id)?.answer ?? null }));
-  }
+  if (slide.scope === 'individual') return countedStudents(slide, roster, answers);
   const answered = new Set(answers.filter((a) => a.slideId === slide.id && a.subject.kind === 'group').map((a) => a.subject.id));
   return countedGroups(roster, participants, answered).map(({ id, name }) => ({
     id,
@@ -192,4 +230,13 @@ export function canScanCards(session: Session, slide: Slide): slide is ChoiceSli
 export function nextManualChoice(current: number | null, optionCount: number): number | null {
   if (current === null) return 0;
   return current + 1 < optionCount ? current + 1 : null;
+}
+
+/**
+ * The next option of a hand entry, stepping from what counts for her now. A student covered by her group steps on from her
+ * group's option and wraps round to the first, never to "none": her own answer is the one stored, and clearing it would change nothing.
+ */
+export function nextManualChoiceFor(found: EffectiveAnswer | null, optionCount: number): number | null {
+  const current = typeof found?.answer.value === 'number' ? found.answer.value : null;
+  return found?.from === 'group' && current !== null ? (current + 1) % optionCount : nextManualChoice(current, optionCount);
 }

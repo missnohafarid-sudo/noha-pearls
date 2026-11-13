@@ -64,8 +64,8 @@ function MonitorView({ session }: { session: Session }) {
   const setPresent = (studentId: Id, present: boolean) =>
     void (present ? sessionRoster.markPresent(session.id, studentId) : sessionRoster.markAbsent(session.id, studentId));
   const canChange = acceptsChanges(session);
-  const possible = possibleInteractions(session, lesson, answers);
-  const minimum = minInteractions(session, lesson, answers);
+  const possible = possibleInteractions(session, lesson, roster, answers);
+  const minimum = minInteractions(session, lesson, roster, answers);
 
   return (
     <div className="page">

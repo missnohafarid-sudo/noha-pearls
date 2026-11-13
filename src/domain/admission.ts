@@ -1,5 +1,5 @@
 import type { ClassRoster, Id, Participant, Session, Student } from './models';
-import { groupById, studentById } from './roster';
+import { groupById, membersOf, studentById } from './roster';
 import { acceptsChanges, isLive } from './sessions';
 
 /** The single home for who is let into a class: a device asks for a seat, the teacher lets it in. */
@@ -75,6 +75,14 @@ export function seatGroupId(seat: Participant, students: readonly Student[]): Id
 /** Who a seat answers for right now: her student (none for a shared device) in the group that student is in now. */
 export function seatAnswerer(seat: Participant, students: readonly Student[]): { groupId: Id; studentId: Id | null } {
   return { groupId: seatGroupId(seat, students), studentId: seat.studentId };
+}
+
+/**
+ * The students a seat puts on the roll when it is let in: her own name for a named seat; for a shared group device
+ * every student of its group, since the group is here and its answer covers them. The teacher may mark any of them absent afterwards.
+ */
+export function studentsJoiningRoll(seat: Participant, students: readonly Student[]): Id[] {
+  return seat.studentId ? [seat.studentId] : membersOf(seatGroupId(seat, students), students).map((student) => student.id);
 }
 
 /** Whether a page addressed to `groupId` is this seat's own: the group it joined, or the one her student is in now. */

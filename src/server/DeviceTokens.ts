@@ -1,7 +1,6 @@
 import { isHeldToLimits } from '../domain/abuse';
 import { readMeta, writeMeta } from '../infrastructure/sql/schema';
 import { ADDRESS_NEW_TOKENS } from '../ports/limits';
-import type { WindowMemory } from '../ports/abuse';
 import type { SqlDatabase } from '../ports/sql';
 import { KeyedWindows } from './KeyedWindows';
 import { constantTimeEqual, hmacHex, hmacKey, randomToken, sha256 } from './webCrypto';
@@ -21,17 +20,16 @@ export class DeviceTokens {
   private constructor(
     private readonly key: CryptoKey,
     now: () => number,
-    memory?: WindowMemory,
   ) {
-    this.issued = new KeyedWindows(ADDRESS_NEW_TOKENS, now, memory);
+    this.issued = new KeyedWindows(ADDRESS_NEW_TOKENS, now);
   }
 
   /**
    * The key is a random one made once and kept in the database's `meta` table, whatever the admin secrets are: replacing a secret
    * must not unseat students, and a student's cookie must not be something a password can be tried against. The table must exist already.
    */
-  static async from(db: SqlDatabase, now: () => number, memory?: WindowMemory): Promise<DeviceTokens> {
-    return new DeviceTokens(await hmacKey(await sha256(`noha-pearls/device-token/v1\u0000${DeviceTokens.storedKey(db)}`)), now, memory);
+  static async from(db: SqlDatabase, now: () => number): Promise<DeviceTokens> {
+    return new DeviceTokens(await hmacKey(await sha256(`noha-pearls/device-token/v1\u0000${DeviceTokens.storedKey(db)}`)), now);
   }
 
   private static storedKey(db: SqlDatabase): string {

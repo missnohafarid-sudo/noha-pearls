@@ -1,3 +1,4 @@
+import { isHeldToLimits } from './abuse';
 import { holdsSeat } from './admission';
 import type { Participant, Session } from './models';
 import { isLive } from './sessions';
@@ -19,5 +20,5 @@ export function codeOpens(session: Session | null, asker: Asker): session is Ses
 
 /** Whether a lookup needs no check on how often it is made: the admin's, and a device that was let in to the class it names. */
 export function lookupIsExempt(session: Session | null, asker: Asker): boolean {
-  return asker.isAdmin || (session !== null && holdsSeat(asker.seat));
+  return !isHeldToLimits(asker.isAdmin) || (session !== null && holdsSeat(asker.seat));
 }

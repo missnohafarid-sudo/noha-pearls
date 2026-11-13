@@ -15,7 +15,7 @@ export function AdminUnlock({ onClose }: { onClose: () => void }) {
   const [password, setPassword] = useState('');
   const [passwordShown, setPasswordShown] = useState(false);
   const [code, setCode] = useState('');
-  const [status, setStatus] = useState<'idle' | 'checking' | 'wrong' | 'closed'>('idle');
+  const [status, setStatus] = useState<'idle' | 'checking' | Exclude<SignInResult, 'signed-in'>>('idle');
   /** Set once the prompt is closed, so the answer to an attempt made before that is ignored. */
   const closed = useRef(false);
 

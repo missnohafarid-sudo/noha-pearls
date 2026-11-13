@@ -93,18 +93,14 @@ describe('a device token', () => {
     expect(await devices.issue('9.9.9.9')).not.toBeNull();
   });
 
-  it('forgets an address that has been given none for the hour, so the counts never outgrow the addresses of the last hour', async () => {
+  it('still gives a fresh share to every address after the hour has passed and the hub has pruned its counts', async () => {
     const clock = { now: NOW() };
-    const memory = new Map<string, number[]>();
-    const db = new NodeSqlDatabase();
-    migrate(db);
-    const devices = await DeviceTokens.from(db, () => clock.now, memory);
+    const devices = await tokensOver(new NodeSqlDatabase(), () => clock.now);
     for (let n = 0; n < 50; n += 1) await devices.issue(`10.0.0.${n}`);
-    devices.prune();
-    expect(memory.size).toBe(50);
     clock.now += ADDRESS_NEW_TOKENS.windowMs;
     devices.prune();
-    expect(memory.size).toBe(0);
+    for (let n = 0; n < ADDRESS_NEW_TOKENS.max; n += 1) expect(await devices.issue('10.0.0.1')).not.toBeNull();
+    expect(await devices.issue('10.0.0.1')).toBeNull();
   });
 
   it('is always given to the teacher, and never counted against the address', async () => {

@@ -1,4 +1,5 @@
 import type { MarkerDetector, MarkerRenderer, QrRenderer } from '../ports/codes';
+import type { ConnectionStatus } from '../ports/remote';
 import type { AllowanceService } from './AllowanceService';
 import type { AdmissionService } from './AdmissionService';
 import type { AnswerService } from './AnswerService';
@@ -81,6 +82,8 @@ export type DataServices = { [S in keyof typeof UI_SURFACE]: Pick<ServiceClasses
 /** Everything the interface may ask of the application. The composition root builds one. */
 export type Services = DataServices & {
   auth: AuthService;
+  /** Whether the data can be reached; always so when it is held in the browser itself. */
+  connection: ConnectionStatus;
   qr: QrRenderer;
   /** Loaded on demand: only the teacher's scanner and the card printer need it. */
   loadCardCodec(): Promise<CardCodec>;

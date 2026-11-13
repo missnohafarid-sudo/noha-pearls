@@ -147,6 +147,13 @@ const RULES: Rule[] = [
     message: (_match, file) => `${file.path} imports a Cloudflare package. Only src/server may; everything else asks a port in src/ports.`,
   },
   {
+    name: '3c. Only src/app knows whether the page keeps its data itself or asks the hub',
+    applies: (file) => isCode(file) && !['src/app/config.ts', 'src/app/container.ts'].includes(file.path),
+    pattern: /\bSITE_ONLY\b|NOHA_SITE_ONLY/,
+    sanitize: (line) => line.replace(CODE_COMMENT, ''),
+    message: (_match, file) => `${file.path} reads the site-only switch. Only src/app/config.ts defines it and src/app/container.ts reads it; the rest of the page behaves the same in both modes.`,
+  },
+  {
     name: '4. dangerouslySetInnerHTML only in the files that draw generated QR and marker SVG',
     applies: (file) => isCode(file) && !(file.path in MARKUP_ALLOWED),
     pattern: /dangerouslySetInnerHTML/,

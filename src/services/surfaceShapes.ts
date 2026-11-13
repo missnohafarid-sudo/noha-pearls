@@ -26,7 +26,7 @@ export const SURFACE_SHAPES = {
   teachers: { watchTeachers: none, add: [isName], rename: [isId, isName], remove: id },
   folders: { watchFolders: none, add: [isName, optionalFolder], rename: [isId, isName], move: [isId, optionalFolder], remove: id },
   lessons: {
-    watchLessons: none, watchLesson: id, create: [nonEmptyText(MAX_TITLE_LENGTH), optionalFolder], save: [isLesson], moveToFolder: [isId, optionalFolder], remove: id,
+    watchLessons: none, watchLesson: id, create: [nonEmptyText(MAX_TITLE_LENGTH), optionalFolder], save: [isLesson], moveToFolder: [listOf(isId), optionalFolder], remove: [listOf(isId)],
     importFromText: [longText, optionalFolder], exportToText: [isLesson],
   },
   sessions: {

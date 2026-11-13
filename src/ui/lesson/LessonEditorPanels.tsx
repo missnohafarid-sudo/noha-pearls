@@ -40,7 +40,7 @@ function LessonMetaPanel({ lesson, save, attempt }: { lesson: Lesson; save: Save
   const meta: LessonMeta = { title: lesson.title, subject: lesson.subject, grade: lesson.grade, published: lesson.published };
 
   const remove = async () => {
-    if (await attempt(() => lessons.remove(lesson.id))) navigate(homeRoute(lesson.folderId ?? null));
+    if (await attempt(() => lessons.remove([lesson.id]))) navigate(homeRoute(lesson.folderId ?? null));
   };
 
   return (

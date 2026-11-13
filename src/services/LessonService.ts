@@ -60,10 +60,17 @@ export class LessonService implements LessonShelf {
   }
 
   /** Moving is not editing: the lesson keeps its edit time. */
-  async moveToFolder(lessonId: Id, folderId: Id | null): Promise<void> {
+  async moveToFolder(lessonIds: readonly Id[], folderId: Id | null): Promise<void> {
     requireAdmin(this.caller);
     await requireFolder(this.store, folderId);
-    if (!(await this.store.update('lessons', lessonId, (current) => ({ ...current, folderId })))) throw new LessonError('lesson-missing');
+    await this.updateEach(lessonIds, (current) => ({ ...current, folderId }));
+  }
+
+  /** Applies the change to each lesson, and reports `lesson-missing` after the others are done if any no longer exists. */
+  private async updateEach(lessonIds: readonly Id[], change: (current: Lesson) => Lesson): Promise<void> {
+    let missing = false;
+    for (const lessonId of lessonIds) missing = !(await this.store.update('lessons', lessonId, change)) || missing;
+    if (missing) throw new LessonError('lesson-missing');
   }
 
   /** Where each lesson sits and whether it is published: nothing else of it. */
@@ -78,11 +85,16 @@ export class LessonService implements LessonShelf {
     }
   }
 
-  /** Removes the lesson, unless a running class uses it. */
-  async remove(lessonId: Id): Promise<void> {
+  /** Removes the lessons, or none of them when a running class uses any. */
+  async remove(lessonIds: readonly Id[]): Promise<void> {
     requireAdmin(this.caller);
-    if (!canRemoveLesson(lessonId, await this.store.list('sessions'))) throw new LessonError('lesson-in-use');
-    await this.store.remove('lessons', lessonId);
+    await this.removeUnlessInUse(lessonIds);
+  }
+
+  private async removeUnlessInUse(lessonIds: readonly Id[]): Promise<void> {
+    const sessions = await this.store.list('sessions');
+    if (!lessonIds.every((lessonId) => canRemoveLesson(lessonId, sessions))) throw new LessonError('lesson-in-use');
+    for (const lessonId of lessonIds) await this.store.remove('lessons', lessonId);
   }
 
   /** Reads a lesson file (uploaded or pasted). Saves the lesson only when the file is valid. */

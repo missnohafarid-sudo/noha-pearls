@@ -1326,10 +1326,10 @@ describe('the kept record of an ended class', () => {
 
   it('keeps a lesson that a running class uses', async () => {
     const session = await begin();
-    await expect(ctx.lessons.remove('l1')).rejects.toBeInstanceOf(LessonError);
+    await expect(ctx.lessons.remove(['l1'])).rejects.toBeInstanceOf(LessonError);
     expect(await ctx.store.get('lessons', 'l1')).not.toBeNull();
     await ctx.sessions.end(session.id);
-    await ctx.lessons.remove('l1');
+    await ctx.lessons.remove(['l1']);
     expect(await ctx.store.get('lessons', 'l1')).toBeNull();
     expect(await ctx.store.list('records')).toHaveLength(1);
   });
@@ -1399,7 +1399,7 @@ describe('lesson folders', () => {
     await expect(folders.rename('a', 'b')).rejects.toBeInstanceOf(NotAuthorizedError);
     await expect(folders.move('a', null)).rejects.toBeInstanceOf(NotAuthorizedError);
     await expect(folders.remove('a')).rejects.toBeInstanceOf(NotAuthorizedError);
-    await expect(lessons.moveToFolder('l', null)).rejects.toBeInstanceOf(NotAuthorizedError);
+    await expect(lessons.moveToFolder(['l'], null)).rejects.toBeInstanceOf(NotAuthorizedError);
     await expect(lessons.moveLessons('a', null)).rejects.toBeInstanceOf(NotAuthorizedError);
   });
 
@@ -1483,7 +1483,7 @@ describe('lesson folders', () => {
     const text = lessons.exportToText({ ...made, slides: [question] });
     await expect(lessons.create('y', 'gone')).rejects.toMatchObject({ code: 'folder-missing' });
     await expect(lessons.importFromText(text, 'gone')).rejects.toBeInstanceOf(FolderError);
-    await expect(lessons.moveToFolder(made.id, 'gone')).rejects.toBeInstanceOf(FolderError);
+    await expect(lessons.moveToFolder([made.id], 'gone')).rejects.toBeInstanceOf(FolderError);
     expect(await store.list('lessons')).toEqual([made]);
   });
 
@@ -1491,7 +1491,7 @@ describe('lesson folders', () => {
     const { folders, lessons, store } = await signedIn();
     const a = await folders.add('a', null);
     const made = await lessons.create('x', null);
-    await lessons.moveToFolder(made.id, a.id);
+    await lessons.moveToFolder([made.id], a.id);
     expect(await store.get('lessons', made.id)).toEqual({ ...made, folderId: a.id });
   });
 
@@ -1499,7 +1499,7 @@ describe('lesson folders', () => {
     const { folders, lessons, store } = await signedIn();
     const a = await folders.add('a', null);
     const stale = await lessons.create('x', null);
-    await lessons.moveToFolder(stale.id, a.id);
+    await lessons.moveToFolder([stale.id], a.id);
     await lessons.save({ ...stale, title: 'محرر' });
     expect(await store.get('lessons', stale.id)).toMatchObject({ title: 'محرر', folderId: a.id });
   });
@@ -1507,7 +1507,7 @@ describe('lesson folders', () => {
   it('does not bring a deleted lesson back when an old editor saves it', async () => {
     const { lessons, store } = await signedIn();
     const made = await lessons.create('x', null);
-    await lessons.remove(made.id);
+    await lessons.remove([made.id]);
     await expect(lessons.save({ ...made, title: 'محرر' })).rejects.toMatchObject({ code: 'lesson-missing' });
     expect(await store.list('lessons')).toEqual([]);
   });
@@ -1515,7 +1515,7 @@ describe('lesson folders', () => {
   it('refuses to rename a missing folder or move a missing lesson', async () => {
     const { folders, lessons, store } = await signedIn();
     await expect(folders.rename('gone', 'x')).rejects.toMatchObject({ code: 'folder-missing' });
-    await expect(lessons.moveToFolder('gone', null)).rejects.toMatchObject({ code: 'lesson-missing' });
+    await expect(lessons.moveToFolder(['gone'], null)).rejects.toMatchObject({ code: 'lesson-missing' });
     expect(await store.list('folders')).toEqual([]);
     expect(await store.list('lessons')).toEqual([]);
   });

@@ -22,7 +22,7 @@ export function useLibraryActions(): { actions: LibraryActions; error: string | 
       addFolder: async (name, parentId) => (await attemptWith(() => folders.add(name, parentId)))?.value.id ?? null,
       renameFolder: (folderId, name) => attempt(() => folders.rename(folderId, name)),
       removeFolder: (folderId) => attempt(() => folders.remove(folderId)),
-      move: (item, target) => attempt(() => (item.kind === 'lesson' ? lessons.moveToFolder(item.id, target) : folders.move(item.id, target))),
+      move: (item, target) => attempt(() => (item.kind === 'lesson' ? lessons.moveToFolder([item.id], target) : folders.move(item.id, target))),
     }),
     [attempt, attemptWith, folders, lessons],
   );

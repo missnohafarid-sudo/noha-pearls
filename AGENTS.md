@@ -88,7 +88,9 @@ A teacher. She is not a programmer and cannot judge your code.
 | When students' data is cleared at the end of the school year (the setting) | `services/RetentionService.ts`, edited on the results page |
 | Colours, fonts, radii | `ui/styles/tokens.css` |
 | Shared controls | `ui/styles/base.css` |
-| Our own form widgets (drop-down, check box, file picker, number stepper) and floating layers: component and look | `ui/forms/` (`Select`, `Checkbox`, `FilePicker`, `Stepper`), `ui/common/useAnchoredLayer.ts`, `ui/styles/widgets.css` |
+| Our own form widgets (drop-down, check box, file picker, number stepper, password field) and floating layers: component and look | `ui/forms/` (`Select`, `Checkbox`, `FilePicker`, `Stepper`, `PasswordField`), `ui/common/useAnchoredLayer.ts`, `ui/styles/widgets.css` (`PasswordField`'s look: `ui/forms/passwordField.css`) |
+| The top bar's tabs: the list, one tab, and the menu that replaces the row of tabs on narrow screens | `ui/shell/NavLink.tsx` (list and tab), `ui/shell/NavMenu.tsx` and `navMenu.css` (menu and the width where it takes over) |
+| Saying who answers a question (each student, or one answer for the group) | `ui/slides/ScopeBadge.tsx`; words `t.common.scope` |
 | Teachers' names (home page, class start) | the `teachers` list, edited in `ui/session/TeachersPanel.tsx`; words in `i18n/home.ts` |
 | AI instructions for lesson files | `i18n/lessonPrompt.ts` (generated from the slide-kind registry) |
 

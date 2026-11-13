@@ -11,9 +11,9 @@ export function useRoute(): Route {
   return parseRoute(hash);
 }
 
-export function RouteLink({ to, className, children }: { to: Route; className?: string; children: ReactNode }) {
+export function RouteLink({ to, className, current = false, children }: { to: Route; className?: string; current?: boolean; children: ReactNode }) {
   return (
-    <a href={routeHash(to)} className={className}>
+    <a href={routeHash(to)} className={className} aria-current={current ? 'page' : undefined}>
       {children}
     </a>
   );

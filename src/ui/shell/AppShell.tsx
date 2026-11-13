@@ -1,24 +1,15 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { t } from '../../i18n';
 import { useAdmin, useSite } from '../hooks/data';
-import { ADMIN_ROUTES, classIdOf, classRoute, isClassPage, isSessionPage, sessionCodeOf, sessionRoute, type Route } from '../routing/routes';
+import { ADMIN_ROUTES, type Route } from '../routing/routes';
 import { RouteLink } from '../routing/useRoute';
 import { useServices } from '../ServicesContext';
 import { PanelHostContext } from './AdminPanel';
 import { AdminUnlock } from './AdminUnlock';
+import { NAV, NavLink } from './NavLink';
+import { NavMenu } from './NavMenu';
 import { useClearWhenDue } from './useClearWhenDue';
 import './shell.css';
-
-type NavName = keyof typeof t.shell.nav;
-
-const NAV: readonly NavName[] = ['home', 'board', 'session', 'monitor', 'roster', 'cards', 'standings'];
-
-/** A link of the navigation; the pages about one class keep the class (a session, or a school class) the visitor is in. */
-function navTarget(name: NavName, route: Route): Route {
-  if (isSessionPage(name)) return sessionRoute(name, sessionCodeOf(route));
-  if (isClassPage(name)) return classRoute(name, classIdOf(route));
-  return { name };
-}
 
 /** The frame around every page: title bar, navigation, and the admin's editing panel. */
 export function AppShell({ route, children }: { route: Route; children: ReactNode }) {
@@ -28,10 +19,6 @@ export function AppShell({ route, children }: { route: Route; children: ReactNod
   useClearWhenDue();
   const [signingIn, setSigningIn] = useState(false);
   const [panelHost, setPanelHost] = useState<HTMLElement | null>(null);
-  const nav = useRef<HTMLElement>(null);
-  useEffect(() => {
-    nav.current?.querySelector('.shell__link--current')?.scrollIntoView({ inline: 'center', block: 'nearest' });
-  }, [route.name]);
   const links = NAV.filter((name) => admin || !ADMIN_ROUTES.has(name));
 
   return (
@@ -40,17 +27,12 @@ export function AppShell({ route, children }: { route: Route; children: ReactNod
         <RouteLink to={{ name: 'home' }} className="shell__brand rose-gold">
           {site?.title ?? ''}
         </RouteLink>
-        <nav className="shell__nav" ref={nav}>
+        <nav className={`shell__nav${admin ? ' shell__nav--collapsible' : ''}`}>
           {links.map((name) => (
-            <RouteLink
-              key={name}
-              to={navTarget(name, route)}
-              className={`shell__link${name === route.name ? ' shell__link--current' : ''}`}
-            >
-              {t.shell.nav[name]}
-            </RouteLink>
+            <NavLink key={name} name={name} route={route} />
           ))}
         </nav>
+        {admin && <NavMenu names={links} route={route} />}
         {admin ? (
           <div className="shell__admin">
             <span className="chip chip--accent">{t.shell.adminBadge}</span>

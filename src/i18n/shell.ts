@@ -11,6 +11,7 @@ export const shell = {
     cards: 'بطاقات الإجابة',
     standings: 'النتائج التراكمية',
   },
+  menu: 'القائمة',
   adminBadge: 'وضع الإدارة',
   signIn: 'دخول المعلّمة',
   signOut: 'خروج من الإدارة',

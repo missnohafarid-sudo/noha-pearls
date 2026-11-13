@@ -1,22 +1,31 @@
+/* The height of the bar on a wide screen, and where the page's own content starts: the panel and every scroll target keep clear of the bar. */
+:root {
+  --bar-size: 4rem;
+  --bar-offset: calc(var(--bar-size) + var(--serration));
+  scroll-padding-block-start: var(--bar-offset);
+}
+
 .shell {
   min-block-size: 100vh;
-  display: grid;
-  grid-template-rows: auto 1fr;
+  display: flex;
+  flex-direction: column;
   position: relative;
   isolation: isolate;
   overflow-x: clip;
 }
 
+/* The bar stays at the top while the page scrolls: above the page, below dialogs, overlays and the full-screen stage. */
 .shell__bar {
-  position: relative;
-  z-index: 1;
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 10;
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   gap: 8px 12px;
-  padding: 12px 24px;
+  block-size: var(--bar-size);
+  padding-inline: 24px;
   margin-block-end: var(--serration);
-  background: var(--glass);
+  background: color-mix(in srgb, var(--bg) 90%, transparent);
   backdrop-filter: blur(10px);
 }
 
@@ -45,8 +54,6 @@
   gap: 4px;
   flex: 1;
   min-inline-size: 0;
-  overflow-x: auto;
-  scrollbar-width: none;
 }
 
 .shell__link {
@@ -94,8 +101,8 @@
 
 .shell__panel {
   position: sticky;
-  inset-block-start: 0;
-  max-block-size: 100vh;
+  inset-block-start: var(--bar-offset);
+  max-block-size: calc(100vh - var(--bar-offset));
   overflow-y: auto;
   padding: var(--panel-pad) 16px 48px;
   background: var(--glass-panel);
@@ -108,7 +115,7 @@
   display: grid;
   gap: var(--panel-gap);
   align-content: start;
-  min-block-size: calc(100vh - 80px);
+  min-block-size: calc(100vh - var(--bar-offset) - 16px);
 }
 
 .shell__panel:empty {
@@ -162,14 +169,23 @@
 
 /* Phone: the first row holds the name (start) and the sign-in or admin controls (end); the links drop below. */
 @media (max-width: 600px) {
+  :root {
+    --bar-size: 7rem;
+  }
+
   .shell__bar {
     display: grid;
+    block-size: auto;
     grid-template-columns: 1fr auto;
+    align-content: center;
     gap: 6px 12px;
+    padding-block: 8px;
   }
 
   .shell__brand {
-    font-size: 1.2rem;
+    min-inline-size: 0;
+    font-size: 1rem;
+    white-space: nowrap;
   }
 
   .shell__main {
@@ -177,8 +193,6 @@
   }
 
   .shell__admin {
-    flex-direction: column;
-    align-items: end;
     gap: 4px;
   }
 

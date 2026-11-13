@@ -1,5 +1,5 @@
 import {
-  isAnswerValue, isCard, isClassCode, isId, isName, isPacingMode, isPeriod, isPeriodKind, listOf, nonEmptyText, nullable, number, oneOf, slideIndex, text, type Check,
+  isAnswerValue, isCard, isClassCode, isId, isName, isPacingMode, isPeriod, isPeriodKind, listOf, MAX_COLUMN_HEADER_LENGTH, MAX_MIN_INTERACTIONS, MAX_RAW_MESSAGE_LENGTH, MAX_TITLE_LENGTH, nonEmptyText, nullable, number, oneOf, slideIndex, text, type Check,
 } from '../domain/argumentChecks';
 import { isDateRange, isGroup, isImportMode, isLesson, isSiteContent, isStudent, isSubject, isYearEnd } from '../domain/entityChecks';
 import { MAX_ADMIN_MESSAGE_LENGTH } from '../ports/limits';
@@ -21,17 +21,17 @@ export const SURFACE_SHAPES = {
   content: { watchSite: none, updateSite: [isSiteContent] },
   roster: {
     watchClasses: none, watchRoster: id, addClass: [isName], renameClass: [isId, isName], removeClass: id, addGroup: [isId, isName], saveGroup: [isGroup], removeGroup: id,
-    addStudent: [isName, isId], saveStudent: [isStudent], removeStudent: id, importFromText: [isId, longText, isImportMode], exportToText: [isId, text(200)],
+    addStudent: [isName, isId], saveStudent: [isStudent], removeStudent: id, importFromText: [isId, longText, isImportMode], exportToText: [isId, text(MAX_COLUMN_HEADER_LENGTH)],
   },
   teachers: { watchTeachers: none, add: [isName], rename: [isId, isName], remove: id },
   folders: { watchFolders: none, add: [isName, optionalFolder], rename: [isId, isName], move: [isId, optionalFolder], remove: id },
   lessons: {
-    watchLessons: none, watchLesson: id, create: [nonEmptyText(2000), optionalFolder], save: [isLesson], moveToFolder: [isId, optionalFolder], remove: id,
+    watchLessons: none, watchLesson: id, create: [nonEmptyText(MAX_TITLE_LENGTH), optionalFolder], save: [isLesson], moveToFolder: [isId, optionalFolder], remove: id,
     importFromText: [longText, optionalFolder], exportToText: [isLesson],
   },
   sessions: {
     watchAll: none, watchLive: none, start: [isId, isId, isId], end: id, goTo: [isId, slideIndex], reveal: [isId, isId], setPacing: [isId, listOf(isId), isPacingMode],
-    sendMessage: [isId, text(1000), optionalFolder], clearMessage: id, setMinInteractions: [isId, number(0, 1000)],
+    sendMessage: [isId, text(MAX_RAW_MESSAGE_LENGTH), optionalFolder], clearMessage: id, setMinInteractions: [isId, number(0, MAX_MIN_INTERACTIONS)],
   },
   classLookup: { watchAnyLive: none, watchByCode: [isClassCode] },
   sessionRoster: {

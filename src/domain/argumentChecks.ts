@@ -12,6 +12,13 @@ export const MAX_ID_LENGTH = 64;
 export const MAX_NAME_LENGTH = 100;
 export const MAX_SLIDE_INDEX = 1000;
 export const MAX_LIST_LENGTH = 1000;
+/** A title, a subject, a grade or a line of the site's text. */
+export const MAX_TITLE_LENGTH = 2000;
+export const MAX_SLIDES_PER_LESSON = 2000;
+/** What a message to a group may hold before it is trimmed to `MAX_MESSAGE_LENGTH`. */
+export const MAX_RAW_MESSAGE_LENGTH = 1000;
+export const MAX_COLUMN_HEADER_LENGTH = 200;
+export const MAX_MIN_INTERACTIONS = 1000;
 /** A class code is at most this long once spaces are removed and digits made Latin. */
 const MAX_CODE_LENGTH = 12;
 const MAX_RAW_CODE_LENGTH = 64;

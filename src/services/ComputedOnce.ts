@@ -1,3 +1,4 @@
+import { BoundedMap } from '../domain/structures';
 import type { CollectionName } from '../ports/store';
 
 export interface ComputedOnceOptions {
@@ -14,13 +15,12 @@ export interface ComputedOnceOptions {
  * Only what does not depend on who asks belongs here. A promise that fails is not kept.
  */
 export class ComputedOnce {
-  private readonly values = new Map<string, unknown>();
-  private readonly maxEntries: number;
+  private readonly values: BoundedMap<string, unknown>;
   private readonly sources: readonly CollectionName[];
   private readonly remembers: boolean;
 
   constructor({ maxEntries, sources = [], remembers = true }: ComputedOnceOptions) {
-    this.maxEntries = maxEntries;
+    this.values = new BoundedMap(maxEntries);
     this.sources = sources;
     this.remembers = remembers;
   }
@@ -29,7 +29,6 @@ export class ComputedOnce {
     if (!this.remembers) return compute();
     if (this.values.has(key)) return this.values.get(key) as T;
     const made = compute();
-    if (this.values.size >= this.maxEntries) this.values.delete(this.values.keys().next().value as string);
     this.values.set(key, made);
     if (made instanceof Promise) made.catch(() => this.forgetIfStill(key, made));
     return made;

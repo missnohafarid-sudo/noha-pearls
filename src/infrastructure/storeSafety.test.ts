@@ -107,4 +107,21 @@ describe('the remembered answers', () => {
     await store.put('students', student('s9'));
     expect(await store.list('students', short)).toHaveLength(4);
   });
+
+  it('cannot be changed in place by a reader, so the next reader is shown the stored document', async () => {
+    const { store } = setup();
+    await store.put('students', student('s1'));
+    const where = { groupId: 'g1' };
+    const first = await store.list('students', where);
+    expect(() => {
+      first[0].name = 'changed';
+    }).toThrow(TypeError);
+    expect((await store.list('students', where))[0].name).toBe('s1');
+    await store.put('answers', answer('c1', 1));
+    const byId = await store.get('answers', 'c1:q1:s1');
+    expect(() => {
+      (byId as Answer).value = 9;
+    }).toThrow(TypeError);
+    expect((await store.get('answers', 'c1:q1:s1'))?.value).toBe(1);
+  });
 });

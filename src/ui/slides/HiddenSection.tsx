@@ -1,6 +1,7 @@
 import { useId, useState } from 'react';
 import { t } from '../../i18n';
 import { BodyText } from './BodyText';
+import './hiddenSection.css';
 
 /** A button that opens and closes the slide's hidden text in a bluish box. Each screen keeps its own state; nothing is stored or sent. */
 export function HiddenSection({ text }: { text: string }) {

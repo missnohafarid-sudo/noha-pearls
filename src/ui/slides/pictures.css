@@ -1,0 +1,25 @@
+.slide-pictures {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: calc(var(--gap) / 2);
+  min-inline-size: 0;
+}
+
+.slide-pictures__image {
+  display: block;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  max-block-size: 40vh;
+  object-fit: contain;
+  border-radius: var(--radius-small);
+}
+
+/* Several photos share a row: each is held to its share of the slide, but never narrower than a thumbnail, so a phone wraps them. */
+.slide-pictures:has(> :nth-child(2)) .slide-pictures__image {
+  max-inline-size: min(100%, max(45cqi, 140px));
+}
+
+.slide-pictures:has(> :nth-child(3)) .slide-pictures__image {
+  max-inline-size: min(100%, max(30cqi, 140px));
+}

@@ -86,10 +86,14 @@ export interface DocumentStore {
   /** Applies `change` to the stored document in one step; false when it does not exist. A change that returns the document it was given writes and announces nothing. */
   update<C extends CollectionName>(collection: C, id: Id, change: (current: Collections[C]) => Collections[C]): Promise<boolean>;
   remove(collection: CollectionName, id: Id): Promise<void>;
-  /** Calls `listener` with the current matches, then again after every change. */
+  /**
+   * Calls `listener` with the current matches, then again after every change. If working out the first matches fails, it throws
+   * and nothing stays registered. If a later one fails, the watch is dropped and `dropped` (if given) is told why.
+   */
   watch<C extends CollectionName>(
     collection: C,
     where: Where<Collections[C]>,
     listener: (docs: Collections[C][]) => void,
+    dropped?: (error: unknown) => void,
   ): Unsubscribe;
 }

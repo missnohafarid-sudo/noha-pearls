@@ -43,11 +43,16 @@ export class UnitOfWork implements DocumentStore {
   }
 
   /** Watchers see committed data only, never a command half done. */
-  watch<C extends CollectionName>(collection: C, where: Where<Collections[C]>, listener: (docs: Collections[C][]) => void): Unsubscribe {
-    return this.base.watch(collection, where, listener);
+  watch<C extends CollectionName>(collection: C, where: Where<Collections[C]>, listener: (docs: Collections[C][]) => void, dropped?: (error: unknown) => void): Unsubscribe {
+    return this.base.watch(collection, where, listener, dropped);
   }
 
-  /** Applies every write in one transaction; if it fails nothing is applied, and the unit is finished either way. */
+  /** The collections this unit has written or removed in, to be asked for before `commit` forgets the writes. */
+  changedCollections(): Set<CollectionName> {
+    return new Set([...this.pending.values()].map((write) => write.collection));
+  }
+
+  /** Applies every write in one transaction; if it throws, nothing was applied. The unit is finished either way. */
   commit(): void {
     const writes = [...this.pending.values()];
     this.pending.clear();

@@ -6,8 +6,9 @@ import type { CollectionName, Collections, Unsubscribe, Where } from '../ports/s
 import type { BatchedStore, Write } from './BatchedStore';
 import { DocumentRows } from './sql/documentRows';
 import { FieldIndex } from './sql/fieldIndex';
-import { matchesWhere } from './matchesWhere';
+import { isUsableFilter, matchesWhere } from './matchesWhere';
 import { PackedRows } from './sql/packedRows';
+import { ResultCache } from './sql/resultCache';
 import { migrate } from './sql/schema';
 import { type Change, Watches } from './sql/watches';
 
@@ -18,14 +19,21 @@ type OpenRows = Map<string, { collection: PackedCollection; owner: Id; docs: Rec
  * The database as documents in SQL rows. Collections that hold many small documents for one class are packed, one
  * row per class (see `PACKED_COLLECTIONS`); the rest are one row per document; filters on the fields of
  * `INDEXED_FIELDS` read through a small index. Every write goes through `apply`: one transaction, then watchers hear of it.
+ * The hub is the only writer, so the answer to a question is kept until a write that could change it (see `ResultCache`).
  */
 export class SqlDocumentStore implements BatchedStore {
   private readonly documents: DocumentRows;
   private readonly packed: PackedRows;
   private readonly index: FieldIndex;
-  private readonly watches = new Watches();
+  private readonly watches: Watches;
+  private readonly results = new ResultCache();
 
-  constructor(private readonly db: SqlDatabase) {
+  /** `report` hears of every watcher that failed and was dropped. */
+  constructor(
+    private readonly db: SqlDatabase,
+    report: (error: unknown) => void = (error) => console.error(error),
+  ) {
+    this.watches = new Watches(report);
     migrate(db);
     this.documents = new DocumentRows(db);
     this.packed = new PackedRows(db);
@@ -57,19 +65,27 @@ export class SqlDocumentStore implements BatchedStore {
     this.apply([{ kind: 'remove', collection, id }]);
   }
 
-  watch<C extends CollectionName>(collection: C, where: Where<Collections[C]>, listener: (docs: Collections[C][]) => void): Unsubscribe {
+  watch<C extends CollectionName>(collection: C, where: Where<Collections[C]>, listener: (docs: Collections[C][]) => void, dropped?: (error: unknown) => void): Unsubscribe {
     const run = () => listener(this.query(collection, where));
     const owner = isPacked(collection) ? this.packed.ownerOfLookup(where) : undefined;
-    const stop = this.watches.add({ collection, owner, run });
-    run();
+    const stop = this.watches.add({ collection, owner, run, dropped });
+    try {
+      run();
+    } catch (error) {
+      stop();
+      throw error;
+    }
     return stop;
   }
 
   apply(writes: readonly Write[]): void {
-    this.watches.notify(this.db.transaction(() => this.writeAll(writes)));
+    const changes = this.db.transaction(() => this.writeAll(writes));
+    this.results.forget(changes);
+    this.watches.notify(changes);
   }
 
   private read<C extends CollectionName>(collection: C, id: Id): Collections[C] | null {
+    if (typeof id !== 'string') return null;
     if (!isPacked(collection)) return this.documents.get(collection, id);
     const owner = this.packed.ownerOfLookup({ id }) ?? this.packed.searchOwners(collection).get(id);
     return owner === undefined ? null : ((this.packed.read(collection, owner)[id] ?? null) as Collections[C] | null);
@@ -77,12 +93,17 @@ export class SqlDocumentStore implements BatchedStore {
 
   /** Reads as little as the filter allows: one document, one class's row, the index's matches, or the whole collection. */
   private query<C extends CollectionName>(collection: C, where: Where<Collections[C]>): Collections[C][] {
-    return this.candidates(collection, where).filter((doc) => matchesWhere<C>(doc, where));
+    if (!isUsableFilter(where)) return [];
+    const remembered = this.results.get(collection, where);
+    if (remembered) return remembered;
+    const found = this.candidates(collection, where).filter((doc) => matchesWhere<C>(doc, where));
+    this.results.put(collection, where, isPacked(collection) ? this.packed.ownerOfLookup(where) : undefined, found);
+    return [...found];
   }
 
   private candidates<C extends CollectionName>(collection: C, where: Where<Collections[C]>): Collections[C][] {
-    const { id } = where as { id?: unknown };
-    if (typeof id === 'string') return [this.read(collection, id)].filter((doc) => doc !== null);
+    const { id } = where as { id?: string };
+    if (id !== undefined) return [this.read(collection, id)].filter((doc) => doc !== null);
     if (isPacked(collection)) {
       const owner = this.packed.ownerOfLookup(where);
       return (owner === undefined ? this.packed.readAll(collection) : Object.values(this.packed.read(collection, owner))) as Collections[C][];

@@ -58,8 +58,9 @@ const LAYERS: Record<string, { may: string[]; hint: Record<string, string> }> = 
   domain: { may: ['domain'], hint: { '*': 'the domain holds pure rules and may import only the domain. Move what you need into src/domain, or pass it in as an argument.' } },
   ports: { may: ['domain', 'ports'], hint: { '*': 'ports are interfaces and may import only domain and ports. Put the implementation in src/infrastructure instead.' } },
   services: { may: ['domain', 'ports', 'services'], hint: { '*': 'services may import only domain, ports and services. Reach storage or other adapters through an interface in src/ports.' } },
-  infrastructure: { may: ['domain', 'ports', 'infrastructure'], hint: { '*': 'adapters may import only domain, ports and infrastructure. Business rules belong in src/domain.' } },
+  infrastructure: { may: ['domain', 'ports', 'infrastructure'], hint: { server: 'adapters never import src/server, which is the Worker and runs on Cloudflare. Share it through an interface in src/ports.', '*': 'adapters may import only domain, ports and infrastructure. Business rules belong in src/domain.' } },
   server: { may: ['domain', 'ports', 'services', 'infrastructure', 'server'], hint: { '*': 'the server may import only domain, ports, services, infrastructure and server. Rules belong in src/domain, never in the transport.' } },
+  hubTests: { may: ['domain', 'ports', 'services', 'infrastructure', 'server', 'hubTests'], hint: { '*': 'the hub tests and their harness may import only domain, ports, services, infrastructure, server and hubTests. They never reach the interface or src/app.' } },
   i18n: { may: ['domain', 'i18n'], hint: { '*': 'interface text may import only domain and i18n. Keep wording free of logic.' } },
   app: { may: ['domain', 'ports', 'services', 'infrastructure', 'i18n', 'app'], hint: { server: 'src/server runs on Cloudflare and is never part of the page. Nothing outside it may import it.', '*': 'src/app wires things together and may not import the interface. src/main.tsx mounts the interface.' } },
   ui: {

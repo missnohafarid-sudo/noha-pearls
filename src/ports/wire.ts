@@ -3,6 +3,7 @@
  * The page sends `call`, `watch` and `unwatch`; the hub answers `hello` once, first, then `result`, `value` and `watch-refused`.
  * A socket's identity never changes: when it must, the hub closes the socket and the page opens a new one.
  */
+import { isRecord } from '../domain/argumentChecks';
 import { MAX_ADMIN_MESSAGE_LENGTH } from './limits';
 
 /** An error as it crosses the wire: its class name and its code, never a stack or an internal message. */
@@ -65,7 +66,6 @@ export interface SignInAnswer {
 
 export const encode = (message: ClientMessage | ServerMessage): string => JSON.stringify(message);
 
-const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
 const isId = (value: unknown): value is number => typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
 const isName = (value: unknown): value is string => typeof value === 'string' && value.length > 0 && value.length <= 64;
 

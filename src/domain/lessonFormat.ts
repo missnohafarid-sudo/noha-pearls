@@ -1,3 +1,4 @@
+import { isRecord } from './argumentChecks';
 import { newId } from './ids';
 import type { Lesson, Slide } from './models';
 import type { IssueCode, RawSlide } from './slideFile';
@@ -60,10 +61,6 @@ function extractObject(text: string): { file: Record<string, unknown> } | { prob
   } catch {
     return { problem: 'bad-json' };
   }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function textOf(value: unknown): string {

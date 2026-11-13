@@ -8,7 +8,8 @@ export function run(command, args, { capture = false } = {}) {
   const result = spawnSync(command, args, {
     stdio: capture ? ['inherit', 'pipe', 'pipe'] : 'inherit',
     encoding: 'utf8',
-    shell: onWindows,
+    // npm is a .cmd file on Windows and needs the shell. git must not get one: a shell splits a commit message at its spaces.
+    shell: onWindows && command === 'npm',
   });
   return { status: result.status ?? 1, output: `${result.stdout ?? ''}${result.stderr ?? ''}`.trim() };
 }

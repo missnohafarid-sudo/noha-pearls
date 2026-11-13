@@ -2,7 +2,7 @@ import { cardFits, isOverLimit, withCard, withEvent, type CardsSeen } from '../d
 import type { Id } from '../domain/models';
 import { SOCKET_CARDS, SOCKET_MESSAGES } from '../ports/limits';
 import type { AbuseGuard } from '../ports/abuse';
-import { CLOSE_ADDRESS_LOCKED, CLOSE_RATE_LIMITED } from '../ports/wire';
+import { CLOSE_DEVICE_LOCKED, CLOSE_RATE_LIMITED } from '../ports/wire';
 import type { Gatekeeper } from './Gatekeeper';
 
 /**
@@ -36,7 +36,7 @@ export class ConnectionLimits {
 
   /** The socket sent too fast: its address gets a strike. The code to close the socket with. */
   flooded(): number {
-    return this.gate.strike(this.address) ? CLOSE_ADDRESS_LOCKED : CLOSE_RATE_LIMITED;
+    return this.gate.strike(this.address) ? CLOSE_DEVICE_LOCKED : CLOSE_RATE_LIMITED;
   }
 
   watchAllowed(): boolean {

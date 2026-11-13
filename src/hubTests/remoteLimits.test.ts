@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { LiveConnection, type SocketHandlers, type Timers } from '../infrastructure/remote/LiveConnection';
 import { RequestRefused } from '../infrastructure/remote/RequestRefused';
-import { CLOSE_ADDRESS_LOCKED, CLOSE_RATE_LIMITED, encode } from '../ports/wire';
+import { CLOSE_DEVICE_LOCKED, CLOSE_RATE_LIMITED, encode, STATUS_NETWORK_FULL } from '../ports/wire';
 
 /** The page's connection against a hub that turns it away: what it says, and how long it waits before trying again. */
 
@@ -61,19 +61,26 @@ describe('a page the hub turned away', () => {
     expect(heard).toEqual(['rate']);
   });
 
-  it('says its address is refused when the hub locked it, and when the hello was refused with 429', async () => {
+  it('says its device is refused when the hub locked it, and when the hello was refused with 429', async () => {
     const locked = pageWith(async () => undefined);
     await locked.wake();
     locked.sockets[0].message(hello);
-    locked.sockets[0].closed(CLOSE_ADDRESS_LOCKED);
-    expect(locked.connection.turnedAway()).toBe('address');
+    locked.sockets[0].closed(CLOSE_DEVICE_LOCKED);
+    expect(locked.connection.turnedAway()).toBe('device');
     expect(locked.timers.waits[0]).toBeGreaterThanOrEqual(30_000);
 
     const refused = pageWith(() => Promise.reject(new RequestRefused('/api/hello', 429)));
     await refused.wake();
-    expect(refused.connection.turnedAway()).toBe('address');
+    expect(refused.connection.turnedAway()).toBe('device');
     expect(refused.connection.isUp()).toBe(false);
     expect(refused.timers.waits[0]).toBeGreaterThanOrEqual(30_000);
+  });
+
+  it('says the network is full, not the device, when the hello was refused because its address has had all its new devices', async () => {
+    const full = pageWith(() => Promise.reject(new RequestRefused('/api/hello', STATUS_NETWORK_FULL)));
+    await full.wake();
+    expect(full.connection.turnedAway()).toBe('network');
+    expect(full.timers.waits[0]).toBeGreaterThanOrEqual(30_000);
   });
 
   it('keeps the ordinary quick retry for any other failure, and says nothing about a limit', async () => {

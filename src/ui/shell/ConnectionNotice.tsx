@@ -2,7 +2,7 @@ import { t } from '../../i18n';
 import { useConnected } from '../hooks/data';
 import { useTurnedAway } from '../hooks/useTurnedAway';
 
-const REASONS = { rate: t.shell.limits.closedForRate, address: t.shell.limits.closedForAddress };
+const REASONS = { rate: t.shell.limits.closedForRate, device: t.shell.limits.closedForDevice, network: t.shell.limits.closedForNetwork };
 
 /** A calm line at the top of the page while the connection is down and the page is trying again; it says so when the hub turned the page away. */
 export function ConnectionNotice() {

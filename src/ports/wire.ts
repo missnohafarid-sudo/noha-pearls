@@ -47,11 +47,14 @@ export const HUB_PATHS: readonly string[] = [LIVE_PATH, HELLO_PATH, SIGN_IN_PATH
 export const CLOSE_POLICY = 1008;
 export const CLOSE_SESSION_ENDED = 4001;
 export const CLOSE_RATE_LIMITED = 4008;
-/** The socket that sent too fast once too often: its whole address is now refused for a while. */
-export const CLOSE_ADDRESS_LOCKED = 4009;
+/** The socket that sent too fast once too often: its device is now refused for a while. */
+export const CLOSE_DEVICE_LOCKED = 4009;
 
 /** What the hub answers a request it will not take from this address, or at this load. It says nothing of why. */
 export const STATUS_TOO_MANY = 429;
+
+/** What the hub answers a hello when the network address has been given all the new devices it may have for now. It says only that. */
+export const STATUS_NETWORK_FULL = 423;
 
 /** What `POST /api/hello` answers, and what `hello` carries. */
 export interface Hello {

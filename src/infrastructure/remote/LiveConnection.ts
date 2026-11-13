@@ -2,7 +2,7 @@ import { retryDelay } from '../../domain/reconnect';
 import { KEEP_ALIVE_MS, RECONNECT } from '../../ports/limits';
 import type { ConnectionStatus, RemoteLink, TurnedAway } from '../../ports/remote';
 import type { Unsubscribe } from '../../ports/store';
-import { CLOSE_ADDRESS_LOCKED, CLOSE_RATE_LIMITED, CONNECTION_LOST, encode, parseServerMessage, PING, STATUS_TOO_MANY, type CallOutcome, type ClientMessage, type Hello, type WireError } from '../../ports/wire';
+import { CLOSE_DEVICE_LOCKED, CLOSE_RATE_LIMITED, CONNECTION_LOST, encode, parseServerMessage, PING, STATUS_NETWORK_FULL, STATUS_TOO_MANY, type CallOutcome, type ClientMessage, type Hello, type WireError } from '../../ports/wire';
 import { RequestRefused } from './RequestRefused';
 
 /** What the connection needs of a socket and of the page around it; the browser's versions are in `browserSocket.ts`. */
@@ -31,7 +31,8 @@ export interface LiveConnectionDeps {
   timers: Timers;
 }
 
-const closeReasons: Readonly<Record<number, TurnedAway>> = { [CLOSE_RATE_LIMITED]: 'rate', [CLOSE_ADDRESS_LOCKED]: 'address' };
+const closeReasons: Readonly<Record<number, TurnedAway>> = { [CLOSE_RATE_LIMITED]: 'rate', [CLOSE_DEVICE_LOCKED]: 'device' };
+const refusalReasons: Readonly<Record<number, TurnedAway>> = { [STATUS_TOO_MANY]: 'device', [STATUS_NETWORK_FULL]: 'network' };
 
 type Phase = 'connecting' | 'open' | 'waiting';
 
@@ -118,7 +119,7 @@ export class LiveConnection implements RemoteLink, ConnectionStatus {
     try {
       await this.deps.prepare();
     } catch (error) {
-      if (mine === this.generation) this.failed(error instanceof RequestRefused && error.status === STATUS_TOO_MANY ? 'address' : null);
+      if (mine === this.generation) this.failed(error instanceof RequestRefused ? (refusalReasons[error.status] ?? null) : null);
       return;
     }
     if (mine !== this.generation) return;

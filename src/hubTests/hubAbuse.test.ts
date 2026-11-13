@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { ADDRESS_LOCK_MS, ADDRESS_STRIKES, DEVICE_JOINS, LOOKUP_LOCK_MS, SCHOOL_MISSES, SOCKET_CARDS, SOCKET_MESSAGES, WATCHES_PER_HUB } from '../ports/limits';
-import { CLOSE_ADDRESS_LOCKED, CLOSE_RATE_LIMITED, STATUS_TOO_MANY } from '../ports/wire';
+import { CLOSE_DEVICE_LOCKED, CLOSE_RATE_LIMITED, STATUS_TOO_MANY } from '../ports/wire';
 import { Connection } from '../server/Connection';
 import { connect, createHarness, FakeSocket, type Harness } from './hubHarness';
 import { hub, jar, post, teacher, upgrade } from './requestsKit';
@@ -61,7 +61,7 @@ describe('a socket that sends too fast', () => {
     expect(await flood(harness, 'a', '10.0.0.5')).toBe(CLOSE_RATE_LIMITED);
     expect(await flood(harness, 'b', '10.0.0.5')).toBe(CLOSE_RATE_LIMITED);
     expect(harness.gate.turnsAway('10.0.0.5', null)).toBe(false);
-    expect(await flood(harness, 'c', '10.0.0.5')).toBe(CLOSE_ADDRESS_LOCKED);
+    expect(await flood(harness, 'c', '10.0.0.5')).toBe(CLOSE_DEVICE_LOCKED);
     expect(harness.gate.turnsAway('10.0.0.5', null)).toBe(true);
     expect(harness.gate.turnsAway('10.0.0.6', null)).toBe(false);
   });

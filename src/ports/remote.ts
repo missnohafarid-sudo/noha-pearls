@@ -11,8 +11,8 @@ export interface RemoteLink {
   watch(service: string, method: string, args: readonly unknown[], listener: (value: unknown) => void, onRefused?: (error: WireError) => void): Unsubscribe;
 }
 
-/** Why the hub turned the page away: it sent too fast, or its network address is refused for a while. */
-export type TurnedAway = 'rate' | 'address';
+/** Why the hub turned the page away: it sent too fast, this device is refused for a while, or this network has been given all the new devices it may have for now. */
+export type TurnedAway = 'rate' | 'device' | 'network';
 
 /** Whether the page can reach what holds its data; the interface shows a notice while it cannot. */
 export interface ConnectionStatus {

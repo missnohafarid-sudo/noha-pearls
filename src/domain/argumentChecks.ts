@@ -1,0 +1,60 @@
+import { isCardNumber } from './cards';
+import { normalizeJoinCode } from './ids';
+import { MAX_TEXT_ANSWER_LENGTH } from './answering';
+import { PACING_MODES } from './pacing';
+import { PERIOD_KINDS, periodAt, type Period } from './periods';
+
+/** The single home of what an argument may look like before any service sees it: small checkers, built into the shape of each method's arguments. */
+
+export type Check = (value: unknown) => boolean;
+
+export const MAX_ID_LENGTH = 64;
+export const MAX_NAME_LENGTH = 100;
+export const MAX_SLIDE_INDEX = 1000;
+export const MAX_LIST_LENGTH = 1000;
+/** A class code is at most this long once spaces are removed and digits made Latin. */
+const MAX_CODE_LENGTH = 12;
+const MAX_RAW_CODE_LENGTH = 64;
+
+export const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
+
+export const text = (max: number): Check => (value) => typeof value === 'string' && value.length <= max;
+export const nonEmptyText = (max: number): Check => (value) => typeof value === 'string' && value.length > 0 && value.length <= max;
+export const integer = (min: number, max: number): Check => (value) => typeof value === 'number' && Number.isInteger(value) && value >= min && value <= max;
+export const number = (min: number, max: number): Check => (value) => typeof value === 'number' && Number.isFinite(value) && value >= min && value <= max;
+export const oneOf = (...allowed: readonly unknown[]): Check => (value) => allowed.includes(value);
+export const isBoolean: Check = (value) => typeof value === 'boolean';
+export const nullable = (check: Check): Check => (value) => value === null || check(value);
+export const listOf = (check: Check, max = MAX_LIST_LENGTH): Check => (value) => Array.isArray(value) && value.length <= max && value.every(check);
+
+/** An object with exactly these fields, each of the kind given. */
+export const shape =
+  (fields: Record<string, Check>): Check =>
+  (value) => {
+    if (!isRecord(value)) return false;
+    const keys = Object.keys(value);
+    return keys.length === Object.keys(fields).length && keys.every((key) => Object.hasOwn(fields, key) && fields[key](value[key]));
+  };
+
+export const isId: Check = nonEmptyText(MAX_ID_LENGTH);
+export const isName: Check = text(MAX_NAME_LENGTH);
+export const slideIndex: Check = integer(0, MAX_SLIDE_INDEX);
+
+/** What a student types for a class code: after `normalizeJoinCode` it must be letters and digits of a code's length. */
+export const isClassCode: Check = (value) =>
+  typeof value === 'string' && value.length <= MAX_RAW_CODE_LENGTH && /^[A-Z0-9]+$/.test(normalizeJoinCode(value)) && normalizeJoinCode(value).length <= MAX_CODE_LENGTH;
+
+export const isCard: Check = (value) => typeof value === 'number' && Number.isInteger(value) && isCardNumber(value);
+export const isPeriodKind: Check = oneOf(...PERIOD_KINDS);
+export const isPacingMode: Check = oneOf(...PACING_MODES);
+
+/** A period is one the calendar makes: the kind and start decide the end. */
+export const isPeriod: Check = (value) => {
+  if (!shape({ kind: isPeriodKind, start: number(0, 8.64e15), end: number(0, 8.64e15) })(value)) return false;
+  const { kind, start, end } = value as Period;
+  const made = periodAt(kind, start);
+  return made.start === start && made.end === end;
+};
+
+/** The value of an answer: an option number, or the text a student typed, before it is cleaned and cut. */
+export const isAnswerValue: Check = (value) => integer(0, 99)(value) || text(MAX_TEXT_ANSWER_LENGTH * 4)(value);

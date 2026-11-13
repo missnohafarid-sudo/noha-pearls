@@ -1,4 +1,6 @@
+import type { Id } from '../domain/models';
 import { HELLO_PATH, LIVE_PATH, SIGN_IN_PATH, SIGN_OUT_PATH, STATUS_TOO_MANY } from '../ports/wire';
+import type { AdminSessions } from './AdminSessions';
 import { addressOf } from './address';
 import { bodyRefusal } from './body';
 import type { ConnectionOrigin } from './Connection';
@@ -7,7 +9,7 @@ import type { DeviceTokens } from './DeviceTokens';
 import type { Gatekeeper } from './Gatekeeper';
 import type { HubHttp } from './HubHttp';
 import { isSameOrigin } from './HubHttp';
-import { deviceIdOf, identityOf, type AdminCookie, type RequestIdentity } from './identity';
+import { identityOf, type RequestIdentity } from './identity';
 
 /** Who a new socket is, as its cookies and its address say, and the response that accepts it. */
 export type AcceptSocket = (origin: ConnectionOrigin) => Response;
@@ -23,12 +25,18 @@ const tooMany = (): Response => new Response(null, { status: STATUS_TOO_MANY });
 export class HubRequests {
   constructor(
     private readonly http: HubHttp,
-    private readonly admin: AdminCookie | null,
+    private readonly sessions: AdminSessions | null,
     private readonly devices: DeviceTokens,
     private readonly connections: ConnectionRegistry<object>,
     private readonly gate: Gatekeeper,
+    private readonly seated: (device: Id) => Promise<boolean>,
     private readonly accept: AcceptSocket,
   ) {}
+
+  /** Forgets what has run out: called by the hub's alarm. */
+  prune(): void {
+    this.devices.prune();
+  }
 
   async handle(request: Request): Promise<Response> {
     const { pathname } = new URL(request.url);
@@ -39,27 +47,39 @@ export class HubRequests {
       const tooBig = bodyRefusal(request);
       if (tooBig) return tooBig;
     }
-    const identity = await identityOf(request.headers, this.admin, this.devices);
-    const address = addressOf(request);
-    if (socket) return this.openSocket(address, identity);
-    if (pathname === HELLO_PATH) return this.gate.turnsAway(address, identity.adminExpiresAt) ? tooMany() : this.http.hello(request, identity);
+    const identity = await identityOf(request, this.sessions, this.devices);
+    if (socket) return this.openSocket(addressOf(request), identity);
+    if (pathname === HELLO_PATH) return this.isTurnedAway(identity) ? tooMany() : this.http.hello(request, identity);
     if (pathname === SIGN_IN_PATH) return this.http.signIn(request);
-    if (pathname === SIGN_OUT_PATH) return this.signOut(request, identity.deviceToken);
+    if (pathname === SIGN_OUT_PATH) return this.signOut(request, identity);
     return refuse(404, 'Not found');
   }
 
-  /** A socket opens for a device the hub issued, from an address that is not locked (unless the teacher is signed in), while the hub has room for it. */
-  private async openSocket(address: string, { deviceToken, adminExpiresAt }: RequestIdentity): Promise<Response> {
-    if (deviceToken === null) return refuse(401, 'Unauthorized');
-    if (this.gate.turnsAway(address, adminExpiresAt)) return tooMany();
-    const device = await deviceIdOf(deviceToken);
-    if (!this.gate.admits(this.connections.countsFor(device, address))) return tooMany();
-    return this.accept({ device, adminExpiresAt, address });
+  /** A device the hub has locked is turned away, unless the teacher is signed in on it. A request with no device yet is a new one. */
+  private isTurnedAway({ device, admin }: RequestIdentity): boolean {
+    return device !== null && this.gate.turnsAway(device, admin !== null);
   }
 
-  /** Signing out takes the teacher's rights from every socket of the device at once, not only from the ones opened later. */
-  private async signOut(request: Request, deviceToken: string | null): Promise<Response> {
-    if (deviceToken !== null) this.connections.closeDevice(await deviceIdOf(deviceToken));
+  /**
+   * A socket opens for a device the hub issued that is not locked (unless the teacher is signed in), while the caps have room for it.
+   * The teacher's session is checked once more, without waiting, right before the socket is accepted: a sign-out that came in during
+   * the waits above leaves a visitor's socket, not a teacher's.
+   */
+  private async openSocket(address: string, identity: RequestIdentity): Promise<Response> {
+    const { device, admin } = identity;
+    if (device === null) return refuse(401, 'Unauthorized');
+    if (this.isTurnedAway(identity)) return tooMany();
+    const verdict = this.gate.socketVerdict(this.connections.countsFor(device, address), admin !== null);
+    if ((await this.gate.refusal(verdict, () => this.seated(device))) !== null) return tooMany();
+    return this.accept({ device, admin: admin !== null && this.sessions?.isOpen(admin) ? admin : null, address });
+  }
+
+  /** Signing out ends the teacher's session and closes every socket that runs under it, not only the ones opened later. */
+  private signOut(request: Request, { admin }: RequestIdentity): Response {
+    if (admin !== null) {
+      this.sessions?.end(admin);
+      this.connections.closeSession(admin.id);
+    }
     return this.http.signOut(request);
   }
 }

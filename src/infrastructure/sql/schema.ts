@@ -1,8 +1,8 @@
 import type { SqlDatabase } from '../../ports/sql';
 
 /**
- * The tables, and how they change. Each entry of MIGRATIONS runs once, in order, and is never edited afterwards:
- * a later change to the tables is a new entry at the end.
+ * The tables, and how they change. Each entry of MIGRATIONS runs once, in order. Nothing has been deployed yet, so the first
+ * entry is still the whole initial schema and is edited in place; once a hub holds data, a change is a new entry at the end.
  */
 const MIGRATIONS: readonly (readonly string[])[] = [
   [
@@ -18,15 +18,11 @@ const MIGRATIONS: readonly (readonly string[])[] = [
        collection TEXT NOT NULL, field TEXT NOT NULL, value TEXT NOT NULL, id TEXT NOT NULL,
        PRIMARY KEY (collection, field, value, id)
      ) WITHOUT ROWID`,
+    'CREATE TABLE locks (subject TEXT NOT NULL PRIMARY KEY, locked_until INTEGER NOT NULL) WITHOUT ROWID',
+    'CREATE TABLE window_events (subject TEXT NOT NULL PRIMARY KEY, times TEXT NOT NULL) WITHOUT ROWID',
+    'CREATE TABLE admin_sessions (id TEXT NOT NULL PRIMARY KEY, expires_at INTEGER NOT NULL) WITHOUT ROWID',
+    'CREATE TABLE daily_writes (day INTEGER NOT NULL PRIMARY KEY, rows INTEGER NOT NULL) WITHOUT ROWID',
   ],
-  [
-    `CREATE TABLE sign_in_attempts (
-       address TEXT NOT NULL PRIMARY KEY, failures INTEGER NOT NULL, last_at INTEGER NOT NULL, locked_until INTEGER NOT NULL
-     ) WITHOUT ROWID`,
-  ],
-  ['CREATE INDEX sign_in_attempts_last_at ON sign_in_attempts (last_at)'],
-  ['CREATE TABLE address_locks (address TEXT NOT NULL PRIMARY KEY, locked_until INTEGER NOT NULL) WITHOUT ROWID'],
-  ['CREATE TABLE daily_writes (day INTEGER NOT NULL PRIMARY KEY, rows INTEGER NOT NULL) WITHOUT ROWID'],
 ];
 
 const SCHEMA_VERSION = 'schema-version';

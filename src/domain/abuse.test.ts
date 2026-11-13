@@ -1,19 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import {
   allowanceNearlyUsed,
-  cardFits,
+  capVerdict,
   commandAllowed,
   dayLevel,
   hasRoom,
   isHeldToLimits,
   isLockedAt,
   isOverLimit,
-  socketAdmitted,
+  isSubjectOf,
+  socketVerdict,
+  subjectOf,
   utcDayOf,
-  withCard,
+  watchVerdict,
   withEvent,
   withinWindow,
-  type CardsSeen,
 } from './abuse';
 
 const LIMIT = { max: 3, windowMs: 1000 };
@@ -50,34 +51,52 @@ describe('counting events in a window', () => {
   });
 });
 
-describe('the card budget of a socket', () => {
-  const budget = { max: 2, windowMs: 1000 };
-
-  it('lets a card already shown lately through for free, and a new one only while the budget has room', () => {
-    let seen: CardsSeen = {};
-    seen = withCard(seen, 7, 0, budget.windowMs);
-    seen = withCard(seen, 8, 10, budget.windowMs);
-    expect(cardFits(seen, 7, 20, budget)).toBe(true);
-    expect(cardFits(seen, 9, 20, budget)).toBe(false);
-  });
-
-  it('gives the room back as the cards are forgotten', () => {
-    const seen = withCard(withCard({}, 7, 0, 1000), 8, 600, 1000);
-    expect(cardFits(seen, 9, 900, budget)).toBe(false);
-    expect(cardFits(seen, 9, 1100, budget)).toBe(true);
-    expect(cardFits(seen, 7, 1100, budget)).toBe(true);
-    expect(withCard(seen, 9, 1100, 1000)).toEqual({ 8: 600, 9: 1100 });
+describe('what a lock or a count is kept against', () => {
+  it('names a subject by its kind and key, and tells which kind a stored key belongs to', () => {
+    expect(subjectOf('door', 'abc')).toBe('door:abc');
+    expect(subjectOf('school-sign-in')).toBe('school-sign-in:');
+    expect(isSubjectOf('door', 'door:abc')).toBe(true);
+    expect(isSubjectOf('door', 'lookups:abc')).toBe(false);
+    expect(isSubjectOf('sign-in', 'school-sign-in:')).toBe(false);
   });
 });
 
-describe('the sockets the hub holds open', () => {
+describe('the caps on sockets and live reads', () => {
   const caps = { perDevice: 6, perAddress: 400, perHub: 3000 };
 
-  it('admits one more only while every count is under its cap', () => {
-    expect(socketAdmitted({ ofDevice: 5, ofAddress: 399, inHub: 2999 }, caps)).toBe(true);
-    expect(socketAdmitted({ ofDevice: 6, ofAddress: 0, inHub: 0 }, caps)).toBe(false);
-    expect(socketAdmitted({ ofDevice: 0, ofAddress: 400, inHub: 0 }, caps)).toBe(false);
-    expect(socketAdmitted({ ofDevice: 0, ofAddress: 0, inHub: 3000 }, caps)).toBe(false);
+  it('names the admin as the one caller no limit holds, and every cap and the day’s allowance ask it', () => {
+    expect(isHeldToLimits(true)).toBe(false);
+    expect(isHeldToLimits(false)).toBe(true);
+    expect(commandAllowed('closed', true, 'ordinary')).toBe(true);
+    expect(commandAllowed('closed', false, 'ordinary')).toBe(false);
+  });
+
+  it('holds everyone but the admin to the device’s own cap', () => {
+    expect(capVerdict(false, false, true)).toBe('refuse');
+    expect(capVerdict(false, false, false)).toBe('refuse');
+    expect(capVerdict(true, false, false)).toBe('admit');
+  });
+
+  it('lets through whoever has room, and leaves a full shared cap to a seated student: visitors are refused there, the admin never', () => {
+    expect(capVerdict(false, true, true)).toBe('admit');
+    expect(capVerdict(false, true, false)).toBe('seated-only');
+    expect(capVerdict(true, true, false)).toBe('admit');
+  });
+
+  it('applies it to sockets by device, address and hub counts', () => {
+    expect(socketVerdict({ ofDevice: 5, ofAddress: 399, inHub: 2999 }, caps, false)).toBe('admit');
+    expect(socketVerdict({ ofDevice: 6, ofAddress: 0, inHub: 0 }, caps, false)).toBe('refuse');
+    expect(socketVerdict({ ofDevice: 0, ofAddress: 400, inHub: 0 }, caps, false)).toBe('seated-only');
+    expect(socketVerdict({ ofDevice: 0, ofAddress: 0, inHub: 3000 }, caps, false)).toBe('seated-only');
+    expect(socketVerdict({ ofDevice: 6, ofAddress: 400, inHub: 3000 }, caps, true)).toBe('admit');
+  });
+
+  it('applies it to live reads by the device’s reads summed, and the hub’s', () => {
+    const reads = { perDevice: 48, perHub: 20_000 };
+    expect(watchVerdict({ ofDevice: 47, inHub: 19_999 }, reads, false)).toBe('admit');
+    expect(watchVerdict({ ofDevice: 48, inHub: 0 }, reads, false)).toBe('refuse');
+    expect(watchVerdict({ ofDevice: 0, inHub: 20_000 }, reads, false)).toBe('seated-only');
+    expect(watchVerdict({ ofDevice: 48, inHub: 20_000 }, reads, true)).toBe('admit');
   });
 });
 
@@ -86,15 +105,6 @@ describe('a lock that runs until a moment', () => {
     expect(isLockedAt(1000, 999)).toBe(true);
     expect(isLockedAt(1000, 1000)).toBe(false);
     expect(isLockedAt(undefined, 0)).toBe(false);
-  });
-});
-
-describe('who the limits hold', () => {
-  it('names the admin as the one caller no limit holds, and the day’s allowance asks it', () => {
-    expect(isHeldToLimits(true)).toBe(false);
-    expect(isHeldToLimits(false)).toBe(true);
-    expect(commandAllowed('closed', true, 'ordinary')).toBe(true);
-    expect(commandAllowed('closed', false, 'ordinary')).toBe(false);
   });
 });
 

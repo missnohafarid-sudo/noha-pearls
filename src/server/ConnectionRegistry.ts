@@ -1,10 +1,11 @@
 import type { SocketCounts } from '../domain/abuse';
 import type { Id } from '../domain/models';
+import type { OpenReads } from './Gatekeeper';
 import { CLOSE_SESSION_ENDED } from '../ports/wire';
 import type { Connection } from './Connection';
 
 /** The open connections by their socket, so that the hub can find the ones of a device. */
-export class ConnectionRegistry<Key extends object> {
+export class ConnectionRegistry<Key extends object> implements OpenReads {
   private readonly connections = new Map<Key, Connection>();
 
   add(socket: Key, connection: Connection): void {
@@ -22,8 +23,13 @@ export class ConnectionRegistry<Key extends object> {
   }
 
   /** How many live reads are open on all the sockets. */
-  watchCount(): number {
+  inHub(): number {
     return [...this.connections.values()].reduce((total, connection) => total + connection.openWatches(), 0);
+  }
+
+  /** How many live reads are open on all the sockets of this device together. */
+  ofDevice(device: Id): number {
+    return [...this.connections.values()].filter((connection) => connection.deviceId() === device).reduce((total, connection) => total + connection.openWatches(), 0);
   }
 
   /** Stops the connection's live reads and forgets it. */
@@ -37,10 +43,10 @@ export class ConnectionRegistry<Key extends object> {
     for (const [socket, connection] of [...this.connections]) if (connection.endIfExpired()) this.connections.delete(socket);
   }
 
-  /** Closes every socket of a device: its identity may have changed, and a socket never changes identity. */
-  closeDevice(device: Id): void {
+  /** Closes every socket of a teacher's session that has ended: a socket never changes identity. */
+  closeSession(sessionId: string): void {
     for (const [socket, connection] of [...this.connections]) {
-      if (connection.deviceId() !== device) continue;
+      if (connection.adminSessionId() !== sessionId) continue;
       connection.shutDown(CLOSE_SESSION_ENDED, 'signed out');
       this.connections.delete(socket);
     }

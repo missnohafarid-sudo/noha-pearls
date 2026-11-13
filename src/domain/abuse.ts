@@ -5,6 +5,20 @@ export interface WindowLimit {
   readonly windowMs: number;
 }
 
+/** How many events of one kind within a window make an offender, and how long the lock then lasts. */
+export interface OffenceRule extends WindowLimit {
+  readonly lockMs: number;
+}
+
+/** What a lock is kept against: a device at the door, a device's lookups, a network address's sign-in, the school's sign-in. */
+export type LockKind = 'door' | 'lookups' | 'sign-in' | 'school-sign-in';
+
+/** The one key a lock or a count is stored under. */
+export const subjectOf = (kind: LockKind, key = ''): string => `${kind}:${key}`;
+
+/** Whether a stored key is one of this kind's. */
+export const isSubjectOf = (kind: LockKind, subject: string): boolean => subject.startsWith(`${kind}:`);
+
 /** The moments of `times` that still count at `now`. */
 export function withinWindow(times: readonly number[], now: number, windowMs: number): number[] {
   return times.filter((at) => at > now - windowMs && at <= now);
@@ -25,27 +39,16 @@ export function hasRoom(times: readonly number[], now: number, { max, windowMs }
   return withinWindow(times, now, windowMs).length < max;
 }
 
-/** The card numbers shown lately, with the moment each was last shown. */
-export type CardsSeen = Readonly<Record<number, number>>;
-
-/** Whether this card number may be asked for: one already shown lately is free, a new one needs room in the budget. */
-export function cardFits(seen: CardsSeen, card: number, now: number, { max, windowMs }: WindowLimit): boolean {
-  const lately = cardsSeenNow(seen, now, windowMs);
-  return lately[card] !== undefined || Object.keys(lately).length < max;
-}
-
-export function cardsSeenNow(seen: CardsSeen, now: number, windowMs: number): CardsSeen {
-  return Object.fromEntries(Object.entries(seen).filter(([, at]) => at > now - windowMs));
-}
-
-export function withCard(seen: CardsSeen, card: number, now: number, windowMs: number): CardsSeen {
-  return { ...cardsSeenNow(seen, now, windowMs), [card]: now };
-}
-
 /** The most sockets the hub holds open for one device, one network address, and altogether. */
 export interface SocketCaps {
   readonly perDevice: number;
   readonly perAddress: number;
+  readonly perHub: number;
+}
+
+/** The most live reads one device may hold open, and all devices together. */
+export interface WatchCaps {
+  readonly perDevice: number;
   readonly perHub: number;
 }
 
@@ -56,13 +59,32 @@ export interface SocketCounts {
   readonly inHub: number;
 }
 
-/** Whether one more socket of this device and address fits under every cap. */
-export function socketAdmitted(open: SocketCounts, caps: SocketCaps): boolean {
-  return open.ofDevice < caps.perDevice && open.ofAddress < caps.perAddress && open.inHub < caps.perHub;
-}
-
 /** Whether the limits of this module hold the caller: the admin is the one caller they never hold. */
 export const isHeldToLimits = (isAdmin: boolean): boolean => !isAdmin;
+
+/** What a caller's standing settles when a shared cap is full: the admin and a seated student keep their place, a visitor is refused. */
+export type CapVerdict = 'admit' | 'refuse' | 'seated-only';
+
+/**
+ * The one rule for every cap on sockets and live reads. The admin is held to none. Everyone else is held to the device's own cap;
+ * when that has room but a shared cap (the address's, the hub's) is full, only a seated student is let through, which the
+ * caller works out (it costs a read, so it is asked only for this verdict).
+ */
+export function capVerdict(isAdmin: boolean, deviceHasRoom: boolean, sharedHaveRoom: boolean): CapVerdict {
+  if (!isHeldToLimits(isAdmin)) return 'admit';
+  if (!deviceHasRoom) return 'refuse';
+  return sharedHaveRoom ? 'admit' : 'seated-only';
+}
+
+/** The verdict on one more socket of a device, given what is open. */
+export function socketVerdict(open: SocketCounts, caps: SocketCaps, isAdmin: boolean): CapVerdict {
+  return capVerdict(isAdmin, open.ofDevice < caps.perDevice, open.ofAddress < caps.perAddress && open.inHub < caps.perHub);
+}
+
+/** The verdict on one more live read of a device, given its own reads and the whole hub's. */
+export function watchVerdict(open: { ofDevice: number; inHub: number }, caps: WatchCaps, isAdmin: boolean): CapVerdict {
+  return capVerdict(isAdmin, open.ofDevice < caps.perDevice, open.inHub < caps.perHub);
+}
 
 /** Whether a lock that runs until `lockedUntil` still holds at `now`. */
 export const isLockedAt = (lockedUntil: number | undefined, now: number): boolean => lockedUntil !== undefined && lockedUntil > now;

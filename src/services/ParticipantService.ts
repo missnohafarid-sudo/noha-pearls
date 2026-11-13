@@ -1,4 +1,4 @@
-import { canClaimSeat, canWaitForSeat, isAdmitted, seatId } from '../domain/admission';
+import { canClaimSeat, canWaitForSeat, isAdmitted, joinChangesNothing, seatId } from '../domain/admission';
 import type { Id, Participant } from '../domain/models';
 import { acceptsChanges } from '../domain/sessions';
 import { nameClaims, readerOf, type NameClaims, type Reader } from '../domain/visibility';
@@ -60,25 +60,31 @@ export class ParticipantService implements SeatSource, ReaderSource {
   /**
    * Asks for a seat; the device waits until the teacher lets it in, even if it was in before. `studentId` null asks
    * as a shared group device. Returns null, storing nothing, unless the class is live and the group and student are
-   * on the session's roster and belong together.
+   * on the session's roster and belong together. Asking again for the seat the device already holds, with the same group and
+   * name, changes nothing: it writes nothing, costs none of the device's seat changes and returns the seat as it is.
    */
   async join(code: string, groupId: Id, studentId: Id | null): Promise<Participant | null> {
     const opened = await this.codes.sessionOf(code);
     if (!opened) return null;
     const sessionId = opened.id;
-    requireWithin(this.guard.joinAllowed(), 'joins');
     const [session, roster, seats] = await Promise.all([this.store.get('sessions', sessionId), this.rosters.rosterOf(sessionId), this.store.list('participants', { sessionId })]);
     if (!canClaimSeat(session, roster, groupId, studentId)) return null;
     const id = this.participantId(sessionId);
+    const held = seats.find((seat) => seat.id === id) ?? null;
+    if (held && joinChangesNothing(held, groupId, studentId)) return held;
     requireWithin(canWaitForSeat(seats, id, studentId, { perStudent: WAITING_SEATS_PER_STUDENT, sharedPerClass: WAITING_SHARED_SEATS_PER_CLASS }), 'seats-full');
+    requireWithin(this.guard.seatChangeAllowed(), 'joins');
     const participant: Participant = { id, sessionId, groupId, studentId, joinedAt: Date.now(), admitted: false };
     await this.store.put('participants', participant);
     return participant;
   }
 
-  /** Lets the device pick a different name; a class that has ended keeps its seats as they were. */
+  /** Lets the device pick a different name; a class that has ended keeps its seats as they were. Giving up a seat it does not hold changes nothing. */
   async leave(sessionId: Id): Promise<void> {
-    if (acceptsChanges(await this.store.get('sessions', sessionId))) await this.store.remove('participants', this.participantId(sessionId));
+    const id = this.participantId(sessionId);
+    if (!acceptsChanges(await this.store.get('sessions', sessionId)) || (await this.store.get('participants', id)) === null) return;
+    requireWithin(this.guard.seatChangeAllowed(), 'joins');
+    await this.store.remove('participants', id);
   }
 
   private participantId(sessionId: Id): Id {

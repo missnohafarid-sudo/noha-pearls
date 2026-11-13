@@ -1,14 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import { totpCode } from '../infrastructure/totp';
-import { SignInAttempts } from '../infrastructure/sql/signInAttempts';
+import { AdminSessionTable } from '../infrastructure/sql/adminSessions';
+import { SqlLocks } from '../infrastructure/sql/locks';
+import { SqlWindowMemory } from '../infrastructure/sql/windowEvents';
 import { NodeSqlDatabase } from '../infrastructure/testKit/NodeSqlDatabase';
 import { migrate } from '../infrastructure/sql/schema';
-import { ADMIN_SESSION_MS, LOCK_MS } from '../domain/adminAccess';
+import { ADMIN_SESSION_MS } from '../domain/adminAccess';
+import { ADDRESS_WRONG_SIGN_INS } from '../ports/limits';
 import { clearedCookieLine, cookieLine, parseCookies } from '../server/cookies';
 import { LOCAL_ADDRESS } from '../server/address';
+import { AdminSessions } from '../server/AdminSessions';
 import { DeviceTokens } from '../server/DeviceTokens';
 import { HubHttp, isSameOrigin } from '../server/HubHttp';
 import { AdminCookie, adminSecretsOf, ADMIN_COOKIE, ConnectionCaller, DEVICE_COOKIE, deviceIdOf, identityOf } from '../server/identity';
+import { SignInGuard } from '../server/SignInGuard';
 import { constantTimeEqual, sha256Hex } from '../server/webCrypto';
 
 const SECRETS = { password: 'teach-2468', totpSecret: 'JBSWY3DPEHPK3PXP' };
@@ -28,10 +33,10 @@ describe('cookies', () => {
 });
 
 /** The hub's device tokens over a fresh database. */
-async function tokens(secrets: typeof SECRETS | null = SECRETS) {
+async function tokens() {
   const db = new NodeSqlDatabase();
   migrate(db);
-  return DeviceTokens.from(secrets, db, () => 1_800_000_000_000);
+  return DeviceTokens.from(db, () => 1_800_000_000_000);
 }
 
 describe('the device', () => {
@@ -51,41 +56,47 @@ describe('the device', () => {
   });
 });
 
+const SESSION_ID = 'S'.repeat(43);
+
 describe('the teacher cookie', () => {
-  it('is accepted with the expiry it was signed for, and refused if either part is changed', async () => {
-    const cookie = (await AdminCookie.from(SECRETS))!;
-    const value = await cookie.sign(5000);
-    expect(await cookie.expiryOf(value)).toBe(5000);
-    const [expiry, signature] = value.split('.');
-    expect(await cookie.expiryOf(`${Number(expiry) + 1}.${signature}`)).toBeNull();
-    expect(await cookie.expiryOf(`${expiry}.${signature.replace(/^./, signature[0] === 'a' ? 'b' : 'a')}`)).toBeNull();
-    for (const bad of [undefined, '', 'x', '5000', `${expiry}.`, `${expiry}.${'0'.repeat(64)}`]) expect(await cookie.expiryOf(bad)).toBeNull();
+  it('names a session, and is accepted only as it was signed', async () => {
+    const cookie = await AdminCookie.from(SECRETS);
+    const value = await cookie.sign(SESSION_ID);
+    expect(await cookie.sessionIdOf(value)).toBe(SESSION_ID);
+    const [id, signature] = value.split('.');
+    expect(await cookie.sessionIdOf(`${'T'.repeat(43)}.${signature}`)).toBeNull();
+    expect(await cookie.sessionIdOf(`${id}.${signature.replace(/^./, signature[0] === 'a' ? 'b' : 'a')}`)).toBeNull();
+    for (const bad of [undefined, '', 'x', id, `${id}.`, `${id}.${'0'.repeat(64)}`, `5000.${signature}`]) expect(await cookie.sessionIdOf(bad)).toBeNull();
   });
 
   it('is signed with a key from both secrets, so replacing either one refuses it', async () => {
-    const value = await (await AdminCookie.from(SECRETS))!.sign(5000);
-    expect(await (await AdminCookie.from({ ...SECRETS, password: 'other-pass-1' }))!.expiryOf(value)).toBeNull();
-    expect(await (await AdminCookie.from({ ...SECRETS, totpSecret: 'JBSWY3DPEHPK3PXQ' }))!.expiryOf(value)).toBeNull();
-    expect(await AdminCookie.from(null)).toBeNull();
+    const value = await (await AdminCookie.from(SECRETS)).sign(SESSION_ID);
+    expect(await (await AdminCookie.from({ ...SECRETS, password: 'other-pass-1' })).sessionIdOf(value)).toBeNull();
+    expect(await (await AdminCookie.from({ ...SECRETS, totpSecret: 'JBSWY3DPEHPK3PXQ' })).sessionIdOf(value)).toBeNull();
   });
 
-  it('counts only until its expiry, asked of the clock each time', () => {
+  it('counts only until its session ends, asked of the clock each time', () => {
     let now = 0;
-    const caller = new ConnectionCaller('device', 100, () => now);
+    const caller = new ConnectionCaller('device', { id: SESSION_ID, expiresAt: 100 }, () => now);
     expect(caller.isAdmin()).toBe(true);
     now = 100;
     expect(caller.isAdmin()).toBe(false);
+    expect(caller.sessionRanOut()).toBe(true);
     expect(new ConnectionCaller('device', null, () => now).isAdmin()).toBe(false);
+    expect(new ConnectionCaller('device', null, () => now).sessionRanOut()).toBe(false);
   });
 
   it('reads who sent a request from its cookies only', async () => {
-    const admin = (await AdminCookie.from(SECRETS))!;
+    const db = new NodeSqlDatabase();
+    migrate(db);
+    const sessions = await AdminSessions.from(SECRETS, new AdminSessionTable(db), () => 1_800_000_000_000);
     const devices = await tokens();
     const token = (await devices.issue('1.1.1.1'))!;
-    const headers = new Headers({ Cookie: `${DEVICE_COOKIE}=${token}; ${ADMIN_COOKIE}=${await admin.sign(9)}` });
-    expect(await identityOf(headers, admin, devices)).toEqual({ deviceToken: token, adminExpiresAt: 9 });
-    expect(await identityOf(new Headers({ Cookie: `${DEVICE_COOKIE}=bad` }), admin, devices)).toEqual({ deviceToken: null, adminExpiresAt: null });
-    expect((await identityOf(headers, null, devices)).adminExpiresAt).toBeNull();
+    const { session, cookie } = await sessions.open();
+    const request = (cookies: string) => new Request(`${ORIGIN}/api/hello`, { method: 'POST', headers: { Cookie: cookies } });
+    expect(await identityOf(request(`${DEVICE_COOKIE}=${token}; ${ADMIN_COOKIE}=${cookie}`), sessions, devices)).toEqual({ deviceToken: token, device: await deviceIdOf(token), admin: session });
+    expect(await identityOf(request(`${DEVICE_COOKIE}=bad`), sessions, devices)).toEqual({ deviceToken: null, device: null, admin: null });
+    expect((await identityOf(request(`${DEVICE_COOKIE}=${token}; ${ADMIN_COOKIE}=${cookie}`), null, devices)).admin).toBeNull();
   });
 });
 
@@ -116,11 +127,12 @@ describe('the plain requests', () => {
     const db = new NodeSqlDatabase();
     migrate(db);
     const clock = { now: 1_800_000_000_000 };
-    const admin = await AdminCookie.from(secrets);
-    const devices = await DeviceTokens.from(secrets, db, () => clock.now);
-    const plain = new HubHttp(secrets, admin, new SignInAttempts(db), devices, () => clock.now);
+    const now = () => clock.now;
+    const sessions = secrets ? await AdminSessions.from(secrets, new AdminSessionTable(db), now) : null;
+    const devices = await DeviceTokens.from(db, now);
+    const plain = new HubHttp(secrets, sessions, new SignInGuard(new SqlLocks(db), new SqlWindowMemory(db), now), devices, now);
     const http = {
-      hello: async (request: Request) => plain.hello(request, await identityOf(request.headers, admin, devices)),
+      hello: async (request: Request) => plain.hello(request, await identityOf(request, sessions, devices)),
       signIn: async (request: Request) => plain.signIn(request),
       signOut: (request: Request) => plain.signOut(request),
     };
@@ -189,7 +201,7 @@ describe('the plain requests', () => {
     const right = async (address: string) => (await (await http.signIn(post('/api/sign-in', { password: SECRETS.password, code: await goodCode(clock.now) }, { 'CF-Connecting-IP': address }))).json()) as { ok: boolean };
     expect(await right('10.0.0.1')).toEqual({ ok: false });
     expect(await right('10.0.0.2')).toEqual({ ok: true });
-    clock.now += LOCK_MS - 1;
+    clock.now += ADDRESS_WRONG_SIGN_INS.lockMs - 1;
     expect(await right('10.0.0.1')).toEqual({ ok: false });
     clock.now += 1;
     expect(await right('10.0.0.1')).toEqual({ ok: true });

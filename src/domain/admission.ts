@@ -142,6 +142,11 @@ export function seatId(sessionId: Id, deviceId: Id): Id {
   return `${sessionId}:${deviceId}`;
 }
 
+/** Whether asking for a seat again changes nothing: the device already holds a seat, waiting or let in, with the same group and name. */
+export function joinChangesNothing(seat: Participant | null, groupId: Id, studentId: Id | null): boolean {
+  return seat !== null && seat.groupId === groupId && seat.studentId === studentId;
+}
+
 export interface WaitingSeatLimits {
   perStudent: number;
   sharedPerClass: number;

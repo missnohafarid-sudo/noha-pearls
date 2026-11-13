@@ -1,10 +1,12 @@
 import { DurableObject } from 'cloudflare:workers';
 import { MeteredSql } from '../infrastructure/MeteredSql';
-import { AddressLocks } from '../infrastructure/sql/addressLocks';
+import { AdminSessionTable } from '../infrastructure/sql/adminSessions';
+import { SqlLocks } from '../infrastructure/sql/locks';
 import { migrate } from '../infrastructure/sql/schema';
-import { SignInAttempts } from '../infrastructure/sql/signInAttempts';
+import { SqlWindowMemory } from '../infrastructure/sql/windowEvents';
 import { SqlDocumentStore } from '../infrastructure/SqlDocumentStore';
 import { CLOSE_POLICY, PING, PONG } from '../ports/wire';
+import { AdminSessions } from './AdminSessions';
 import { Connection, type ConnectionOrigin } from './Connection';
 import { ConnectionRegistry } from './ConnectionRegistry';
 import { DayBreaker } from './DayBreaker';
@@ -14,8 +16,9 @@ import { Gatekeeper } from './Gatekeeper';
 import { HubCore } from './HubCore';
 import { HubHttp } from './HubHttp';
 import { HubRequests } from './HubRequests';
-import { AdminCookie, adminSecretsOf } from './identity';
+import { adminSecretsOf } from './identity';
 import { wantsSampleSchool } from './sampleSchool';
+import { SignInGuard } from './SignInGuard';
 
 /**
  * The hub: the one place the school's data lives and every device connects to. This class only joins the platform to
@@ -25,6 +28,8 @@ export class SchoolHub extends DurableObject<Env> {
   private readonly core: HubCore;
   private readonly requests: Promise<HubRequests>;
   private readonly connections = new ConnectionRegistry<WebSocket>();
+  private readonly adminSessions: AdminSessionTable;
+  private readonly signIns: SignInGuard;
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -32,12 +37,15 @@ export class SchoolHub extends DurableObject<Env> {
     migrate(raw);
     const db = new MeteredSql(raw, Date.now);
     const report = (error: unknown): void => console.error(error);
-    const gate = new Gatekeeper(new AddressLocks(db), Date.now, () => this.connections.watchCount());
+    const locks = new SqlLocks(db);
+    const gate = new Gatekeeper(Date.now, this.connections);
     this.core = new HubCore(new SqlDocumentStore(db, report), gate, new DayBreaker(db), Date.now, report);
     const secrets = adminSecretsOf(env);
-    const attempts = new SignInAttempts(db);
-    this.requests = Promise.all([AdminCookie.from(secrets), DeviceTokens.from(secrets, db, Date.now)]).then(
-      ([admin, devices]) => new HubRequests(new HubHttp(secrets, admin, attempts, devices, this.core.now), admin, devices, this.connections, gate, (origin) => this.acceptSocket(origin)),
+    this.adminSessions = new AdminSessionTable(db);
+    this.signIns = new SignInGuard(locks, new SqlWindowMemory(db), Date.now);
+    this.requests = Promise.all([secrets ? AdminSessions.from(secrets, this.adminSessions, Date.now) : null, DeviceTokens.from(db, Date.now)]).then(
+      ([sessions, devices]) =>
+        new HubRequests(new HubHttp(secrets, sessions, this.signIns, devices, this.core.now), sessions, devices, this.connections, gate, (device) => this.core.isSeated(device), (origin) => this.acceptSocket(origin)),
     );
     ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair(PING, PONG));
     ctx.blockConcurrencyWhile(async () => {
@@ -66,6 +74,9 @@ export class SchoolHub extends DurableObject<Env> {
 
   async alarm(): Promise<void> {
     this.connections.closeExpired();
+    this.adminSessions.prune(Date.now());
+    this.signIns.prune();
+    (await this.requests).prune();
     await this.ctx.storage.setAlarm(await this.core.runAlarm());
   }
 

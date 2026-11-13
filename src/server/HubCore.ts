@@ -1,11 +1,12 @@
 import { commandAllowed } from '../domain/abuse';
 import type { Id } from '../domain/models';
-import type { AbuseGuard } from '../ports/abuse';
+import { NO_GUARD, type AbuseGuard } from '../ports/abuse';
 import type { Caller } from '../ports/caller';
 import { MAX_COMPUTED_ENTRIES } from '../ports/limits';
 import type { WireError } from '../ports/wire';
 import { UnitOfWork } from '../infrastructure/UnitOfWork';
 import type { SqlDocumentStore } from '../infrastructure/SqlDocumentStore';
+import { ClassCodes } from '../services/ClassCodes';
 import { createDataServices } from '../services/createDataServices';
 import { encodeError, wireErrorOf } from '../services/errorRegistry';
 import { LimitError } from '../services/LimitError';
@@ -57,7 +58,12 @@ export class HubCore {
 
   /** What one socket is held to; the gatekeeper makes it. */
   limitsFor(address: string, device: Id): ConnectionLimits {
-    return this.gate.limitsFor(address, device);
+    return this.gate.limitsFor(address, device, () => this.isSeated(device));
+  }
+
+  /** Whether this device is let in to a running class, which is what keeps a student's place when the shared caps are full. Worked out once per device until a seat or a class changes. */
+  isSeated(device: Id): Promise<boolean> {
+    return this.seats.get(device, () => new ClassCodes(this.store, { isAdmin: () => false, deviceId: () => device }, NO_GUARD).holdsLiveSeat());
   }
 
   /**

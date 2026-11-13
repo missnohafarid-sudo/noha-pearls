@@ -1,4 +1,4 @@
-/** How long things last, and when an address is shut out of sign-in. All times are milliseconds. */
+/** How long things last, and who may sign in. All times are milliseconds. */
 
 import { DAY_MS } from './periods';
 
@@ -13,51 +13,49 @@ export const MIN_PASSWORD_LENGTH = 8;
 
 /**
  * SHA-256 of the development password and of the development authenticator key, which are public in this repository.
- * A deployed hub that finds its secrets equal to these refuses every sign-in. Only the hashes are kept here, so a build holds
- * neither value itself.
+ * A hub that finds either secret equal to its public value honours the secrets only for a request from this computer. Only the
+ * hashes are kept here, so a build holds neither value itself.
  */
 export const DEVELOPMENT_SECRET_HASHES = {
   password: 'bfe3ee1676b57a46eca785d10b7b9448be13a88ec5842042f730da4650a8b36a',
   totpSecret: '8be5d113c0871ce1a122d68a7dff940ab7b09ad8dfcfd9a85aa5c1acc026279e',
 } as const;
 
-/** Sign-in is allowed over plain http only on the computer itself. */
+/** The computer itself: where plain http and the public development secrets are allowed. */
 export function isLocalHost(hostname: string): boolean {
   return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]';
 }
-
-export const WRONG_ATTEMPTS_ALLOWED = 5;
-export const LOCK_MS = 15 * 60 * 1000;
 
 export function adminExpiryFrom(now: number): number {
   return now + ADMIN_SESSION_MS;
 }
 
-/** The teacher's cookie counts only until the moment it names. */
+/** The teacher's session counts only until the moment it names. */
 export function isAdminSessionActive(expiresAt: number | null, now: number): boolean {
   return expiresAt !== null && expiresAt > now;
 }
 
-/** What is known of one network address's wrong attempts. */
-export interface AttemptRecord {
-  failures: number;
-  lastAt: number;
-  lockedUntil: number;
+/** Whether the secrets are one of the public development values: either one is enough, since each is public on its own. */
+export function usesDevelopmentValue(hashes: { password: string; totpSecret: string }): boolean {
+  return hashes.password === DEVELOPMENT_SECRET_HASHES.password || hashes.totpSecret === DEVELOPMENT_SECRET_HASHES.totpSecret;
 }
 
-export function isLocked(record: AttemptRecord | null, now: number): boolean {
-  return record !== null && record.lockedUntil > now;
+/** Secrets that hold a public development value are honoured only for a request from this computer; anywhere else there is no admin at all. */
+export function secretsHonoured(hasDevelopmentValue: boolean, isLocal: boolean): boolean {
+  return isLocal || !hasDevelopmentValue;
 }
 
-/**
- * The record after one more wrong attempt. Wrong attempts older than the lock time are forgotten, so a slip
- * last month does not count; the fifth within that time locks the address.
- */
-export function afterWrongAttempt(record: AttemptRecord | null, now: number): AttemptRecord {
-  const recent = record !== null && now - record.lastAt < LOCK_MS;
-  const failures = (recent ? record.failures : 0) + 1;
-  return { failures, lastAt: now, lockedUntil: failures >= WRONG_ATTEMPTS_ALLOWED ? now + LOCK_MS : 0 };
+/** How one sign-in attempt turned out. */
+export type SignInOutcome = 'signed-in' | 'wrong-password' | 'wrong-code';
+
+/** Both secrets are always checked; the outcome names the first that failed, the password before the code. */
+export function signInOutcome(passwordMatches: boolean, codeMatches: boolean): SignInOutcome {
+  if (!passwordMatches) return 'wrong-password';
+  return codeMatches ? 'signed-in' : 'wrong-code';
 }
+
+/** Only a wrong code behind the right password is a guess at the six digits; a wrong password gives an outsider no way to count. */
+export const isCodeGuess = (outcome: SignInOutcome): boolean => outcome === 'wrong-code';
 
 const IPV4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
 

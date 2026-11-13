@@ -1,5 +1,5 @@
 import { MeteredSql } from '../infrastructure/MeteredSql';
-import { AddressLocks } from '../infrastructure/sql/addressLocks';
+import { SqlLocks } from '../infrastructure/sql/locks';
 import { migrate } from '../infrastructure/sql/schema';
 import { NodeSqlDatabase } from '../infrastructure/testKit/NodeSqlDatabase';
 import { CountingSql } from '../infrastructure/testKit/CountingSql';
@@ -62,6 +62,8 @@ export interface Harness {
   core: HubCore;
   /** The hub's memory of its visitors, and the sockets it holds: one of each per harness, as in the real hub. */
   gate: Gatekeeper;
+  /** What the hub refuses for a while and must not forget on waking: the sign-in locks, in its database. */
+  locks: SqlLocks;
   registry: ConnectionRegistry<object>;
   breaker: DayBreaker;
   clock: { now: number };
@@ -78,9 +80,10 @@ export function createHarness(location = ':memory:'): Harness {
   const reported: unknown[] = [];
   const store = new SqlDocumentStore(meter, (error) => reported.push(error));
   const registry = new ConnectionRegistry<object>();
-  const gate = new Gatekeeper(new AddressLocks(meter), now, () => registry.watchCount());
+  const locks = new SqlLocks(meter);
+  const gate = new Gatekeeper(now, registry);
   const breaker = new DayBreaker(meter);
-  return { sql, meter, store, clock, reported, gate, registry, breaker, core: new HubCore(store, gate, breaker, now, (error) => reported.push(error)) };
+  return { sql, meter, store, clock, reported, gate, locks, registry, breaker, core: new HubCore(store, gate, breaker, now, (error) => reported.push(error)) };
 }
 
 export interface Client {
@@ -96,7 +99,8 @@ export interface Client {
 /** A page connected to the hub as the device `device` from `address`, the admin until `adminExpiresAt` (null for a visitor). */
 export function connect(harness: Harness, device: string, adminExpiresAt: number | null = null, address = LOCAL_ADDRESS): Client {
   const socket = new FakeSocket();
-  const connection = Connection.open(socket, harness.core, { device, adminExpiresAt, address });
+  const admin = adminExpiresAt === null ? null : { id: `session-of-${device}`, expiresAt: adminExpiresAt };
+  const connection = Connection.open(socket, harness.core, { device, admin, address });
   harness.registry.add(socket, connection);
   return clientOf(socket, connection);
 }

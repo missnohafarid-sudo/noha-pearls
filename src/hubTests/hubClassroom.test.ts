@@ -35,7 +35,7 @@ describe('what a device without a seat may do with a class it knows the id of', 
 });
 
 describe('a classroom of 35 devices behind one school address', () => {
-  it('joins, is let in, answers every question and gives hearts without any limit stopping a student, and the address is never locked', async () => {
+  it('joins, is let in, answers every question and gives hearts without any limit stopping a student, and no device is ever locked', async () => {
     const { harness, admin, session, lesson, students } = await classroom();
     const devices: { phone: Client; student: (typeof students)[number] }[] = [];
     for (const [n, student] of students.slice(0, 35).entries()) {
@@ -64,7 +64,7 @@ describe('a classroom of 35 devices behind one school address', () => {
       if (mate) expect(await phone.call(id++, 'rewards', 'giveAsPeer', session.id, mate.id)).toMatchObject({ ok: true });
     }
     expect(devices.every(({ phone }) => phone.socket.closedWith === null)).toBe(true);
-    expect(harness.gate.turnsAway(SCHOOL_ADDRESS, null)).toBe(false);
+    expect(harness.sql.all('SELECT subject FROM locks')).toEqual([]);
   });
 });
 

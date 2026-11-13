@@ -12,7 +12,6 @@ import { TeacherError } from '../../services/TeacherService';
 const LIMIT_WORDS = {
   lookups: 'lookups',
   joins: 'joins',
-  cards: 'cards',
   'seats-full': 'seatsFull',
   'hearts-used': 'heartsUsed',
   'answer-changes': 'answerChanges',

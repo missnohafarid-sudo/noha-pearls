@@ -1,11 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
-import { LOCK_MS } from '../domain/adminAccess';
-import { hub, jar, LOCAL, post, SECRETS, teacher, upgrade } from './requestsKit';
 import { totpCode } from '../infrastructure/totp';
-import { MAX_POST_BODY_BYTES } from '../ports/limits';
+import { ADDRESS_WRONG_SIGN_INS, MAX_POST_BODY_BYTES } from '../ports/limits';
 import { CLOSE_SESSION_ENDED } from '../ports/wire';
 import { answerWithoutHub } from '../server/gateway';
 import { HubHttp } from '../server/HubHttp';
+import { hub, jar, LOCAL, post, SECRETS, teacher, upgrade } from './requestsKit';
 
 describe('the cheap refusals come first', () => {
   it('refuses a foreign origin, the origin called null, and a method that is not allowed, before anything is read', async () => {
@@ -80,6 +79,23 @@ describe('signing out', () => {
   });
 });
 
+describe('a socket opening while its session signs out', () => {
+  it('is a visitor’s, whatever the order: the session is checked again right before the socket is accepted', async () => {
+    const h = await hub();
+    const mine = await teacher(h, '10.0.0.1');
+    const sessions = h.sessions!;
+    const verified = sessions.verified.bind(sessions);
+    vi.spyOn(sessions, 'verified').mockImplementation(async (...asked) => {
+      const found = await verified(...asked);
+      if (found) sessions.end(found);
+      return found;
+    });
+    expect((await h.requests.handle(upgrade({ Cookie: mine.cookie }))).status).toBe(200);
+    expect(h.sockets.at(-1)!.messages()[0]).toMatchObject({ type: 'hello', admin: false });
+    expect(h.sockets.at(-1)!.closedWith).toBeNull();
+  });
+});
+
 describe('the order of signing out', () => {
   it('closes the device\'s sockets before the response that signs it out is built', async () => {
     const h = await hub();
@@ -107,7 +123,7 @@ describe('signing in', () => {
     const code = await totpCode(SECRETS.totpSecret, h.harness.clock.now);
     await Promise.all(Array.from({ length: 30 }, () => attempt(h, 'wrong-password', '000000', '1.2.3.4')));
     expect(await attempt(h, SECRETS.password, code, '1.2.3.4')).toEqual({ ok: false });
-    h.harness.clock.now += LOCK_MS - 1;
+    h.harness.clock.now += ADDRESS_WRONG_SIGN_INS.lockMs - 1;
     expect(await attempt(h, SECRETS.password, await totpCode(SECRETS.totpSecret, h.harness.clock.now), '1.2.3.4')).toEqual({ ok: false });
     h.harness.clock.now += 1;
     expect(await attempt(h, SECRETS.password, await totpCode(SECRETS.totpSecret, h.harness.clock.now), '1.2.3.4')).toEqual({ ok: true });

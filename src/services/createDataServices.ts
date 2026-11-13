@@ -47,7 +47,7 @@ export function createDataServices(store: DocumentStore, caller: Caller, runtime
     rewards: new RewardService(store, caller, participants, sessionRoster, codes),
     records,
     retention: new RetentionService(store, caller),
-    board: new BoardService(store, codes, runtime.guard, classReads),
+    board: new BoardService(store, codes, classReads),
     seatView: new SeatViewService(store, participants, classReads),
   };
 }

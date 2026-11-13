@@ -1,12 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createHash } from 'node:crypto';
-import { attemptKeyOf, DEVELOPMENT_SECRET_HASHES, isLocalHost, MIN_PASSWORD_LENGTH, adminExpiryFrom, ADMIN_SESSION_MS, afterWrongAttempt, isAdminSessionActive, isLocked, LOCK_MS, WRONG_ATTEMPTS_ALLOWED, type AttemptRecord } from './adminAccess';
-
-function wrongTimes(count: number, start = 0, gap = 1000): AttemptRecord {
-  let record: AttemptRecord | null = null;
-  for (let n = 0; n < count; n += 1) record = afterWrongAttempt(record, start + n * gap);
-  return record as AttemptRecord;
-}
+import { attemptKeyOf, DEVELOPMENT_SECRET_HASHES, isCodeGuess, isLocalHost, MIN_PASSWORD_LENGTH, adminExpiryFrom, ADMIN_SESSION_MS, isAdminSessionActive, secretsHonoured, signInOutcome, usesDevelopmentValue } from './adminAccess';
 
 describe('the teacher session', () => {
   it('lasts seven days and counts only until then', () => {
@@ -18,29 +12,15 @@ describe('the teacher session', () => {
   });
 });
 
-describe('the sign-in attempt limit', () => {
-  it('does not lock before the fifth wrong attempt, and locks at the fifth for fifteen minutes', () => {
-    expect(isLocked(wrongTimes(WRONG_ATTEMPTS_ALLOWED - 1), 5000)).toBe(false);
-    const locked = wrongTimes(WRONG_ATTEMPTS_ALLOWED);
-    const lastAt = (WRONG_ATTEMPTS_ALLOWED - 1) * 1000;
-    expect(isLocked(locked, lastAt + LOCK_MS - 1)).toBe(true);
-    expect(isLocked(locked, lastAt + LOCK_MS)).toBe(false);
-  });
-
-  it('forgets wrong attempts older than the lock time, so the count starts again', () => {
-    const old = wrongTimes(4);
-    const later = afterWrongAttempt(old, 3000 + LOCK_MS);
-    expect(later.failures).toBe(1);
-    expect(isLocked(later, 3000 + LOCK_MS)).toBe(false);
-  });
-
-  it('counts a lock that has run out as a fresh start', () => {
-    const locked = wrongTimes(WRONG_ATTEMPTS_ALLOWED);
-    expect(afterWrongAttempt(locked, locked.lockedUntil).failures).toBe(1);
-  });
-
-  it('knows nothing of an address never seen', () => {
-    expect(isLocked(null, 0)).toBe(false);
+describe('how a sign-in attempt turned out', () => {
+  it('names the password first: a wrong code counts as a guess at the six digits only behind the right password', () => {
+    expect(signInOutcome(true, true)).toBe('signed-in');
+    expect(signInOutcome(true, false)).toBe('wrong-code');
+    expect(signInOutcome(false, true)).toBe('wrong-password');
+    expect(signInOutcome(false, false)).toBe('wrong-password');
+    expect(isCodeGuess('wrong-code')).toBe(true);
+    expect(isCodeGuess('wrong-password')).toBe(false);
+    expect(isCodeGuess('signed-in')).toBe(false);
   });
 });
 
@@ -83,5 +63,15 @@ describe('where sign-in is allowed, and which secrets are never real', () => {
     const hash = (text: string) => createHash('sha256').update(text).digest('hex');
     expect(DEVELOPMENT_SECRET_HASHES).toEqual({ password: hash('teach-2468'), totpSecret: hash('JBSWY3DPEHPK3PXP') });
     expect(MIN_PASSWORD_LENGTH).toBe(8);
+  });
+
+  it('counts a secret pair as public when either value is the development one, and honours such a pair only on this computer', () => {
+    const real = { password: 'x'.repeat(64), totpSecret: 'y'.repeat(64) };
+    expect(usesDevelopmentValue(real)).toBe(false);
+    expect(usesDevelopmentValue({ ...real, password: DEVELOPMENT_SECRET_HASHES.password })).toBe(true);
+    expect(usesDevelopmentValue({ ...real, totpSecret: DEVELOPMENT_SECRET_HASHES.totpSecret })).toBe(true);
+    expect(secretsHonoured(false, false)).toBe(true);
+    expect(secretsHonoured(true, true)).toBe(true);
+    expect(secretsHonoured(true, false)).toBe(false);
   });
 });

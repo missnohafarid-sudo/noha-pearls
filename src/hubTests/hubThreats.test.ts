@@ -1,26 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import type { Participant, Session } from '../domain/models';
-import { ADDRESS_MISSES, ANSWER_CHANGES_PER_QUESTION, PEER_HEARTS_PER_GIVER, SOCKET_CARDS, WAITING_SEATS_PER_STUDENT } from '../ports/limits';
+import type { Session } from '../domain/models';
+import { ANSWER_CHANGES_PER_QUESTION, DEVICE_MISSES, PEER_HEARTS_PER_GIVER } from '../ports/limits';
 import { argumentsFit, SURFACE_SHAPES } from '../services/surfaceShapes';
 import { UI_SURFACE } from '../services/Services';
 import { surfaceKind } from '../services/surfaceDispatch';
-import { connect, createHarness, type Client, type Harness } from './hubHarness';
+import { classroom, FAR, seatFor } from './classKit';
+import { connect, type Client } from './hubHarness';
 
-const FAR = 9_000_000_000_000;
 const LIMIT = (code: string) => ({ name: 'LimitError', code });
-
-async function classroom() {
-  const harness = createHarness();
-  await harness.core.seed(true);
-  const admin = connect(harness, 'laptop', FAR);
-  const classId = (await harness.store.list('classes'))[0].id;
-  const lessonId = (await harness.store.list('lessons'))[0].id;
-  const teacherId = (await harness.store.list('teachers'))[0].id;
-  await admin.call(1, 'sessions', 'start', lessonId, classId, teacherId);
-  const session = (await harness.store.list('sessions'))[0] as Session;
-  const students = await harness.store.list('students');
-  return { harness, admin, session, students, lessonId };
-}
 
 /** Looks a code up the way a page does and says what came back: the class, nothing, or the refusal. */
 async function lookup(client: Client, id: number, code: string): Promise<Session | null | 'refused'> {
@@ -29,42 +16,34 @@ async function lookup(client: Client, id: number, code: string): Promise<Session
   return (client.socket.values(id).at(-1) ?? null) as Session | null;
 }
 
-async function seatFor(harness: Harness, admin: Client, code: string, device: string, studentId: string, groupId: string, address = 'local'): Promise<{ phone: Client; seat: Participant }> {
-  const phone = connect(harness, device, null, address);
-  expect(await phone.call(1, 'participants', 'join', code, groupId, studentId)).toMatchObject({ ok: true });
-  const seat = (await harness.store.list('participants')).find((candidate) => candidate.id.endsWith(`:${device}`)) as Participant;
-  await admin.call(2000 + Math.floor(Math.random() * 100000), 'admission', 'admit', seat.id, studentId);
-  return { phone, seat };
-}
-
 describe('guessing class codes', () => {
-  it('locks the address after its misses, still serves a device that has a seat and the admin there, and leaves other addresses alone', async () => {
+  it('locks only the device that guessed, after its twenty-first wrong code, and still serves a device with a seat, the admin, and another device at the same address, which also joins', async () => {
     const { harness, admin, session, students } = await classroom();
     const { phone: seated } = await seatFor(harness, admin, session.code, 'seated', students[0].id, students[0].groupId, '10.0.0.1');
     const guesser = connect(harness, 'guesser', null, '10.0.0.1');
     const outcomes: unknown[] = [];
-    for (let guess = 0; guess < ADDRESS_MISSES.max + 5; guess += 1) outcomes.push(await lookup(guesser, 100 + guess, `ZZ${String(guess).padStart(4, '0')}`));
-    expect(outcomes.slice(0, ADDRESS_MISSES.max)).toEqual(Array(ADDRESS_MISSES.max).fill(null));
-    expect(outcomes.at(-1)).toBe('refused');
-    expect(guesser.socket.refusal(100 + ADDRESS_MISSES.max + 4)?.error).toEqual(LIMIT('lookups'));
-    expect(await lookup(connect(harness, 'late', null, '10.0.0.1'), 1, session.code)).toBe('refused');
+    for (let guess = 0; guess < DEVICE_MISSES.max + 5; guess += 1) outcomes.push(await lookup(guesser, 100 + guess, `ZZ${String(guess).padStart(4, '0')}`));
+    expect(outcomes.slice(0, DEVICE_MISSES.max)).toEqual(Array(DEVICE_MISSES.max).fill(null));
+    expect(outcomes.slice(DEVICE_MISSES.max)).toEqual(Array(5).fill('refused'));
+    expect(guesser.socket.refusal(100 + DEVICE_MISSES.max + 4)?.error).toEqual(LIMIT('lookups'));
+    expect(await lookup(connect(harness, 'guesser', null, '10.0.0.1'), 1, session.code)).toBe('refused');
+    const neighbour = connect(harness, 'neighbour', null, '10.0.0.1');
+    expect((await lookup(neighbour, 1, session.code) as Session).code).toBe(session.code);
+    expect(await neighbour.call(2, 'participants', 'join', session.code, students[1].groupId, students[1].id)).toMatchObject({ ok: true });
     expect((await lookup(seated, 1, session.code) as Session).code).toBe(session.code);
     expect((await lookup(connect(harness, 'laptop2', FAR, '10.0.0.1'), 1, session.code) as Session).code).toBe(session.code);
     expect((await lookup(connect(harness, 'elsewhere', null, '10.0.0.2'), 1, session.code) as Session).code).toBe(session.code);
-    harness.clock.now += 11 * 60_000;
-    expect((await lookup(connect(harness, 'later', null, '10.0.0.1'), 1, session.code) as Session).code).toBe(session.code);
+    harness.clock.now += DEVICE_MISSES.lockMs;
+    expect((await lookup(connect(harness, 'guesser', null, '10.0.0.1'), 1, session.code) as Session).code).toBe(session.code);
   });
 
-  it('closes lookups for visitors school-wide after 3,000 wrong codes in an hour, not for a seated device or the admin', async () => {
-    const { harness, admin, session, students } = await classroom();
-    const { phone: seated } = await seatFor(harness, admin, session.code, 'seated', students[0].id, students[0].groupId, '10.9.9.9');
-    for (let address = 0; address < 151; address += 1) {
-      const guesser = connect(harness, `g${address}`, null, `10.1.${address}.1`);
-      for (let guess = 0; guess < 20; guess += 1) await lookup(guesser, 10 + guess, `QQ${String(address).padStart(2, '0')}${String(guess).padStart(2, '0')}`);
+  it('does not lock the school’s addresses at all: a hundred devices, each missing a few times, are all still served', async () => {
+    const { harness, session } = await classroom();
+    for (let device = 0; device < 100; device += 1) {
+      const guesser = connect(harness, `g${device}`, null, '10.1.1.1');
+      for (let guess = 0; guess < 5; guess += 1) await lookup(guesser, 10 + guess, `QQ${String(device).padStart(2, '0')}${guess}`);
     }
-    expect(await lookup(connect(harness, 'fresh', null, '10.7.7.7'), 1, session.code)).toBe('refused');
-    expect((await lookup(seated, 2, session.code) as Session).code).toBe(session.code);
-    expect((await lookup(admin, 3, session.code) as Session).code).toBe(session.code);
+    expect((await lookup(connect(harness, 'fresh', null, '10.1.1.1'), 1, session.code) as Session).code).toBe(session.code);
   });
 });
 
@@ -85,6 +64,25 @@ describe('an ended class', () => {
     await phone.watch(3, 'sessionRoster', 'watchSeen', session.code);
     expect((phone.socket.values(3)[0] as { students: unknown[] }).students.length).toBeGreaterThan(0);
     expect(((await lookup(admin, 1, session.code)) as Session).status).toBe('ended');
+  });
+
+  it('opens nothing for a device that only asked to join and was never let in, exactly like a stranger, and everything for one that was let in', async () => {
+    const { harness, admin, session, students } = await classroom();
+    const student = students[0];
+    const waiting = connect(harness, 'waiting', null, '10.0.0.3');
+    expect(await waiting.call(1, 'participants', 'join', session.code, student.groupId, student.id)).toMatchObject({ ok: true });
+    const { phone: letIn } = await seatFor(harness, admin, session.code, 'let-in', students[1].id, students[1].groupId);
+    await admin.call(5, 'sessions', 'end', session.id);
+    expect(await lookup(waiting, 2, session.code)).toBeNull();
+    await waiting.watch(3, 'sessionRoster', 'watchSeen', session.code);
+    expect(waiting.socket.values(3)).toEqual([{ groups: [], students: [] }]);
+    await waiting.watch(4, 'board', 'watchTotals', session.code);
+    expect(waiting.socket.values(4)).toEqual([[]]);
+    await waiting.watch(5, 'board', 'watchCardResults', session.code, student.cardNumber);
+    expect(waiting.socket.values(5)).toEqual([null]);
+    expect(((await lookup(letIn, 2, session.code)) as Session).status).toBe('ended');
+    await letIn.watch(3, 'sessionRoster', 'watchSeen', session.code);
+    expect((letIn.socket.values(3)[0] as { students: unknown[] }).students.length).toBeGreaterThan(0);
   });
 
   it('is not reachable by its internal id on any public read or join', async () => {
@@ -108,47 +106,14 @@ describe('an ended class', () => {
 });
 
 describe('card results', () => {
-  it('allow only so many different card numbers per socket, and a card already asked for again at no cost', async () => {
+  it('are not rationed per socket (the old budget was 40 different cards): card numbers are public, so counting them protects nothing (docs/PLAN.md 2.8)', async () => {
     const { harness, session } = await classroom();
     const camera = connect(harness, 'camera');
-    for (let card = 1; card <= SOCKET_CARDS.max; card += 1) {
+    for (let card = 1; card <= 45; card += 1) {
       await camera.watch(card, 'board', 'watchCardResults', session.code, card);
       expect(camera.socket.refusal(card)).toBeUndefined();
     }
-    await camera.watch(500, 'board', 'watchCardResults', session.code, SOCKET_CARDS.max + 1);
-    expect(camera.socket.refusal(500)?.error).toEqual(LIMIT('cards'));
-    await camera.watch(501, 'board', 'watchCardResults', session.code, 1);
-    expect(camera.socket.refusal(501)).toBeUndefined();
-    await connect(harness, 'other').watch(1, 'board', 'watchCardResults', session.code, 999);
-  });
-});
-
-describe('asking for seats', () => {
-  it('stops at two waiting devices for one name, and a device asking again replaces its own seat', async () => {
-    const { harness, session, students } = await classroom();
-    const student = students[0];
-    const join = (device: string) => connect(harness, device, null, '10.4.0.1').call(1, 'participants', 'join', session.code, student.groupId, student.id);
-    for (let n = 0; n < WAITING_SEATS_PER_STUDENT; n += 1) expect(await join(`d${n}`)).toMatchObject({ ok: true });
-    const third = await join('d9');
-    expect(third).toMatchObject({ ok: false, error: LIMIT('seats-full') });
-    expect(await join('d0')).toMatchObject({ ok: true });
-    expect((await harness.store.list('participants')).length).toBe(2);
-  });
-
-  it('stops at ten waiting shared devices in a class', async () => {
-    const { harness, session, students } = await classroom();
-    const outcomes: boolean[] = [];
-    for (let n = 0; n < 11; n += 1) outcomes.push((await connect(harness, `s${n}`, null, `10.5.0.${n}`).call(1, 'participants', 'join', session.code, students[0].groupId, null)).ok);
-    expect(outcomes).toEqual([...Array(10).fill(true), false]);
-  });
-
-  it('stops a device that asks more than ten times in a minute', async () => {
-    const { harness, session, students } = await classroom();
-    const phone = connect(harness, 'eager', null, '10.6.0.1');
-    const results = [];
-    for (let n = 0; n < 12; n += 1) results.push(await phone.call(n + 1, 'participants', 'join', session.code, students[0].groupId, students[0].id));
-    expect(results.slice(0, 10).every((result) => result.ok)).toBe(true);
-    expect(results[10]).toMatchObject({ ok: false, error: LIMIT('joins') });
+    expect(camera.socket.closedWith).toBeNull();
   });
 });
 

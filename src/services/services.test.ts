@@ -416,12 +416,17 @@ describe('a live class', () => {
     expect(await store.list('participants')).toEqual([]);
   });
 
-  it('puts a device that asks again back to waiting', async () => {
+  it('keeps the seat of a let-in device that asks again for the same group and name, writing nothing, and puts it back to waiting when it asks as someone else', async () => {
     const session = await begin();
     const device = await seated(session.id, 'g1', 's1');
     expect(await device.participants.admittedSeat(session.id)).not.toBeNull();
+    const before = await ctx.store.list('participants');
     const again = await device.participants.join(session.code, 'g1', 's1');
-    expect(again?.admitted).toBe(false);
+    expect(again?.admitted).toBe(true);
+    expect(await ctx.store.list('participants')).toEqual(before);
+    expect(await device.participants.admittedSeat(session.id)).not.toBeNull();
+    const asShared = await device.participants.join(session.code, 'g1', null);
+    expect(asShared?.admitted).toBe(false);
     expect(await device.participants.admittedSeat(session.id)).toBeNull();
     expect(await device.answers.submitFromDevice(session.id, 'q1', 1)).toBe(false);
   });

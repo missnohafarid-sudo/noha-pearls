@@ -20,4 +20,4 @@ export const rewardsFor = (store: DocumentStore, caller: Caller, seats: Particip
   new RewardService(store, caller, seats, rosters, codesFor(store, caller));
 export const recordsFor = (store: DocumentStore, caller: Caller, rosters: SessionRosterService, classes: ClassRosterSource, seats: ParticipantService): RecordService =>
   new RecordService(store, caller, rosters, classes, seats, codesFor(store, caller), new StandingsCache());
-export const boardFor = (store: DocumentStore, caller: Caller, guard: AbuseGuard = NO_GUARD): BoardService => new BoardService(store, codesFor(store, caller, guard), guard);
+export const boardFor = (store: DocumentStore, caller: Caller, guard: AbuseGuard = NO_GUARD): BoardService => new BoardService(store, codesFor(store, caller, guard));

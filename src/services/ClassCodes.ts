@@ -1,4 +1,4 @@
-import { seatId } from '../domain/admission';
+import { holdsSeat, seatId } from '../domain/admission';
 import { codeOpens, lookupIsExempt } from '../domain/classCode';
 import { normalizeJoinCode } from '../domain/ids';
 import type { Participant, Session } from '../domain/models';
@@ -20,6 +20,13 @@ export class ClassCodes implements ClassResolver {
     const [session] = await this.store.list('sessions', { code: normalizeJoinCode(code) });
     const seat = await this.store.get('participants', this.seatKey(session ?? null));
     return this.decide(session ?? null, seat, true);
+  }
+
+  /** Whether this device is let in to a running class: what lifts the shared caps for a student. Asked of the store, not of the page. */
+  async holdsLiveSeat(): Promise<boolean> {
+    const live = await this.store.list('sessions', { status: 'live' });
+    const seats = await Promise.all(live.map((session) => this.store.get('participants', this.seatKey(session))));
+    return seats.some(holdsSeat);
   }
 
   /**

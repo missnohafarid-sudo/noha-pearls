@@ -1,9 +1,10 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { ADMIN_SESSION_MS } from '../domain/adminAccess';
 import type { Session, Teacher } from '../domain/models';
+import { classroom } from './classKit';
 import { connect, createHarness, FakeSocket } from './hubHarness';
 import { Connection } from '../server/Connection';
-import { MAX_WATCHES } from '../ports/limits';
+import { WATCHES_PER_DEVICE } from '../ports/limits';
 import { CLOSE_SESSION_ENDED } from '../ports/wire';
 import { UI_SURFACE } from '../services/Services';
 import { isWireValue } from '../ports/wire';
@@ -172,14 +173,14 @@ describe('commands and live reads', () => {
     expect(names.slice(1)).toEqual(['a', 'b', 'c', 'd']);
   });
 
-  it('refuses a duplicate live-read number and more live reads than one connection may hold', async () => {
+  it('refuses a duplicate live-read number and more live reads than one device may hold', async () => {
     const harness = await seeded();
     const watcher = connect(harness, 'phone');
     await watcher.watch(1, 'teachers', 'watchTeachers');
     await watcher.watch(1, 'teachers', 'watchTeachers');
     expect(watcher.socket.refusal(1)?.error.code).toBe('duplicate-watch');
-    for (let id = 2; id <= MAX_WATCHES + 1; id += 1) await watcher.watch(id, 'teachers', 'watchTeachers');
-    expect(watcher.socket.refusal(MAX_WATCHES + 1)?.error.code).toBe('too-many-watches');
+    for (let id = 2; id <= WATCHES_PER_DEVICE + 1; id += 1) await watcher.watch(id, 'teachers', 'watchTeachers');
+    expect(watcher.socket.refusal(WATCHES_PER_DEVICE + 1)?.error.code).toBe('too-many-watches');
     expect(JSON.stringify(watcher.socket.deserializeAttachment()).length).toBeLessThan(16_000);
   });
 
@@ -325,5 +326,43 @@ describe('everything the surface returns survives JSON', () => {
     }
     expect(seen.length).toBeGreaterThan(40);
     expect(harness.reported).toEqual([]);
+  });
+});
+
+describe('a live read the store gives up on', () => {
+  it('is told to the page, and every part of that read is closed, not only the one that failed', async () => {
+    const { harness, session } = await classroom();
+    const open = new Set<object>();
+    const gaveUp: ((error: unknown) => void)[] = [];
+    const watch = harness.store.watch.bind(harness.store);
+    vi.spyOn(harness.store, 'watch').mockImplementation(((collection, where, listener, dropped) => {
+      const handle = {};
+      open.add(handle);
+      if (dropped) gaveUp.push(dropped);
+      const stop = watch(collection, where, listener, dropped);
+      return () => {
+        open.delete(handle);
+        stop();
+      };
+    }) as typeof harness.store.watch);
+    const page = connect(harness, 'phone', null, '10.9.0.1');
+    await page.watch(1, 'classLookup', 'watchByCode', session.code);
+    expect(open.size).toBeGreaterThan(1);
+    gaveUp[0](new Error('the store dropped one read'));
+    expect(page.socket.refusal(1)).toBeDefined();
+    expect(open.size).toBe(0);
+  });
+});
+
+describe('what is computed once for everyone', () => {
+  it('is forgotten before a command’s writes reach the live reads, so a visitor never keeps a catalogue from before the change', async () => {
+    const harness = await seeded();
+    const admin = connect(harness, 'laptop', FAR);
+    const visitor = connect(harness, 'phone');
+    await visitor.watch(1, 'lessons', 'watchLessons');
+    const lesson = (await harness.store.list('lessons'))[0];
+    await admin.call(2, 'lessons', 'save', { ...lesson, title: 'عنوان جديد' });
+    const latest = visitor.socket.values(1).at(-1) as { title: string }[];
+    expect(latest.map((shown) => shown.title)).toContain('عنوان جديد');
   });
 });

@@ -1,4 +1,4 @@
-export type LimitCode = 'lookups' | 'joins' | 'cards' | 'seats-full' | 'hearts-used' | 'answer-changes' | 'day-used' | 'watches';
+export type LimitCode = 'lookups' | 'joins' | 'seats-full' | 'hearts-used' | 'answer-changes' | 'day-used' | 'watches';
 
 /** A share was used up: the page shows the matching words and nothing was changed. */
 export class LimitError extends Error {

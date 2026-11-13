@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { canGiveAnotherPeerHeart } from './rewards';
-import { canWaitForSeat, holdsSeat, seatId } from './admission';
+import { canWaitForSeat, holdsSeat, joinChangesNothing, seatId } from './admission';
 import { deviceAnswerStep } from './answerChanges';
 import { codeOpens, lookupIsExempt } from './classCode';
 import type { Answer, Participant } from './models';
@@ -56,6 +56,16 @@ describe('crowding a class with waiting seats', () => {
     expect(holdsSeat(null)).toBe(false);
     expect(holdsSeat(seat('s:a', 'x'))).toBe(false);
     expect(holdsSeat(seat('s:a', 'x', true))).toBe(true);
+  });
+
+  it('knows that asking again for the same group and name changes nothing, waiting or let in, and that another name or group does', () => {
+    expect(joinChangesNothing(null, 'g', 'x')).toBe(false);
+    expect(joinChangesNothing(seat('s:a', 'x'), 'g', 'x')).toBe(true);
+    expect(joinChangesNothing(seat('s:a', 'x', true), 'g', 'x')).toBe(true);
+    expect(joinChangesNothing(seat('s:a', 'x'), 'g', 'y')).toBe(false);
+    expect(joinChangesNothing(seat('s:a', 'x'), 'h', 'x')).toBe(false);
+    expect(joinChangesNothing(seat('s:a', null), 'g', null)).toBe(true);
+    expect(joinChangesNothing(seat('s:a', null), 'g', 'x')).toBe(false);
   });
 
   it('allows ten shared devices waiting in a class', () => {

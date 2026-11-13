@@ -1,51 +1,38 @@
-import { cardFits, isOverLimit, withCard, withEvent, type CardsSeen } from '../domain/abuse';
+import { isHeldToLimits } from '../domain/abuse';
 import type { Id } from '../domain/models';
-import { SOCKET_CARDS, SOCKET_MESSAGES } from '../ports/limits';
 import type { AbuseGuard } from '../ports/abuse';
 import { CLOSE_DEVICE_LOCKED, CLOSE_RATE_LIMITED } from '../ports/wire';
-import type { Gatekeeper } from './Gatekeeper';
+import type { CapRefusal, Gatekeeper } from './Gatekeeper';
 
-/**
- * What one socket is held to: how fast it may send, and the guard the services ask. What is counted per socket (messages, card
- * numbers) is kept here and dies with the socket; what is counted per address or device is the gatekeeper's.
- */
+/** What one socket is held to: the guard the services ask, and the device's rate, which is the gatekeeper's, counted over all the device's sockets. */
 export class ConnectionLimits {
   readonly guard: AbuseGuard;
-  private messages: number[] = [];
-  private cards: CardsSeen = {};
 
   constructor(
     private readonly gate: Gatekeeper,
     readonly address: string,
-    device: Id,
-    private readonly now: () => number,
+    private readonly device: Id,
+    private readonly seated: () => Promise<boolean>,
   ) {
     this.guard = {
-      lookupAllowed: () => gate.lookupAllowed(address),
-      recordMiss: () => gate.recordMiss(address),
-      joinAllowed: () => gate.joinAllowed(device),
-      cardAllowed: (card) => this.cardAllowed(card),
+      lookupAllowed: () => gate.lookupAllowed(device),
+      recordMiss: () => gate.recordMiss(device),
+      seatChangeAllowed: () => gate.seatChangeAllowed(device),
     };
   }
 
-  /** Counts a message that has just arrived and says whether the socket is still within its rate. */
+  /** Counts a message that has just arrived and says whether the device is still within its rate. */
   messageAllowed(): boolean {
-    this.messages = withEvent(this.messages, this.now(), SOCKET_MESSAGES.windowMs);
-    return !isOverLimit(this.messages, this.now(), SOCKET_MESSAGES);
+    return this.gate.messageAllowed(this.device);
   }
 
-  /** The socket sent too fast: its address gets a strike. The code to close the socket with. */
-  flooded(): number {
-    return this.gate.strike(this.address) ? CLOSE_DEVICE_LOCKED : CLOSE_RATE_LIMITED;
+  /** The socket sent too fast: its device gets a strike, unless it is the admin's, which is closed and never struck. The code to close the socket with. */
+  flooded(isAdmin: boolean): number {
+    return isHeldToLimits(isAdmin) && this.gate.flood(this.device) ? CLOSE_DEVICE_LOCKED : CLOSE_RATE_LIMITED;
   }
 
-  watchAllowed(): boolean {
-    return this.gate.watchAllowed();
-  }
-
-  private cardAllowed(card: number): boolean {
-    if (!cardFits(this.cards, card, this.now(), SOCKET_CARDS)) return false;
-    this.cards = withCard(this.cards, card, this.now(), SOCKET_CARDS.windowMs);
-    return true;
+  /** Why one more live read is refused to this device, or null when it may open. */
+  watchRefusal(isAdmin: boolean): Promise<CapRefusal | null> {
+    return this.gate.refusal(this.gate.watchVerdict(this.device, isAdmin), this.seated);
   }
 }

@@ -17,6 +17,7 @@ import type { HubSocket } from '../server/Connection';
 import { Connection } from '../server/Connection';
 
 const FAR = 9_000_000_000_000;
+const SESSION = 'the-teachers-session';
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 /** The page and the real hub joined in one process: what one sends the other receives, in order, a tick later. */
@@ -44,7 +45,7 @@ class Wire {
       },
       serializeAttachment: () => undefined, deserializeAttachment: () => null };
     const { device, admin, adminExpiresAt } = this.identity;
-    const hub = Connection.open(hubSide, this.harness.core, { device, adminExpiresAt: admin ? adminExpiresAt : null, address: LOCAL_ADDRESS });
+    const hub = Connection.open(hubSide, this.harness.core, { device, admin: admin ? { id: SESSION, expiresAt: adminExpiresAt } : null, address: LOCAL_ADDRESS });
     this.registry.add(hubSide, hub);
     this.sockets.push({
       page: handlers,
@@ -120,7 +121,7 @@ async function page(options: PageOptions = {}) {
       events.push(path);
       if (path === HELLO_PATH) return { admin: wire.identity.admin && wire.identity.adminExpiresAt > harness.clock.now, now: harness.clock.now };
       if (path === SIGN_IN_PATH) return { ok: true };
-      if (path === SIGN_OUT_PATH) wire.registry.closeDevice(wire.identity.device);
+      if (path === SIGN_OUT_PATH) wire.registry.closeSession(SESSION);
       return {};
     },
     () => connection.restart(),

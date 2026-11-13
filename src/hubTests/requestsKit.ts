@@ -1,28 +1,28 @@
 import { expect } from 'vitest';
 import { createHarness, FakeSocket } from './hubHarness';
-import { SignInAttempts } from '../infrastructure/sql/signInAttempts';
-import { migrate } from '../infrastructure/sql/schema';
-import { NodeSqlDatabase } from '../infrastructure/testKit/NodeSqlDatabase';
+import { AdminSessionTable } from '../infrastructure/sql/adminSessions';
+import { SqlWindowMemory } from '../infrastructure/sql/windowEvents';
 import { totpCode } from '../infrastructure/totp';
 import { Connection } from '../server/Connection';
 import { DeviceTokens } from '../server/DeviceTokens';
 import { HubHttp } from '../server/HubHttp';
 import { HubRequests, type AcceptSocket } from '../server/HubRequests';
-import { AdminCookie } from '../server/identity';
+import { AdminSessions } from '../server/AdminSessions';
+import { SignInGuard } from '../server/SignInGuard';
 
 /** The hub's requests over a harness, and the requests and cookies a browser would send them. */
 
 export const SECRETS = { password: 'teach-2468', totpSecret: 'JBSWY3DPEHPK3PXP' };
 export const LOCAL = 'http://localhost';
 
-export async function hub(secrets: typeof SECRETS | null = SECRETS) {
-  const harness = createHarness();
+/** The hub's requests over a harness: the secrets (or none) it was started with, and an optional file to keep its database in. */
+export async function hub(secrets: typeof SECRETS | null = SECRETS, location?: string) {
+  const harness = createHarness(location);
   await harness.core.seed(true);
-  const db = new NodeSqlDatabase();
-  migrate(db);
-  const admin = await AdminCookie.from(secrets);
-  const { registry, gate } = harness;
-  const devices = await DeviceTokens.from(secrets, db, () => harness.clock.now);
+  const { registry, gate, meter } = harness;
+  const now = () => harness.clock.now;
+  const sessions = secrets ? await AdminSessions.from(secrets, new AdminSessionTable(meter), now) : null;
+  const devices = await DeviceTokens.from(meter, now);
   const sockets: FakeSocket[] = [];
   const accept: AcceptSocket = (origin) => {
     const socket = new FakeSocket();
@@ -30,9 +30,10 @@ export async function hub(secrets: typeof SECRETS | null = SECRETS) {
     sockets.push(socket);
     return new Response('accepted');
   };
-  const http = new HubHttp(secrets, admin, new SignInAttempts(db), devices, () => harness.clock.now);
-  const requests = new HubRequests(http, admin, devices, registry, gate, accept);
-  return { harness, requests, sockets, registry, devices };
+  const signIns = new SignInGuard(harness.locks, new SqlWindowMemory(meter), now);
+  const http = new HubHttp(secrets, sessions, signIns, devices, now);
+  const requests = new HubRequests(http, sessions, devices, registry, gate, (device) => harness.core.isSeated(device), accept);
+  return { harness, requests, sockets, registry, devices, sessions, signIns };
 }
 
 const bytes = (text: string) => new TextEncoder().encode(text).length;
@@ -40,16 +41,16 @@ export const post = (path: string, body?: unknown, headers: Record<string, strin
   const text = body === undefined ? '' : JSON.stringify(body);
   return new Request(`${origin}${path}`, { method: 'POST', headers: { 'Content-Length': String(bytes(text)), ...headers }, body: text === '' ? undefined : text });
 };
-export const upgrade = (headers: Record<string, string> = {}) => new Request(`${LOCAL}/api/live`, { method: 'GET', headers: { Upgrade: 'websocket', ...headers } });
+export const upgrade = (headers: Record<string, string> = {}, origin = LOCAL) => new Request(`${origin}/api/live`, { method: 'GET', headers: { Upgrade: 'websocket', ...headers } });
 const cookiePairs = (response: Response) => response.headers.getSetCookie().filter((line) => !/Max-Age=0/.test(line)).map((line) => line.split(';')[0]);
 export const jar = (...responses: Response[]) => responses.flatMap(cookiePairs).join('; ');
 
 /** A device that said hello and signed in; its cookies as a browser would send them. */
-export async function teacher(h: Awaited<ReturnType<typeof hub>>, address = '10.0.0.1') {
-  const hello = await h.requests.handle(post('/api/hello'));
+export async function teacher(h: Awaited<ReturnType<typeof hub>>, address = '10.0.0.1', secrets = SECRETS, origin = LOCAL) {
+  const hello = await h.requests.handle(post('/api/hello', undefined, {}, origin));
   const device = jar(hello);
-  const code = await totpCode(SECRETS.totpSecret, h.harness.clock.now);
-  const signedIn = await h.requests.handle(post('/api/sign-in', { password: SECRETS.password, code }, { Cookie: device, 'CF-Connecting-IP': address }));
+  const code = await totpCode(secrets.totpSecret, h.harness.clock.now);
+  const signedIn = await h.requests.handle(post('/api/sign-in', { password: secrets.password, code }, { Cookie: device, 'CF-Connecting-IP': address }, origin));
   expect(await signedIn.clone().json()).toEqual({ ok: true });
   return { device, cookie: jar(hello, signedIn) };
 }

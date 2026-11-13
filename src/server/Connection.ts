@@ -1,12 +1,12 @@
 import { isAdminSessionActive } from '../domain/adminAccess';
 import type { Id } from '../domain/models';
 import { CLOSE_POLICY, CLOSE_SESSION_ENDED, encode, parseClientMessage, type ClientMessage, type ServerMessage, type WireError } from '../ports/wire';
-import { MAX_ATTACHMENT_CHARACTERS, MAX_WATCHES, messageLimitFor } from '../ports/limits';
+import { MAX_ATTACHMENT_CHARACTERS, messageLimitFor } from '../ports/limits';
 import type { Unsubscribe } from '../ports/store';
 import { SurfaceDispatcher, SurfaceError } from '../services/surfaceDispatch';
 import { wireErrorOf } from '../services/errorRegistry';
 import { LimitError } from '../services/LimitError';
-import { LOCAL_ADDRESS } from './address';
+import type { AdminSession } from './AdminSessions';
 import type { ConnectionLimits } from './ConnectionLimits';
 import type { HubCore } from './HubCore';
 import { ConnectionCaller } from './identity';
@@ -31,15 +31,15 @@ interface WatchSpec {
 /** Who a connection is, as fixed when its socket was accepted. */
 export interface ConnectionOrigin {
   device: Id;
-  adminExpiresAt: number | null;
+  admin: AdminSession | null;
   address: string;
 }
 
-/** What a socket keeps across the hub's sleep. A socket from before addresses were kept has none. */
+/** What a socket keeps across the hub's sleep. */
 interface Attachment {
   device: Id;
-  adminExpiresAt: number | null;
-  address?: string;
+  admin: AdminSession | null;
+  address: string;
   watches: WatchSpec[];
 }
 
@@ -67,9 +67,9 @@ export class Connection {
   ) {}
 
   /** A new connection of a device; tells the page who it is. A teacher cookie that has already run out counts as none. */
-  static open(socket: HubSocket, core: HubCore, { device, adminExpiresAt, address }: ConnectionOrigin): Connection {
-    const stillAdmin = isAdminSessionActive(adminExpiresAt, core.now());
-    const connection = new Connection(socket, core, new ConnectionCaller(device, stillAdmin ? adminExpiresAt : null, core.now), core.limitsFor(address, device));
+  static open(socket: HubSocket, core: HubCore, { device, admin, address }: ConnectionOrigin): Connection {
+    const stillAdmin = admin !== null && isAdminSessionActive(admin.expiresAt, core.now());
+    const connection = new Connection(socket, core, new ConnectionCaller(device, stillAdmin ? admin : null, core.now), core.limitsFor(address, device));
     connection.save();
     connection.send({ type: 'hello', admin: connection.caller.isAdmin(), now: core.now() });
     return connection;
@@ -79,8 +79,7 @@ export class Connection {
   static restore(socket: HubSocket, core: HubCore): Connection | null {
     const attached = socket.deserializeAttachment() as Attachment | null;
     if (!attached) return null;
-    const address = attached.address ?? LOCAL_ADDRESS;
-    const connection = new Connection(socket, core, new ConnectionCaller(attached.device, attached.adminExpiresAt, core.now), core.limitsFor(address, attached.device));
+    const connection = new Connection(socket, core, new ConnectionCaller(attached.device, attached.admin, core.now), core.limitsFor(attached.address, attached.device));
     if (connection.endIfExpired()) return connection;
     for (const spec of attached.watches) {
       const error = connection.open(spec, true);
@@ -98,17 +97,22 @@ export class Connection {
     return this.limits.address;
   }
 
+  /** The teacher's session this connection runs under; null for a visitor. */
+  adminSessionId(): string | null {
+    return this.caller.sessionId();
+  }
+
   openWatches(): number {
     return this.watches.size;
   }
 
   /**
    * Handles one message from the page, after the ones before it. A message that is not text, or is longer than this caller may
-   * send, closes the socket; so does one that arrives faster than a page sends, and the address of that page gets a strike.
+   * send, closes the socket; so does one that arrives faster than a page sends, and the device of that page gets a strike (the teacher's is only closed).
    */
   receive(message: string | ArrayBuffer): Promise<void> {
     if (!this.ended && !this.limits.messageAllowed()) {
-      this.shutDown(this.limits.flooded(), 'too many messages');
+      this.shutDown(this.limits.flooded(this.caller.isAdmin()), 'too many messages');
       return Promise.resolve();
     }
     if (typeof message !== 'string' || message.length > messageLimitFor(this.caller.isAdmin())) {
@@ -120,7 +124,7 @@ export class Connection {
       const parsed = parseClientMessage(message, messageLimitFor(this.caller.isAdmin()));
       if (!parsed) return;
       if (parsed.type === 'call') await this.call(parsed);
-      else if (parsed.type === 'watch') this.watch(parsed);
+      else if (parsed.type === 'watch') await this.watch(parsed);
       else this.unwatch(parsed.id);
     });
   }
@@ -144,7 +148,7 @@ export class Connection {
 
   /** If the teacher's session on this connection has run out: nothing more is sent or accepted, and the socket is closed. Says whether it had. */
   endIfExpired(): boolean {
-    const expired = this.caller.adminExpiresAt !== null && !this.caller.isAdmin();
+    const expired = this.caller.sessionRanOut();
     if (expired) this.shutDown(CLOSE_SESSION_ENDED, 'session ended');
     return expired;
   }
@@ -154,18 +158,19 @@ export class Connection {
     this.send({ type: 'result', id, ...outcome });
   }
 
-  private watch({ id, service, method, args }: Extract<ClientMessage, { type: 'watch' }>): void {
+  private async watch({ id, service, method, args }: Extract<ClientMessage, { type: 'watch' }>): Promise<void> {
     const spec = { id, service, method, args };
-    const error = this.refusalOf(spec) ?? this.open(spec, false);
+    const error = (await this.refusalOf(spec)) ?? this.open(spec, false);
     if (error) return this.send({ type: 'watch-refused', id, error });
     this.save();
   }
 
-  /** Why a new live read is not opened before the services are even asked: its number is taken, this connection or the hub holds enough, or it would not fit the attachment. */
-  private refusalOf(spec: WatchSpec): WireError | null {
+  /** Why a new live read is not opened before the services are even asked: its number is taken, the device or the hub holds enough, or it would not fit the attachment. */
+  private async refusalOf(spec: WatchSpec): Promise<WireError | null> {
     if (this.watches.has(spec.id)) return wireErrorOf(new SurfaceError('duplicate-watch'));
-    if (this.watches.size >= MAX_WATCHES) return wireErrorOf(new SurfaceError('too-many-watches'));
-    if (!this.limits.watchAllowed()) return wireErrorOf(new LimitError('watches'));
+    const refusal = await this.limits.watchRefusal(this.caller.isAdmin());
+    if (refusal === 'device') return wireErrorOf(new SurfaceError('too-many-watches'));
+    if (refusal === 'shared') return wireErrorOf(new LimitError('watches'));
     return this.attachmentSizeWith(spec) > MAX_ATTACHMENT_CHARACTERS ? wireErrorOf(new SurfaceError('bad-arguments')) : null;
   }
 
@@ -197,6 +202,7 @@ export class Connection {
   private dropped(entry: Entry, error: unknown): void {
     if (this.watches.get(entry.spec.id) !== entry) return;
     this.watches.delete(entry.spec.id);
+    entry.stop();
     this.send({ type: 'watch-refused', id: entry.spec.id, error: wireErrorOf(error) });
     this.save();
   }
@@ -216,7 +222,7 @@ export class Connection {
   }
 
   private attachment(): Attachment {
-    return { device: this.caller.deviceId(), adminExpiresAt: this.caller.adminExpiresAt, address: this.limits.address, watches: [...this.watches.values()].map(({ spec }) => spec) };
+    return { device: this.caller.deviceId(), admin: this.caller.session(), address: this.limits.address, watches: [...this.watches.values()].map(({ spec }) => spec) };
   }
 
   private save(): void {

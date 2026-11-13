@@ -8,6 +8,7 @@ if (reverted.status !== 0) stop(`git could not undo the last change:\n${reverted
 
 if (npm('run', 'check').status !== 0) stop('NOT PUSHED: the check failed after the undo. The undo is saved on this computer only. Ask the maintainer for help.');
 
+process.env.CHECKED_COMMIT = git('rev-parse', 'HEAD').output;
 const pushed = git('push');
 if (pushed.status !== 0) stop(`The undo is committed on this computer but the push failed:\n${pushed.output}\nAsk the maintainer for help; do not try to force it.`);
-console.log('\nThe last change is undone. The site updates itself in a few minutes, once the online check passes.');
+console.log('\nThe last change is undone on this computer and sent. NEXT: run `npm run deployed` and wait for its answer. It says when the site shows the old version again.');

@@ -12,7 +12,7 @@ const STAGES = [
 STAGES.forEach((stage, index) => {
   console.log(`\n=== Check ${index + 1} of ${STAGES.length}: ${stage.name} ===`);
   if (npm(...stage.args).status !== 0) {
-    stop(`STOPPED: the "${stage.name}" check failed. This change must not be shipped. Read the messages above, fix what they say, and run \`npm run check\` again.`);
+    stop(`STOPPED: the "${stage.name}" check failed. This change must not be shipped. Read the messages above, fix what they say, and try again.`);
   }
 });
 

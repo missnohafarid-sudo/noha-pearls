@@ -2,7 +2,7 @@
 import { git, npm, stop } from './lib/process.mjs';
 
 const MAX_MESSAGE_LENGTH = 65;
-const PUBLISH_NOTE = 'Shipped. The site updates itself in a few minutes, once the online check passes.';
+const PUBLISH_NOTE = 'Shipped. NEXT: run `npm run deployed` and wait for its answer. It says when the site shows this change, or that the online check failed.';
 
 function checkedMessage(words) {
   const message = words.join(' ').trim();
@@ -22,6 +22,7 @@ if (git('status', '--porcelain').output === '') stop('There is nothing to ship: 
 if (npm('run', 'check').status !== 0) stop('NOT SHIPPED: the check failed. Fix what it says, then ship again.');
 
 if (git('add', '-A').status !== 0 || git('commit', '-m', message).status !== 0) stop('NOT SHIPPED: git could not make the commit.');
+process.env.CHECKED_COMMIT = git('rev-parse', 'HEAD').output;
 const pushed = git('push');
 if (pushed.status !== 0) stop(`The change is committed on this computer but the push failed:\n${pushed.output}\nAsk the maintainer for help; do not try to force it.`);
 console.log(`\n${PUBLISH_NOTE}`);

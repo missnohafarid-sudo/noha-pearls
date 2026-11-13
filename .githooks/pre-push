@@ -1,5 +1,9 @@
 #!/bin/sh
 # Blocks any push (plain `git push` included) unless the whole check passes.
+# `npm run ship` and `npm run undo` have just run it on this very commit and name the commit, so it is not run a second time.
+if [ -n "$CHECKED_COMMIT" ] && [ "$CHECKED_COMMIT" = "$(git rev-parse HEAD)" ]; then
+  exit 0
+fi
 if ! npm run check; then
   echo ""
   echo "PUSH BLOCKED: the check failed, so nothing was sent. Fix what it says, then push again."

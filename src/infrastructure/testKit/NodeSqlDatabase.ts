@@ -1,13 +1,14 @@
 import { DatabaseSync, type SQLInputValue } from 'node:sqlite';
 import type { SqlDatabase, SqlValue } from '../../ports/sql';
 
-/** `node:sqlite` as a `SqlDatabase`, for tests: an in-memory database unless given a file. */
+/** `node:sqlite` as a `SqlDatabase`, for tests: an in-memory database unless given a file. A test never needs a write to survive a power cut, so a file is not synced on every statement (a synced write took 37 ms alone, seconds when the suite runs in parallel). */
 export class NodeSqlDatabase implements SqlDatabase {
   private readonly database: DatabaseSync;
   private depth = 0;
 
   constructor(location = ':memory:') {
     this.database = new DatabaseSync(location);
+    this.database.exec('PRAGMA synchronous = OFF; PRAGMA journal_mode = MEMORY');
   }
 
   run(statement: string, ...params: SqlValue[]): number {

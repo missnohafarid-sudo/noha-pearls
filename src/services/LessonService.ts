@@ -66,11 +66,9 @@ export class LessonService implements LessonShelf {
     await this.updateEach(lessonIds, (current) => ({ ...current, folderId }));
   }
 
-  /** Applies the change to each lesson, and reports `lesson-missing` after the others are done if any no longer exists. */
+  /** Applies the change to each lesson in turn, and throws `lesson-missing` at the first one that no longer exists. */
   private async updateEach(lessonIds: readonly Id[], change: (current: Lesson) => Lesson): Promise<void> {
-    let missing = false;
-    for (const lessonId of lessonIds) missing = !(await this.store.update('lessons', lessonId, change)) || missing;
-    if (missing) throw new LessonError('lesson-missing');
+    for (const lessonId of lessonIds) if (!(await this.store.update('lessons', lessonId, change))) throw new LessonError('lesson-missing');
   }
 
   /** Where each lesson sits and whether it is published: nothing else of it. */
@@ -85,10 +83,22 @@ export class LessonService implements LessonShelf {
     }
   }
 
+  /** Publishing is not editing, as moving is not: the lessons keep their edit time. */
+  async setPublished(lessonIds: readonly Id[], published: boolean): Promise<void> {
+    requireAdmin(this.caller);
+    await this.updateEach(lessonIds, (current) => ({ ...current, published }));
+  }
+
   /** Removes the lessons, or none of them when a running class uses any. */
   async remove(lessonIds: readonly Id[]): Promise<void> {
     requireAdmin(this.caller);
     await this.removeUnlessInUse(lessonIds);
+  }
+
+  async removeLessonsIn(folderIds: readonly Id[]): Promise<void> {
+    requireAdmin(this.caller);
+    const held = await Promise.all(folderIds.map((folderId) => this.store.list('lessons', { folderId })));
+    await this.removeUnlessInUse(held.flat().map((lesson) => lesson.id));
   }
 
   private async removeUnlessInUse(lessonIds: readonly Id[]): Promise<void> {

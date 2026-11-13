@@ -67,15 +67,26 @@ export class FolderService {
     await this.reparent(folders, folder, targetParentId);
   }
 
-  /** Removes the folder and loses nothing: subfolders, then lessons, go to its parent before it goes. */
-  async remove(folderId: Id): Promise<void> {
+  /**
+   * Removes the folder. Without its content it loses nothing: subfolders, then lessons, go to its parent before it goes.
+   * With its content, every lesson and folder inside goes too, the folder itself last.
+   */
+  async remove(folderId: Id, withContent: boolean): Promise<void> {
     requireAdmin(this.caller);
     let folders = await this.healed();
     const tree = new FolderTree(folders);
     if (!tree.get(folderId)) return;
+    if (withContent) return this.removeWithContent(tree, folderId);
     const parentId = tree.parentOf(folderId);
     for (const child of tree.children(folderId)) folders = await this.reparent(folders, child, parentId);
     await this.lessons.moveLessons(folderId, parentId);
+    await this.store.remove('folders', folderId);
+  }
+
+  private async removeWithContent(tree: FolderTree, folderId: Id): Promise<void> {
+    const inner = [...tree.within(folderId)];
+    await this.lessons.removeLessonsIn([folderId, ...inner]);
+    for (const id of inner.reverse()) await this.store.remove('folders', id);
     await this.store.remove('folders', folderId);
   }
 }

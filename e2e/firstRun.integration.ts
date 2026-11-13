@@ -54,6 +54,48 @@ describe('a first-time teacher on an empty school', () => {
     await settle();
   }
 
+
+  /** Makes a folder at the top level, opens it and fills it with new lessons; returns its address. */
+  async function folderWithLessons(name: string, lessonCount: number): Promise<string> {
+    await open('#/');
+    await teacher.click(t.library.newFolder);
+    await teacher.until('the folder name field', () => teacher.exists('.folder-tile--new input'));
+    await teacher.page.keyboard.type(name);
+    await teacher.page.keyboard.press('Enter');
+    await teacher.until('the folder tile', async () => (await teacher.texts('.folder-tile__name')).includes(name));
+    await teacher.click(name, '.library__folders');
+    await teacher.until('the folder opened', async () => teacher.page.url().includes('folder') && (await teacher.has(t.library.newFolder)));
+    const address = teacher.page.url();
+    for (let made = 0; made < lessonCount; made += 1) {
+      await pressNewLesson();
+      await teacher.until('the lesson editor', async () => teacher.page.url().includes('#/lesson/'));
+      await teacher.page.goto(address, { waitUntil: 'networkidle0' });
+      await teacher.until(`${made + 1} lessons shown`, async () => (await lessonTiles()) === made + 1);
+    }
+    return address;
+  }
+  /** The panel's own button: a lesson card of the same title would match the words too. */
+  const pressNewLesson = (): Promise<void> =>
+    teacher.until('the new lesson button', () =>
+      teacher.page.evaluate((label) => {
+        const button = [...document.querySelectorAll<HTMLButtonElement>('button.btn--primary')].find((candidate) => candidate.innerText.includes(label));
+        button?.click();
+        return button !== undefined;
+      }, t.home.panel.newLesson),
+    );
+  const lessonTiles = (): Promise<number> => teacher.count('.lesson-tile');
+  const unpublishedChips = (): Promise<number> => teacher.count('.lesson-tile .chip--bad');
+  const newLessonTitles = async (): Promise<number> => (await teacher.texts('.lesson-tile .card__title')).filter((title) => title === t.home.panel.newLessonTitle).length;
+  const selectAll = (): Promise<void> => teacher.page.click('.selection-bar .checkbox');
+  const pressLabelled = (label: string): Promise<void> =>
+    teacher.until(`the button "${label}"`, () =>
+      teacher.page.evaluate((wanted) => {
+        const button = [...document.querySelectorAll<HTMLButtonElement>('button')].find((candidate) => candidate.getAttribute('aria-label') === wanted);
+        button?.click();
+        return button !== undefined;
+      }, label),
+    );
+
   beforeAll(async () => {
     build();
     server = await start(stateDir, { withSecrets: true, withSampleSchool: false });
@@ -146,6 +188,61 @@ describe('a first-time teacher on an empty school', () => {
     await teacher.click(t.session.start);
     await teacher.waitFor(t.session.pacingTitle);
     await expectNoFailure();
+  });
+
+  it('publishes the selected lessons of a folder, and they stay published after a reload', async () => {
+    await folderWithLessons('Select folder', 2);
+    expect(await unpublishedChips()).toBe(2);
+    await selectAll();
+    await teacher.click(t.library.select.publish, '.selection-bar');
+    await teacher.until('no unpublished chip', async () => (await unpublishedChips()) === 0);
+    await settle();
+    await expectNoFailure();
+    await teacher.page.reload({ waitUntil: 'networkidle0' });
+    await teacher.until('both lessons shown', async () => (await lessonTiles()) === 2);
+    expect(await unpublishedChips()).toBe(0);
+  });
+
+  it('moves the selected lessons to the top level through the dialog', async () => {
+    await selectAll();
+    await teacher.click(t.library.moveWord, '.selection-bar');
+    await teacher.until('the move dialog', () => teacher.exists('dialog[open] .move-list'));
+    await teacher.click(t.library.rootName, 'dialog[open]');
+    await teacher.until('the folder emptied', async () => (await lessonTiles()) === 0);
+    await settle();
+    await expectNoFailure();
+    await open('#/');
+    await teacher.until('both lessons at the top level', async () => (await newLessonTitles()) === 2);
+  });
+
+  it('deletes a folder together with the lesson inside it', async () => {
+    await folderWithLessons('Doomed folder', 1);
+    await open('#/');
+    await pressLabelled(t.library.deleteFolder('Doomed folder'));
+    await teacher.until('the delete dialog', () => teacher.exists('dialog[open]'));
+    await teacher.page.click('dialog[open] .checkbox');
+    await teacher.waitFor(t.library.deleteDialog.loses(0, 1));
+    await teacher.click(t.common.remove, 'dialog[open]');
+    await teacher.until('the folder gone', async () => !(await teacher.texts('.folder-tile__name')).includes('Doomed folder'));
+    await settle();
+    await expectNoFailure();
+    await open('#/');
+    expect(await newLessonTitles()).toBe(2);
+  });
+
+  it('deletes two selected lessons', async () => {
+    await teacher.page.evaluate((title) => {
+      for (const tile of document.querySelectorAll<HTMLElement>('.lesson-tile')) if (tile.querySelector('.card__title')?.textContent === title) tile.querySelector<HTMLElement>('.checkbox')?.click();
+    }, t.home.panel.newLessonTitle);
+    await teacher.waitFor(t.library.select.count(2));
+    await teacher.click(t.common.remove, '.selection-bar');
+    await teacher.click(t.common.confirm, '.selection-bar');
+    await teacher.until('both lessons gone', async () => (await newLessonTitles()) === 0);
+    await settle();
+    await expectNoFailure();
+    await teacher.page.reload({ waitUntil: 'networkidle0' });
+    await teacher.waitFor(SAMPLE.title);
+    expect(await newLessonTitles()).toBe(0);
   });
 
   it('raised no page error', () => {

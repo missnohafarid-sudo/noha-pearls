@@ -1398,7 +1398,7 @@ describe('lesson folders', () => {
     await expect(folders.add('a', null)).rejects.toBeInstanceOf(NotAuthorizedError);
     await expect(folders.rename('a', 'b')).rejects.toBeInstanceOf(NotAuthorizedError);
     await expect(folders.move('a', null)).rejects.toBeInstanceOf(NotAuthorizedError);
-    await expect(folders.remove('a')).rejects.toBeInstanceOf(NotAuthorizedError);
+    await expect(folders.remove('a', false)).rejects.toBeInstanceOf(NotAuthorizedError);
     await expect(lessons.moveToFolder(['l'], null)).rejects.toBeInstanceOf(NotAuthorizedError);
     await expect(lessons.moveLessons('a', null)).rejects.toBeInstanceOf(NotAuthorizedError);
   });
@@ -1447,12 +1447,12 @@ describe('lesson folders', () => {
     const mid = await folders.add('mid', top.id);
     const sub = await folders.add('sub', mid.id);
     const inMid = await lessons.create('م', mid.id);
-    await folders.remove(mid.id);
+    await folders.remove(mid.id, false);
     expect(await folderIds(store)).toEqual([sub.id, top.id].sort());
     expect((await store.get('folders', sub.id))?.parentId).toBe(top.id);
     expect((await store.get('lessons', inMid.id))?.folderId).toBe(top.id);
     const inTop = await lessons.create('ع', top.id);
-    await folders.remove(top.id);
+    await folders.remove(top.id, false);
     expect((await store.get('folders', sub.id))?.parentId).toBeNull();
     expect((await store.get('lessons', inTop.id))?.folderId).toBeNull();
     expect((await store.get('lessons', inMid.id))?.folderId).toBeNull();
@@ -1462,8 +1462,86 @@ describe('lesson folders', () => {
   it('does nothing when removing an unknown folder', async () => {
     const { folders, store } = await signedIn();
     const a = await folders.add('a', null);
-    await folders.remove('gone');
+    await folders.remove('gone', false);
     expect(await folderIds(store)).toEqual([a.id]);
+  });
+
+  const startClassOn = async (ctx: Awaited<ReturnType<typeof signedIn>>, lessonId: Id) => {
+    await ctx.store.put('classes', { id: 'c1', name: '11-3', order: 1 });
+    await ctx.store.put('teachers', { id: 't1', name: 'أ. هدى', order: 1 });
+    await ctx.store.put('groups', { id: 'g1', classId: 'c1', name: 'أ', color: '#000', order: 1 });
+    await ctx.store.put('students', { id: 's1', name: 'سلمى أحمد', cardNumber: 1, groupId: 'g1' });
+    return (await ctx.sessions.start(lessonId, 'c1', 't1'))!;
+  };
+
+  it('removes a folder with its content: lessons and folders at every depth, nothing elsewhere', async () => {
+    const { folders, lessons, store } = await signedIn();
+    const top = await folders.add('top', null);
+    const mid = await folders.add('mid', top.id);
+    const sub = await folders.add('sub', mid.id);
+    const beside = await folders.add('beside', null);
+    const inTop = await lessons.create('أ', top.id);
+    const inSub = await lessons.create('ب', sub.id);
+    const outside = await lessons.create('ج', beside.id);
+    const atRoot = await lessons.create('د', null);
+    await folders.remove(top.id, true);
+    expect(await folderIds(store)).toEqual([beside.id]);
+    expect(await store.get('lessons', inTop.id)).toBeNull();
+    expect(await store.get('lessons', inSub.id)).toBeNull();
+    expect((await store.list('lessons')).map((l) => l.id).sort()).toEqual([outside.id, atRoot.id].sort());
+  });
+
+  it('refuses to remove a folder with its content when a running class uses a lesson inside, and removes nothing', async () => {
+    const ctx = await signedIn();
+    const top = await ctx.folders.add('top', null);
+    const sub = await ctx.folders.add('sub', top.id);
+    const used = await ctx.lessons.create('أ', sub.id);
+    const other = await ctx.lessons.create('ب', top.id);
+    await startClassOn(ctx, used.id);
+    await expect(ctx.folders.remove(top.id, true)).rejects.toMatchObject({ code: 'lesson-in-use' });
+    expect(await folderIds(ctx.store)).toEqual([sub.id, top.id].sort());
+    expect((await ctx.store.list('lessons')).map((l) => l.id).sort()).toEqual([used.id, other.id].sort());
+  });
+
+  it('removes several lessons at once, or none when a running class uses one', async () => {
+    const ctx = await signedIn();
+    const [a, b, c] = [await ctx.lessons.create('أ', null), await ctx.lessons.create('ب', null), await ctx.lessons.create('ج', null)];
+    await startClassOn(ctx, b.id);
+    await expect(ctx.lessons.remove([a.id, b.id])).rejects.toMatchObject({ code: 'lesson-in-use' });
+    expect(await ctx.store.list('lessons')).toHaveLength(3);
+    await ctx.lessons.remove([a.id, c.id]);
+    expect((await ctx.store.list('lessons')).map((l) => l.id)).toEqual([b.id]);
+  });
+
+  it('refuses to move several lessons when one is missing', async () => {
+    const { folders, lessons } = await signedIn();
+    const a = await folders.add('a', null);
+    const x = await lessons.create('أ', null);
+    await expect(lessons.moveToFolder([x.id, 'gone'], a.id)).rejects.toMatchObject({ code: 'lesson-missing' });
+  });
+
+  it('publishes and unpublishes several lessons without touching their edit time, for the admin only', async () => {
+    const { auth, lessons, store } = await signedIn();
+    const [x, y] = [await lessons.create('أ', null), await lessons.create('ب', null)];
+    const titles = () =>
+      new Promise<string[]>((resolve) => {
+        const stop = lessons.watchLessons((summaries) => {
+          stop();
+          resolve(summaries.map((l) => l.title).sort());
+        });
+      });
+    await lessons.setPublished([x.id, y.id], true);
+    expect(await store.get('lessons', x.id)).toEqual({ ...x, published: true });
+    expect(await store.get('lessons', y.id)).toEqual({ ...y, published: true });
+    await auth.signOut();
+    expect(await titles()).toEqual(['أ', 'ب']);
+    await expect(lessons.setPublished([x.id], false)).rejects.toBeInstanceOf(NotAuthorizedError);
+    await auth.signIn({ password: 'secret', code: await validCode() });
+    await lessons.setPublished([x.id, y.id], false);
+    await auth.signOut();
+    expect(await titles()).toEqual([]);
+    await auth.signIn({ password: 'secret', code: await validCode() });
+    await expect(lessons.setPublished(['gone'], true)).rejects.toMatchObject({ code: 'lesson-missing' });
   });
 
   it('puts a created or imported lesson in the folder', async () => {
@@ -1554,7 +1632,7 @@ describe('lesson folders', () => {
     await store.put('folders', { id: 'a', name: 'a', parentId: 'gone', order: 1 });
     await store.put('folders', { id: 'child', name: 'c', parentId: 'a', order: 2 });
     const inside = await lessons.create('x', 'a');
-    await folders.remove('a');
+    await folders.remove('a', false);
     expect((await store.get('folders', 'child'))?.parentId).toBeNull();
     expect((await store.get('lessons', inside.id))?.folderId).toBeNull();
     expect(await store.get('folders', 'a')).toBeNull();
@@ -1565,7 +1643,7 @@ describe('lesson folders', () => {
     const a = await folders.add('a', null);
     const child = await folders.add('c', a.id);
     await folders.rename(child.id, 'renamed');
-    await folders.remove(a.id);
+    await folders.remove(a.id, false);
     expect(await store.get('folders', child.id)).toMatchObject({ name: 'renamed', parentId: null });
   });
 });

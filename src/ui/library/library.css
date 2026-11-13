@@ -149,8 +149,18 @@
   inset-inline-end: 12px;
 }
 
-.lesson-tile:has(.lesson-tile__move) .lesson-card {
+.lesson-tile__select {
+  position: absolute;
+  inset-block-end: 12px;
+  inset-inline-start: 12px;
+}
+
+.lesson-tile:has(.lesson-tile__move, .lesson-tile__select) .lesson-card {
   padding-block-end: 56px;
+}
+
+.selection-bar {
+  gap: 8px 16px;
 }
 
 .move-list {

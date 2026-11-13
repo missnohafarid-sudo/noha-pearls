@@ -5,6 +5,8 @@ const folderCount = (n: number) => counted(n, { one: 'مجلد واحد', two: '
 
 const rootName = 'الدروس';
 
+const insideText = (folders: number, lessons: number) => [folders > 0 && folderCount(folders), lessons > 0 && lessonCount(lessons)].filter(Boolean).join(' و');
+
 /** Text for the lesson library: the path line, the folder tiles and moving things between folders. */
 export const library = {
   rootName,
@@ -23,16 +25,32 @@ export const library = {
   moveFolder: (name: string) => `نقل المجلد ${isolate(name)}`,
   deleteFolder: (name: string) => `حذف المجلد ${isolate(name)}`,
   moveLesson: (title: string) => `نقل الدرس ${isolate(title)}`,
-  /** What pressing «حذف» twice does: only the folder goes, and what is inside it, if anything, moves up one level. */
-  deleteConfirm: (folders: number, lessons: number, parentName: string | null) => {
-    const inside = [folders > 0 && folderCount(folders), lessons > 0 && lessonCount(lessons)].filter(Boolean).join(' و');
-    const destination = parentName === null ? `«${rootName}»` : `المجلد ${isolate(parentName)}`;
-    return `${inside ? `سيُحذف المجلد وحده، وما بداخله (${inside}) سينتقل إلى ${destination}.` : 'سيُحذف المجلد.'} اضغطي «تأكيد» للحذف.`;
+  deleteDialog: {
+    withContent: 'حذف ما بداخله أيضًا',
+    /** Only the folder goes; what is inside it, if anything, moves up one level. */
+    keeps: (folders: number, lessons: number, parentName: string | null) => {
+      const inside = insideText(folders, lessons);
+      const destination = parentName === null ? `«${rootName}»` : `المجلد ${isolate(parentName)}`;
+      return inside ? `سيُحذف المجلد وحده، وما بداخله (${inside}) سينتقل إلى ${destination}.` : 'سيُحذف المجلد.';
+    },
+    /** The folder goes with everything inside it, at any depth. */
+    loses: (folders: number, lessons: number) => `سيُحذف المجلد وكل ما بداخله نهائيًا (${insideText(folders, lessons)})، ولا يمكن التراجع عن ذلك.`,
+  },
+  select: {
+    one: 'تحديد',
+    lesson: (title: string) => `تحديد الدرس ${isolate(title)}`,
+    all: 'تحديد كل الدروس هنا',
+    count: (n: number) => `المحدَّد: ${lessonCount(n)}`,
+    /** What the move dialog calls a selection of lessons: the form that follows «نقل». */
+    name: (n: number) => counted(n, { one: 'درس واحد', two: 'درسين', few: 'دروس', many: 'درسًا', hundred: 'درس' }),
+    publish: 'نشر للزوار',
+    unpublish: 'إلغاء النشر',
+    deleteConfirm: (n: number) => `سيُحذف ${lessonCount(n)} نهائيًا. اضغطي «تأكيد» للحذف.`,
   },
   move: {
     title: (name: string) => `نقل ${isolate(name)} إلى…`,
     problem: {
-      here: 'هو هنا الآن',
+      here: 'المكان الحالي',
       'folder-inside-itself': 'لا يمكن وضعه داخل نفسه',
       'folder-missing': 'هذا المجلد لم يعد موجوداً',
     },

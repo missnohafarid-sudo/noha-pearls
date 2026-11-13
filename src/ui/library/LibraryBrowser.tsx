@@ -18,12 +18,14 @@ interface LibraryBrowserProps {
   renderFolder?: (folder: LessonFolder, next: LessonFolder | undefined) => ReactNode;
   /** After the folder tiles, in the same grid. */
   afterFolders?: ReactNode;
+  /** Directly above the lessons grid, when there are lessons. */
+  aboveLessons?: ReactNode;
   /** Under the path line: a notice, say. */
   children?: ReactNode;
 }
 
 /** The path line, then the folders and lessons of one folder. What each tile is and does is up to the one who composes it. */
-export function LibraryBrowser({ view, openId, onOpen, renderLesson, renderFolder, afterFolders, children }: LibraryBrowserProps) {
+export function LibraryBrowser({ view, openId, onOpen, renderLesson, renderFolder, afterFolders, aboveLessons, children }: LibraryBrowserProps) {
   const libraryRef = useFocusTarget(focusKey.library);
   const folders = view.tree.shownChildren(openId, view.visible);
   const here = view.lessonsByFolder.get(openId) ?? [];
@@ -39,6 +41,7 @@ export function LibraryBrowser({ view, openId, onOpen, renderLesson, renderFolde
           {afterFolders}
         </div>
       )}
+      {here.length > 0 && aboveLessons}
       {here.length > 0 && (
         <div className="grid library__lessons">
           {here.map((lesson) => (

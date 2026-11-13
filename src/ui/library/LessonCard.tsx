@@ -1,5 +1,6 @@
 import type { Id, LessonSummary } from '../../domain/models';
 import { t } from '../../i18n';
+import { Checkbox } from '../forms/Checkbox';
 import { RouteLink } from '../routing/useRoute';
 import { useDragSource } from './useDragMove';
 
@@ -24,16 +25,23 @@ interface LessonCardProps {
   from?: Id | null;
   /** Present for the admin on the home page: the card can then be moved. */
   onMove?: () => void;
+  /** Present when the admin can select lessons: whether this one is selected, and the change of that. */
+  selection?: { selected: boolean; onChange: (selected: boolean) => void };
 }
 
-/** A lesson on the home page: it opens the lesson; the admin can also move it. */
-export function LessonCard({ lesson, admin, from = null, onMove }: LessonCardProps) {
+/** A lesson on the home page: it opens the lesson; the admin can also select it and move it. */
+export function LessonCard({ lesson, admin, from = null, onMove, selection }: LessonCardProps) {
   const { props: source, dragging } = useDragSource({ kind: 'lesson', id: lesson.id, from });
   return (
     <div className={`lesson-tile${dragging ? ' is-dragging' : ''}`} {...source}>
       <RouteLink to={{ name: 'lesson', lessonId: lesson.id, slideIndex: 0 }} className="card lesson-card">
         <LessonCardBody lesson={lesson} admin={admin} />
       </RouteLink>
+      {selection && (
+        <div className="lesson-tile__select">
+          <Checkbox checked={selection.selected} onChange={selection.onChange} label={t.library.select.one} ariaLabel={t.library.select.lesson(lesson.title)} />
+        </div>
+      )}
       {onMove && (
         <button type="button" className="quiet-action lesson-tile__move" aria-label={t.library.moveLesson(lesson.title)} onClick={onMove}>
           {t.library.moveWord}

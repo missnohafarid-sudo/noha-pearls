@@ -36,7 +36,7 @@ export const SURFACE_EFFECTS = {
     roster: ['addClass', 'renameClass', 'removeClass', 'addGroup', 'saveGroup', 'removeGroup', 'addStudent', 'saveStudent', 'removeStudent', 'importFromText'],
     teachers: ['add', 'rename', 'remove'],
     folders: ['add', 'rename', 'move', 'remove'],
-    lessons: ['create', 'save', 'moveToFolder', 'remove', 'importFromText'],
+    lessons: ['create', 'save', 'moveToFolder', 'setPublished', 'remove', 'importFromText'],
     sessions: ['start', 'end', 'goTo', 'reveal', 'setPacing', 'sendMessage', 'clearMessage', 'setMinInteractions'],
     sessionRoster: ['moveStudent', 'addStudent', 'renameGroup', 'markPresent', 'markAbsent'],
     admission: ['admit', 'takeRoll', 'admitAll', 'remove'],

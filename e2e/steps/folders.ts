@@ -6,7 +6,7 @@ import { SAMPLE } from '../sample';
 import { storedRecords, type World } from '../world';
 
 const tl = t.library;
-const NAMES = { a: 'Folder A', b: 'Folder B', inner: 'Inner folder', renamed: 'Folder A renamed', empty: 'Empty folder', hidden: 'Hidden folder', deep: 'Deep folder', dragOuter: 'Drag outer', dragInner: 'Drag inner', keyOne: 'Key one', keyTwo: 'Key two', keyRenamed: 'Key renamed' } as const;
+const NAMES = { a: 'Folder A', b: 'Folder B', inner: 'Inner folder', renamed: 'Folder A renamed', empty: 'Empty folder', hidden: 'Hidden folder', deep: 'Deep folder', dragOuter: 'Drag outer', dragInner: 'Drag inner', keyOne: 'Key one', keyTwo: 'Key two', keyRenamed: 'Key renamed', doomed: 'Doomed folder', doomedInner: 'Doomed inner', selecting: 'Selecting folder' } as const;
 const NEW_FIELD = '.folder-tile--new input';
 
 type Point = { x: number; y: number };
@@ -111,26 +111,38 @@ async function moveThroughDialog(world: World, kind: 'folder' | 'lesson', name: 
   await world.admin.until('the move dialog closed', async () => !(await world.admin.exists('dialog[open]')));
 }
 
-async function confirmDelete(world: World, name: string): Promise<void> {
-  await world.admin.until('the confirm button of that folder', () =>
-    world.admin.page.evaluate(
-      (folderName, confirm) => {
-        const tile = [...document.querySelectorAll<HTMLElement>('.folder-tile')].find((candidate) => candidate.querySelector('.folder-tile__name')?.textContent === folderName);
-        const button = [...(tile?.querySelectorAll<HTMLButtonElement>('button') ?? [])].find((candidate) => candidate.innerText.includes(confirm));
-        button?.click();
-        return button !== undefined;
-      },
-      name,
-      t.common.confirm,
-    ),
-  );
+/** Answers the delete dialog that the folder's «حذف» opened, then waits for the folder to go. */
+async function confirmDelete(world: World, name: string, withContent = false): Promise<void> {
+  await world.admin.until('the delete dialog', () => world.admin.exists('dialog[open]'));
+  if (withContent) await world.admin.page.click('dialog[open] .checkbox');
+  await world.admin.click(t.common.remove, 'dialog[open]');
   await world.admin.until('the folder gone', async () => !(await shownFolders(world.admin)).includes(name));
 }
 
-async function deleteFolder(world: World, name: string): Promise<void> {
+async function deleteFolder(world: World, name: string, withContent = false): Promise<void> {
   await pressNamed(world.admin, tl.deleteFolder(name));
-  await confirmDelete(world, name);
+  await confirmDelete(world, name, withContent);
 }
+
+/** Makes a new lesson in the folder that is open and comes back to that folder. */
+async function newLessonHere(world: World, folderId: string, shownAfter: number): Promise<void> {
+  await world.admin.until('the new lesson button', () =>
+    world.admin.page.evaluate((label) => {
+      const button = [...document.querySelectorAll<HTMLButtonElement>('button.btn--primary')].find((candidate) => candidate.innerText.includes(label));
+      button?.click();
+      return button !== undefined;
+    }, t.home.panel.newLesson),
+  );
+  await world.admin.until('the lesson editor', async () => world.admin.page.url().includes('#/lesson/'));
+  await open(world, folderId);
+  await world.admin.until(`${shownAfter} lessons shown`, async () => (await world.admin.count('.lesson-tile')) === shownAfter);
+}
+
+/** Ticks the lesson tiles at these positions. */
+const tick = (device: Device, positions: number[]) =>
+  device.page.evaluate((wanted) => wanted.forEach((position) => document.querySelectorAll<HTMLElement>('.lesson-tile .checkbox')[position]?.click()), positions);
+
+const ticked = (device: Device) => device.count('.lesson-tile input:checked');
 
 const folderIdOf = (all: LessonFolder[], name: string) => all.find((folder) => folder.name === name)?.id;
 
@@ -312,7 +324,7 @@ export function foldersSteps(world: World): void {
   it('deleting a folder moves its folders and lessons up and loses none', async () => {
     const before = await lessons(world);
     await pressNamed(world.admin, tl.deleteFolder(NAMES.renamed));
-    await world.admin.waitFor(tl.deleteConfirm(1, 0, null));
+    await world.admin.waitFor(tl.deleteDialog.keeps(1, 0, null));
     await confirmDelete(world, NAMES.renamed);
     expect(await shownFolders(world.admin)).toContain(NAMES.inner);
     expect((await folderNamed(world, NAMES.inner)).parentId).toBeNull();
@@ -448,6 +460,65 @@ export function foldersSteps(world: World): void {
     await world.admin.goto('#/folder/no-such-folder');
     await expectTopLevel(world.admin, { folders: [NAMES.b] });
     expect(world.admin.page.url().includes('no-such-folder')).toBe(false);
+  });
+
+  it('the delete dialog says what will be lost and deletes a folder together with what is inside it', async () => {
+    const before = await lessons(world);
+    await open(world, null);
+    await world.admin.waitFor(tl.newFolder);
+    await newFolderHere(world, NAMES.doomed);
+    await openTile(world, NAMES.doomed);
+    await newFolderHere(world, NAMES.doomedInner);
+    const doomed = await folderNamed(world, NAMES.doomed);
+    await newLessonHere(world, doomed.id, 1);
+    await open(world, null);
+    await world.admin.waitFor(NAMES.doomed);
+    await pressNamed(world.admin, tl.deleteFolder(NAMES.doomed));
+    await world.admin.waitFor(tl.deleteDialog.keeps(1, 1, null));
+    await world.admin.page.click('dialog[open] .checkbox');
+    await world.admin.waitFor(tl.deleteDialog.loses(1, 1));
+    await world.admin.click(t.common.cancel, 'dialog[open]');
+    await world.admin.until('the dialog gone', async () => !(await world.admin.exists('dialog')));
+    expect(await folderNamed(world, NAMES.doomed)).toBeDefined();
+    expect(await lessons(world)).toHaveLength(before.length + 1);
+    await deleteFolder(world, NAMES.doomed, true);
+    await world.admin.until('its lesson and inner folder gone', async () => (await lessons(world)).length === before.length && !(await folders(world)).some((folder) => folder.name === NAMES.doomedInner));
+  });
+
+  it('several lessons are selected, published together, kept ticked, and deleted together', async () => {
+    await open(world, null);
+    await world.admin.waitFor(tl.newFolder);
+    await newFolderHere(world, NAMES.selecting);
+    await openTile(world, NAMES.selecting);
+    const folder = await folderNamed(world, NAMES.selecting);
+    for (const shown of [1, 2, 3]) await newLessonHere(world, folder.id, shown);
+    expect(await world.admin.count('.lesson-tile .chip--bad')).toBe(3);
+
+    await tick(world.admin, [0, 1]);
+    await world.admin.waitFor(tl.select.count(2));
+    expect(await ticked(world.admin)).toBe(2);
+    expect(await world.admin.count('.selection-bar > .checkbox input:checked')).toBe(0);
+    await world.admin.page.click('.selection-bar .checkbox');
+    await world.admin.waitFor(tl.select.count(3));
+    await world.admin.click(tl.select.publish, '.selection-bar');
+    await world.admin.until('no unpublished chip', async () => (await world.admin.count('.lesson-tile .chip--bad')) === 0);
+    expect((await lessons(world)).filter((lesson) => lesson.folderId === folder.id).every((lesson) => lesson.published)).toBe(true);
+    await world.admin.waitFor(tl.select.count(3));
+    expect(await world.admin.has(tl.select.publish)).toBe(false);
+
+    await open(world, null);
+    await world.admin.waitFor(tl.newFolder);
+    await open(world, folder.id);
+    await world.admin.until('the lessons shown', async () => (await world.admin.count('.lesson-tile')) === 3);
+    expect(await ticked(world.admin)).toBe(0);
+    expect(await world.admin.has(tl.select.count(3))).toBe(false);
+
+    await tick(world.admin, [0, 2]);
+    await world.admin.waitFor(tl.select.count(2));
+    await world.admin.click(t.common.remove, '.selection-bar');
+    await world.admin.click(t.common.confirm, '.selection-bar');
+    await world.admin.until('two lessons deleted', async () => (await lessons(world)).filter((lesson) => lesson.folderId === folder.id).length === 1);
+    await world.admin.until('one lesson shown and nothing ticked', async () => (await world.admin.count('.lesson-tile')) === 1 && (await ticked(world.admin)) === 0);
   });
 
   it('the library is left as it was found, even when an earlier step failed', async () => {

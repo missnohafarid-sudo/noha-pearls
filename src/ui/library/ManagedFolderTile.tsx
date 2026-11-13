@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import type { LessonFolder } from '../../domain/models';
 import { t } from '../../i18n';
-import { ConfirmButton } from '../common/ConfirmButton';
 import { focusKey, useFocusRequest, useFocusTarget } from './focus';
 import { FolderTile } from './FolderTile';
 import { InPlaceName } from './InPlaceName';
@@ -13,21 +12,17 @@ const tl = t.library;
 interface ManagedFolderTileProps {
   folder: LessonFolder;
   view: LibraryView;
-  /** The tile after this one, where focus goes when this folder is deleted. */
-  next: LessonFolder | undefined;
   actions: LibraryActions;
   onOpen: (folderId: string) => void;
   onMove: () => void;
+  onDelete: () => void;
 }
 
 /** A folder tile for the admin: it can be renamed in place, moved, deleted and dragged. */
-export function ManagedFolderTile({ folder, view, next, actions, onOpen, onMove }: ManagedFolderTileProps) {
+export function ManagedFolderTile({ folder, view, actions, onOpen, onMove, onDelete }: ManagedFolderTileProps) {
   const [renaming, setRenaming] = useState(false);
   const request = useFocusRequest();
   const renameRef = useFocusTarget<HTMLButtonElement>(focusKey.rename(folder.id));
-  const parentId = view.tree.parentOf(folder.id);
-  const parentName = parentId === null ? null : (view.tree.get(parentId)?.name ?? null);
-  const consequence = tl.deleteConfirm(view.tree.children(folder.id).length, view.lessonsByFolder.get(folder.id)?.length ?? 0, parentName);
 
   const finishRename = (byKey: boolean) => {
     setRenaming(false);
@@ -45,10 +40,6 @@ export function ManagedFolderTile({ folder, view, next, actions, onOpen, onMove 
     />
   ) : undefined;
 
-  const remove = async () => {
-    if (await actions.removeFolder(folder.id)) request(next ? focusKey.open(next.id) : focusKey.newFolder);
-  };
-
   return (
     <FolderTile folder={folder} holds={view.counts.get(folder.id) ?? 0} onOpen={onOpen} nameField={nameField}>
       <div className="folder-tile__actions">
@@ -58,9 +49,9 @@ export function ManagedFolderTile({ folder, view, next, actions, onOpen, onMove 
         <button type="button" className="quiet-action" aria-label={tl.moveFolder(folder.name)} onClick={onMove}>
           {tl.moveWord}
         </button>
-        <ConfirmButton className="quiet-action quiet-action--bad" ariaLabel={tl.deleteFolder(folder.name)} consequence={consequence} onConfirm={() => void remove()}>
+        <button type="button" className="quiet-action quiet-action--bad" aria-label={tl.deleteFolder(folder.name)} onClick={onDelete}>
           {t.common.remove}
-        </ConfirmButton>
+        </button>
       </div>
     </FolderTile>
   );

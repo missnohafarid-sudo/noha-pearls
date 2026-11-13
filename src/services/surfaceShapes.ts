@@ -1,5 +1,5 @@
 import {
-  isAnswerValue, isCard, isClassCode, isId, isName, isPacingMode, isPeriod, isPeriodKind, listOf, MAX_COLUMN_HEADER_LENGTH, MAX_MIN_INTERACTIONS, MAX_RAW_MESSAGE_LENGTH, MAX_TITLE_LENGTH, nonEmptyText, nullable, number, oneOf, slideIndex, text, type Check,
+  isAnswerValue, isBoolean, isCard, isClassCode, isId, isName, isPacingMode, isPeriod, isPeriodKind, listOf, MAX_COLUMN_HEADER_LENGTH, MAX_MIN_INTERACTIONS, MAX_RAW_MESSAGE_LENGTH, MAX_TITLE_LENGTH, nonEmptyText, nullable, number, oneOf, slideIndex, text, type Check,
 } from '../domain/argumentChecks';
 import { isDateRange, isGroup, isImportMode, isLesson, isSiteContent, isStudent, isSubject, isYearEnd } from '../domain/entityChecks';
 import { MAX_ADMIN_MESSAGE_LENGTH } from '../ports/limits';
@@ -24,9 +24,9 @@ export const SURFACE_SHAPES = {
     addStudent: [isName, isId], saveStudent: [isStudent], removeStudent: id, importFromText: [isId, longText, isImportMode], exportToText: [isId, text(MAX_COLUMN_HEADER_LENGTH)],
   },
   teachers: { watchTeachers: none, add: [isName], rename: [isId, isName], remove: id },
-  folders: { watchFolders: none, add: [isName, optionalFolder], rename: [isId, isName], move: [isId, optionalFolder], remove: id },
+  folders: { watchFolders: none, add: [isName, optionalFolder], rename: [isId, isName], move: [isId, optionalFolder], remove: [isId, isBoolean] },
   lessons: {
-    watchLessons: none, watchLesson: id, create: [nonEmptyText(MAX_TITLE_LENGTH), optionalFolder], save: [isLesson], moveToFolder: [listOf(isId), optionalFolder], remove: [listOf(isId)],
+    watchLessons: none, watchLesson: id, create: [nonEmptyText(MAX_TITLE_LENGTH), optionalFolder], save: [isLesson], moveToFolder: [listOf(isId), optionalFolder], setPublished: [listOf(isId), isBoolean], remove: [listOf(isId)],
     importFromText: [longText, optionalFolder], exportToText: [isLesson],
   },
   sessions: {

@@ -1347,7 +1347,7 @@ describe('the kept record of an ended class', () => {
     const session = await begin();
     const device = ctx.device('d1');
     const mine = (await device.participants.join(session.code, 'g1', 's1'))!;
-    const waitingLine = await device.records.ownStandingIn(session.id, periodAt('month', session.startedAt));
+    const waitingLine = await device.records.ownStandingIn(session.id, 'month');
     await ctx.admission.admit(mine.id, 's1');
     await ctx.answers.submitForStudent(session.id, 'q1', 's1', 0, 'manual');
     const other = ctx.device('d2');
@@ -1362,10 +1362,10 @@ describe('the kept record of an ended class', () => {
     expect(waitingLine).toBeNull();
     expect(await device.records.groupStandingsOf(session.code, period.kind)).toEqual([{ groupId: 'g1', name: 'أ', score: 1, max: question.points + groupQuestion.points, hearts: 1 }]);
     expect(await stranger.records.groupStandingsOf(session.code, period.kind)).toEqual([]);
-    expect(await device.records.ownStandingIn(session.id, period)).toEqual({ classes: 1, attended: 1, points: 1, hearts: 1 });
-    expect(await other.records.ownStandingIn(session.id, period)).toBeNull();
-    expect(await stranger.records.ownStandingIn(session.id, period)).toBeNull();
-    expect(await device.records.ownStandingIn('nobody', period)).toBeNull();
+    expect(await device.records.ownStandingIn(session.id, period.kind)).toEqual({ classes: 1, attended: 1, points: 1, hearts: 1 });
+    expect(await other.records.ownStandingIn(session.id, period.kind)).toBeNull();
+    expect(await stranger.records.ownStandingIn(session.id, period.kind)).toBeNull();
+    expect(await device.records.ownStandingIn('nobody', period.kind)).toBeNull();
     await expect(device.records.standingsOf('c1', period)).rejects.toBeInstanceOf(NotAuthorizedError);
   });
 
@@ -1376,7 +1376,7 @@ describe('the kept record of an ended class', () => {
     await ctx.admission.admit(mine.id, 's1');
     await ctx.sessions.end(session.id);
     await ctx.store.remove('participants', mine.id);
-    expect(await device.records.ownStandingIn(session.id, periodAt('month', session.startedAt))).toBeNull();
+    expect(await device.records.ownStandingIn(session.id, 'month')).toBeNull();
   });
 });
 

@@ -53,11 +53,11 @@ export class RecordService implements RecordKeeper {
     return session ? (await this.sum(session.classId, this.currentPeriod(kind))).groups : [];
   }
 
-  /** Anyone: the cumulative results of the student this device was let in as, in the class list of that session; none for any other device. */
-  async ownStandingIn(sessionId: Id, period: Period): Promise<OwnStanding | null> {
+  /** Anyone: the cumulative results of the student this device was let in as, in the class list of that session, for this week or this month by the hub's clock; none for any other device. */
+  async ownStandingIn(sessionId: Id, kind: PeriodKind): Promise<OwnStanding | null> {
     const [seat, session] = await Promise.all([this.seats.admittedSeat(sessionId), this.store.get('sessions', sessionId)]);
     if (!seat || seat.studentId === null || !session) return null;
-    return ownStanding(await this.sum(session.classId, period), seat.studentId);
+    return ownStanding(await this.sum(session.classId, this.currentPeriod(kind)), seat.studentId);
   }
 
   /** Tells how many classes of the class list of the class this code opens have been kept, now and whenever one more is, so a page can ask for the sums again. */

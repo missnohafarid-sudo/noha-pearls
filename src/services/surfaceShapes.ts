@@ -44,7 +44,7 @@ export const SURFACE_SHAPES = {
   },
   rewards: { watchRewards: id, watchHeartCount: [isClassCode], giveAsTeacher: [isId, isSubject], giveAsPeer: [isId, isId] },
   records: {
-    currentPeriod: [isPeriodKind], standingsOf: [isId, isPeriod], groupStandingsOf: [isClassCode, isPeriodKind], ownStandingIn: [isId, isPeriod], watchKeptCount: [isClassCode], watchClassKeptCount: id,
+    currentPeriod: [isPeriodKind], standingsOf: [isId, isPeriod], groupStandingsOf: [isClassCode, isPeriodKind], ownStandingIn: [isId, isPeriodKind], watchKeptCount: [isClassCode], watchClassKeptCount: id,
   },
   retention: { watchSettings: none, watchNotices: none, rangeLimits: none, setYearEnd: [isYearEnd], classesToRemove: [isId, isDateRange], removeClasses: [isId, isDateRange, listOf(isId)] },
   board: { watchTotals: [isClassCode], watchCardResults: [isClassCode, isCard] },

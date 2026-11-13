@@ -190,6 +190,13 @@ describe('hearts and answers from a student', () => {
 });
 
 describe('arguments that do not fit', () => {
+  it('lets a device ask for its standing only for the current week or month, never for a period of its own, so it cannot make the hub remember sums without end', () => {
+    expect(argumentsFit('records', 'ownStandingIn', ['x:y', 'week'])).toBe(true);
+    expect(argumentsFit('records', 'ownStandingIn', ['x:y', 'month'])).toBe(true);
+    expect(argumentsFit('records', 'ownStandingIn', ['x:y', { kind: 'week', start: 0, end: 1 }])).toBe(false);
+    expect(argumentsFit('records', 'ownStandingIn', ['x:y', 'year'])).toBe(false);
+  });
+
   it('has a shape for every method of the surface and for none that is not on it', () => {
     const shaped = Object.entries(SURFACE_SHAPES).flatMap(([service, methods]) => Object.keys(methods).map((method) => `${service}.${method}`));
     const surface = Object.entries(UI_SURFACE).flatMap(([service, names]) => (names as readonly string[]).map((name) => `${service}.${name}`));

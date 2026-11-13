@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import type { Participant, Session } from '../domain/models';
-import { periodAt } from '../domain/periods';
 import { connect, createHarness, type Client } from './hubHarness';
 
 const FAR = 9_000_000_000_000;
@@ -28,7 +27,7 @@ describe('what a device without a seat may do with a class it knows the id of', 
     const before = JSON.stringify(await harness.store.list('answers'));
     expect(await outsider.call(4, 'answers', 'submitFromDevice', session.id, slide.id, 0)).toMatchObject({ ok: true, value: false });
     expect(await outsider.call(5, 'rewards', 'giveAsPeer', session.id, 'someone')).toMatchObject({ ok: true, value: false });
-    expect(await outsider.call(6, 'records', 'ownStandingIn', session.id, periodAt('week', harness.clock.now))).toMatchObject({ ok: true, value: null });
+    expect(await outsider.call(6, 'records', 'ownStandingIn', session.id, 'week')).toMatchObject({ ok: true, value: null });
     expect(await outsider.call(7, 'participants', 'leave', session.id)).toMatchObject({ ok: true });
     expect(JSON.stringify(await harness.store.list('answers'))).toBe(before);
     expect(await harness.store.list('rewards')).toEqual([]);

@@ -10,7 +10,7 @@ const ts = t.standings;
 function OwnStandingLine({ session, kind }: { session: Session; kind: PeriodKind }) {
   const { records } = useServices();
   const version = useStandingsVersion(session);
-  const own = useAsked(() => records.ownStandingIn(session.id, records.currentPeriod(kind)), [records, session.id, kind, version]);
+  const own = useAsked(() => records.ownStandingIn(session.id, kind), [records, session.id, kind, version]);
   if (!own) return null;
   return <p>{ts.own.line(ts.own.periodKind[kind], own)}</p>;
 }

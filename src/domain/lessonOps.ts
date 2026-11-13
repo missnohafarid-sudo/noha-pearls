@@ -9,7 +9,7 @@ export function createLesson(title: string, folderId: Id | null, now = Date.now(
 }
 
 /** Unpublished lessons exist for the admin only. */
-export function canViewLesson(lesson: Lesson, isAdmin: boolean): boolean {
+export function canViewLesson(lesson: Pick<Lesson, 'published'>, isAdmin: boolean): boolean {
   return lesson.published || isAdmin;
 }
 

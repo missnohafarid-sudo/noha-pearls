@@ -73,6 +73,12 @@ export interface LessonFolder {
   order: number;
 }
 
+/** What a lesson card and the folder tree need of a lesson: no slides, so no answer key. */
+export interface LessonSummary extends Pick<Lesson, 'id' | 'folderId' | 'title' | 'subject' | 'grade' | 'published' | 'updatedAt'> {
+  slideCount: number;
+  questionCount: number;
+}
+
 export interface Lesson {
   id: Id;
   /** The folder the lesson sits in; null is the top level. */

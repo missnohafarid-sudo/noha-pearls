@@ -72,6 +72,7 @@ A teacher. She is not a programmer and cannot judge your code.
 | Weeks and months on the school's clock | `domain/periods.ts` |
 | What class data is cleared and when: a date range, the end of the school year | `domain/retention.ts` |
 | Cumulative results of a class list over a period, and what anyone may see of them: group totals, one student's own line | `domain/standings.ts` |
+| What each kind of caller may read | `domain/visibility.ts` |
 | Who may give a heart (the teacher's, live or ended; a student's, live only) | `domain/rewards.ts` |
 | Who is let into a class, one device per name, who joins the roll when a device is let in (a shared device brings its whole group), and where a returning device lands | `domain/admission.ts` |
 | Who is here: the roll, and who counts in tallies and scores | `domain/attendance.ts` |

@@ -19,7 +19,7 @@ export function canGiveTeacherHeart(session: Session | null, roster: ClassRoster
  * Groups are the roster's now (`students`), so a moved student gives and receives by her new group.
  * That the giver's device was let in is the seat source's concern, not this rule's.
  */
-export function canGivePeerHeart(session: Session, giver: Participant, classmate: Student, students: readonly Student[]): boolean {
+export function canGivePeerHeart(session: Session, giver: Pick<Participant, 'groupId' | 'studentId'>, classmate: Student, students: readonly Student[]): boolean {
   return (
     acceptsChanges(session) &&
     giver.studentId !== null &&
@@ -28,6 +28,6 @@ export function canGivePeerHeart(session: Session, giver: Participant, classmate
   );
 }
 
-export function peerRewardTargets(session: Session, giver: Participant, students: readonly Student[]): Student[] {
+export function peerRewardTargets(session: Session, giver: Pick<Participant, 'groupId' | 'studentId'>, students: readonly Student[]): Student[] {
   return students.filter((student) => canGivePeerHeart(session, giver, student, students));
 }

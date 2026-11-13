@@ -68,7 +68,7 @@ export function canClaimSeat(session: Session | null, roster: ClassRoster, group
  * The group a seat sits in right now. A named seat follows her student, who may have been moved since she joined;
  * a shared group device keeps the group it joined.
  */
-export function seatGroupId(seat: Participant, students: readonly Student[]): Id {
+export function seatGroupId(seat: Pick<Participant, 'groupId' | 'studentId'>, students: readonly Student[]): Id {
   return studentById(students, seat.studentId)?.groupId ?? seat.groupId;
 }
 

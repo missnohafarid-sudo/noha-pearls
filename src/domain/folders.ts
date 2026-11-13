@@ -59,7 +59,7 @@ export class FolderTree {
    * The folders a reader sees. The admin sees every folder, empty ones too; anyone else sees a folder only when it
    * holds, at any depth, a lesson she may view. A folder with such a lesson inside makes all its ancestors visible.
    */
-  visibleIds(lessons: readonly Lesson[], isAdmin: boolean): Set<Id> {
+  visibleIds(lessons: readonly Pick<Lesson, 'folderId' | 'published'>[], isAdmin: boolean): Set<Id> {
     return isAdmin ? new Set(this.byId.keys()) : this.holdingIds(lessons.filter((lesson) => canViewLesson(lesson, false)));
   }
 

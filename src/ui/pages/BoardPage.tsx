@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react';
 import { REWARD_SOURCES, RewardIndex } from '../../domain/analytics';
 import type { Group, Session, Student, SubjectRef } from '../../domain/models';
 import { groupById, membersOf } from '../../domain/roster';
-import { canGiveTeacherHeart } from '../../domain/rewards';
 import { pearlsEarned, publishedKeys, rankScores, scoreboard, type GroupScore } from '../../domain/scoring';
 import { t } from '../../i18n';
 import pearlsRow from '../assets/brand/pearls-row.jpg';
@@ -11,7 +10,7 @@ import { Loading } from '../common/PageState';
 import { PearlString } from '../common/PearlString';
 import { toneStyle } from '../common/tone';
 import { useAdmin, useAnswers, useLesson, useRewards, useSessionRoster } from '../hooks/data';
-import { useServices } from '../ServicesContext';
+import { useTeacherHearts } from '../hooks/useTeacherHearts';
 import { OwnResults } from '../board/OwnResults';
 import { CardIdentify } from '../scanner/CardIdentify';
 import { GroupStandingsOfClass } from '../standings/GroupStandingsOfClass';
@@ -40,7 +39,6 @@ export function BoardPage({ code }: { code: string | undefined }) {
 }
 
 function BoardView({ session }: { session: Session }) {
-  const { rewards: rewardService } = useServices();
   const admin = useAdmin();
   const lesson = useLesson(session.lessonId);
   const roster = useSessionRoster(session);
@@ -48,6 +46,7 @@ function BoardView({ session }: { session: Session }) {
   const rewards = useRewards(session.id);
   const [identified, setIdentified] = useState<Student | null>(null);
   const [identifying, setIdentifying] = useState(false);
+  const heartFor = useTeacherHearts(session);
 
   const scores = useMemo(
     () => (lesson && roster && answers ? scoreboard(lesson, roster, answers, publishedKeys(session)) : []),
@@ -58,8 +57,7 @@ function BoardView({ session }: { session: Session }) {
   if (lesson === undefined || !roster || !answers || !rewards) return <Loading />;
   const { groups, students } = roster;
 
-  const giveTo = (target: SubjectRef) =>
-    admin && canGiveTeacherHeart(session, roster, target) ? () => void rewardService.giveAsTeacher(session.id, target) : undefined;
+  const giveTo = (target: SubjectRef) => heartFor(roster, target);
   const groupOf = (score: GroupScore): Group | null => groupById(groups, score.groupId);
   const ranked = rankScores(scores);
 

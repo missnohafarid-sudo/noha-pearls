@@ -104,6 +104,12 @@ export function withYearEnd(settings: RetentionSettings, yearEnd: YearEnd | null
   return { ...settings, yearEnd, yearEndSetAt: now };
 }
 
+/** When the hub looks for a due clearing next: at the due moment if it is within a day, otherwise in a day, so a change of settings is seen within a day. Never sooner than a second from now. */
+export function nextCheckAt(dueAt: number | null, now: number): number {
+  const daily = now + DAY_MS;
+  return dueAt === null ? daily : Math.max(now + 1000, Math.min(dueAt, daily));
+}
+
 export function afterClearing(settings: RetentionSettings, now: number): RetentionSettings {
   return { ...settings, lastClearedAt: now };
 }

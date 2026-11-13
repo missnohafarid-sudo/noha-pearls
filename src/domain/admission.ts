@@ -131,3 +131,24 @@ export function joinLanding(session: Session, seat: Participant | null, students
   if (groupId) return { to: 'group', groupId };
   return isLive(session) ? { to: 'choose' } : { to: 'ended' };
 }
+
+/** The id of the seat a device holds (or asks for) in a session: one seat per device per class. */
+export function seatId(sessionId: Id, deviceId: Id): Id {
+  return `${sessionId}:${deviceId}`;
+}
+
+export interface WaitingSeatLimits {
+  perStudent: number;
+  sharedPerClass: number;
+}
+
+/**
+ * Whether a device may ask for a seat without crowding the class: other devices waiting under the same name number fewer than
+ * `perStudent`, and for a shared group device the other shared devices waiting number fewer than `sharedPerClass`.
+ * The device's own earlier seat is replaced by the new one, so it does not count.
+ */
+export function canWaitForSeat(participants: readonly Participant[], ownId: Id, studentId: Id | null, limits: WaitingSeatLimits): boolean {
+  const others = awaitingAdmission(participants).filter((seat) => seat.id !== ownId);
+  if (studentId !== null) return others.filter((seat) => seat.studentId === studentId).length < limits.perStudent;
+  return others.filter((seat) => seat.studentId === null).length < limits.sharedPerClass;
+}

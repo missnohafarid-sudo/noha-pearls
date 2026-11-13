@@ -125,6 +125,8 @@ export interface Answer {
   value: number | string;
   source: AnswerSource;
   at: number;
+  /** How many times a device changed this answer; absent until it did. */
+  changes?: number;
 }
 
 export type RewardSource = 'teacher' | 'peer' | 'guest' | 'supervisor';
@@ -136,6 +138,8 @@ export interface Reward {
   target: SubjectRef;
   source: RewardSource;
   at: number;
+  /** The seat that gave a peer heart; absent for the teacher's. */
+  giverId?: Id;
 }
 
 /** A device that asked for a seat in a session. `studentId` is null for a shared group device. */

@@ -1,7 +1,7 @@
 import { seatGroupId } from './admission';
 import { isOnRoster } from './roster';
 import { acceptsChanges } from './sessions';
-import type { ClassRoster, Participant, Session, Student, SubjectRef } from './models';
+import type { ClassRoster, Participant, Reward, Session, Student, SubjectRef } from './models';
 
 /** Rules for giving hearts. */
 
@@ -30,4 +30,9 @@ export function canGivePeerHeart(session: Session, giver: Pick<Participant, 'gro
 
 export function peerRewardTargets(session: Session, giver: Pick<Participant, 'groupId' | 'studentId'>, students: readonly Student[]): Student[] {
   return students.filter((student) => canGivePeerHeart(session, giver, student, students));
+}
+
+/** A student may give only so many hearts in one class; the teacher's are not counted. `given` are the hearts she has given there. */
+export function canGiveAnotherPeerHeart(given: readonly Pick<Reward, 'source'>[], limit: number): boolean {
+  return given.filter((heart) => heart.source === 'peer').length < limit;
 }

@@ -5,7 +5,10 @@ import { isLive } from '../domain/sessions';
 import { ownStanding, recordsIn, standings, type GroupStanding, type OwnStanding, type Standings } from '../domain/standings';
 import type { DocumentStore, Unsubscribe } from '../ports/store';
 import type { Caller } from '../ports/caller';
-import { requireAdmin } from './AuthService';
+import { adminWatch, requireAdmin } from './AuthService';
+import { watchByCode } from './classData';
+import type { ClassResolver } from './ClassResolver';
+import type { StandingsCache } from './StandingsCache';
 import type { ClassRosterSource } from './ClassRosterSource';
 import type { RecordKeeper } from './RecordKeeper';
 import type { SeatSource } from './SeatSource';
@@ -19,6 +22,8 @@ export class RecordService implements RecordKeeper {
     private readonly rosters: SessionRosterSource,
     private readonly classes: ClassRosterSource,
     private readonly seats: SeatSource,
+    private readonly codes: ClassResolver,
+    private readonly cache: StandingsCache,
   ) {}
 
   async keep(sessionId: Id): Promise<void> {
@@ -39,12 +44,13 @@ export class RecordService implements RecordKeeper {
   /** Admin only: the cumulative results of one class list over a period, named as the list names them now; hearts are counted as they stand now. */
   async standingsOf(classId: Id, period: Period): Promise<Standings> {
     requireAdmin(this.caller);
-    return this.sum(classId, period);
+    return this.compute(classId, period);
   }
 
-  /** Anyone: only the groups' cumulative results of one class list; no student row leaves here. */
-  async groupStandingsOf(classId: Id, period: Period): Promise<GroupStanding[]> {
-    return (await this.sum(classId, period)).groups;
+  /** Anyone with the class's code: only the groups' cumulative results of that class's class list, for this week or this month by the hub's clock; no student row leaves here. */
+  async groupStandingsOf(code: string, kind: PeriodKind): Promise<GroupStanding[]> {
+    const session = await this.codes.sessionOf(code);
+    return session ? (await this.sum(session.classId, this.currentPeriod(kind))).groups : [];
   }
 
   /** Anyone: the cumulative results of the student this device was let in as, in the class list of that session; none for any other device. */
@@ -54,12 +60,21 @@ export class RecordService implements RecordKeeper {
     return ownStanding(await this.sum(session.classId, period), seat.studentId);
   }
 
-  /** Tells how many classes of this class list have been kept, now and whenever one more is, so a page can ask for the sums again. */
-  watchKeptCount(classId: Id, listener: (count: number) => void): Unsubscribe {
-    return this.store.watch('records', { classId }, (kept) => listener(kept.length));
+  /** Tells how many classes of the class list of the class this code opens have been kept, now and whenever one more is, so a page can ask for the sums again. */
+  watchKeptCount(code: string, listener: (count: number) => void): Unsubscribe {
+    return watchByCode<number>(this.codes, code, (session) => (emit) => this.store.watch('records', { classId: session.classId }, (kept) => emit(kept.length)), 0, listener);
   }
 
-  private async sum(classId: Id, period: Period): Promise<Standings> {
+  /** Admin only: the same count for a class list, for the page that sums it. */
+  watchClassKeptCount(classId: Id, listener: (count: number) => void): Unsubscribe {
+    return adminWatch(this.caller, listener, (emit) => this.store.watch('records', { classId }, (kept) => emit(kept.length)));
+  }
+
+  private sum(classId: Id, period: Period): Promise<Standings> {
+    return this.cache.get(`${classId}|${period.kind}|${period.start}`, () => this.compute(classId, period));
+  }
+
+  private async compute(classId: Id, period: Period): Promise<Standings> {
     const records = recordsIn(await this.store.list('records', { classId }), period);
     const [rewards, roster] = await Promise.all([
       Promise.all(records.map(({ id: sessionId }) => this.store.list('rewards', { sessionId }))).then((given) => given.flat()),

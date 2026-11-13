@@ -7,6 +7,8 @@ import {
   isClearingDue,
   isValidRange,
   isValidYearEnd,
+  nextCheckAt,
+  nextClearingAt,
   noRetention,
   ownerSessionId,
   recentClearingDay,
@@ -55,6 +57,18 @@ export class RetentionService {
       const now = this.now();
       listener({ coming: settings && clearingNotice(settings, now), done: settings && recentClearingDay(settings, now) });
     });
+  }
+
+  /** When the next clearing is due, or null when none is: the hub's own alarm asks it. */
+  async clearingDueAt(): Promise<number | null> {
+    requireAdmin(this.caller);
+    const settings = await this.store.get('retention', RETENTION_ID);
+    return settings && nextClearingAt(settings);
+  }
+
+  /** When the hub looks for a due clearing next (the hub asks this and runs `clearIfDue`; it holds no policy of its own). */
+  async nextCheckAt(): Promise<number> {
+    return nextCheckAt(await this.clearingDueAt(), this.now());
   }
 
   /** The day today on the school's clock: the limit of the dates to choose. */

@@ -8,8 +8,8 @@ import { watchClassData } from './classData';
 import { createDataServices } from './createDataServices';
 import { ParticipantService } from './ParticipantService';
 import { RosterService } from './RosterService';
-import { SessionRosterService } from './SessionRosterService';
 import { UI_SURFACE } from './Services';
+import { participantsFor, rostersFor } from './serviceKit';
 
 const INTERNAL = {
   sessionRoster: ['rosterOf', 'watchRosterOf', 'joinRoll', 'addToRoll'],
@@ -36,7 +36,7 @@ function watched<T>(start: (listener: (value: T) => void) => () => void) {
 describe('the reader of a caller', () => {
   const asDevice = (isAdmin = false): ParticipantService => {
     const caller: Caller = { isAdmin: () => isAdmin, deviceId: () => 'd1' };
-    return new ParticipantService(store, caller, new SessionRosterService(store, caller));
+    return participantsFor(store, caller, rostersFor(store, caller));
   };
   const seatId = 'x:d1';
 

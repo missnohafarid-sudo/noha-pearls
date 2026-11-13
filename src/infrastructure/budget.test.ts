@@ -85,12 +85,12 @@ async function runClass(earlier: number): Promise<Measured> {
   });
 
   for (const [n, student] of students.entries()) {
-    const seat = await command(deviceOf(n), (s) => s.participants.join(sessionId, student.groupId, student.id));
+    const seat = await command(deviceOf(n), (s) => s.participants.join(session.code, student.groupId, student.id));
     await command(teacher, (s) => s.admission.admit(seat!.id, student.id));
   }
   const groupDevices = Array.from({ length: GROUPS }, (_, g) => ({ n: STUDENTS + g, groupId: `g${g}` }));
   for (const { n, groupId } of groupDevices) {
-    const seat = await command(deviceOf(n), (s) => s.participants.join(sessionId, groupId, null));
+    const seat = await command(deviceOf(n), (s) => s.participants.join(session.code, groupId, null));
     await command(teacher, (s) => s.admission.admit(seat!.id, null));
   }
 

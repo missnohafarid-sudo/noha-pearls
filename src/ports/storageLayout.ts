@@ -23,7 +23,7 @@ export const isPacked = (collection: CollectionName): collection is PackedCollec
  * only the matching documents. Changing this list is safe: the database rebuilds its index when it sees a new list.
  */
 export const INDEXED_FIELDS: { readonly [C in CollectionName]?: readonly (keyof Collections[C] & string)[] } = {
-  sessions: ['code'],
+  sessions: ['code', 'status'],
   records: ['classId'],
   lessons: ['folderId'],
   students: ['groupId'],

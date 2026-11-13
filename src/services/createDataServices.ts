@@ -4,6 +4,7 @@ import { AllowanceService } from './AllowanceService';
 import { AdmissionService } from './AdmissionService';
 import { AnswerService } from './AnswerService';
 import { BoardService } from './BoardService';
+import { ClassCodes } from './ClassCodes';
 import { ClassLookupService } from './ClassLookupService';
 import { ContentService } from './ContentService';
 import { FolderService } from './FolderService';
@@ -22,10 +23,11 @@ import { unlimitedRuntime, type ServiceRuntime } from './runtime';
 
 /** The one place the data services are wired together, for every place they run. */
 export function createDataServices(store: DocumentStore, caller: Caller, runtime: ServiceRuntime = unlimitedRuntime()): ServiceClasses {
-  const sessionRoster = new SessionRosterService(store, caller);
+  const codes = new ClassCodes(store, caller, runtime.guard);
+  const sessionRoster = new SessionRosterService(store, caller, codes);
   const roster = new RosterService(store, caller);
-  const participants = new ParticipantService(store, caller, sessionRoster);
-  const records = new RecordService(store, caller, sessionRoster, roster, participants);
+  const participants = new ParticipantService(store, caller, sessionRoster, codes, runtime.guard);
+  const records = new RecordService(store, caller, sessionRoster, roster, participants, codes, runtime.standings);
   const lessons = new LessonService(store, caller);
   return {
     content: new ContentService(store, caller),
@@ -35,15 +37,15 @@ export function createDataServices(store: DocumentStore, caller: Caller, runtime
     lessons,
     sessions: new SessionService(store, caller, roster, sessionRoster, records),
     allowance: new AllowanceService(caller, runtime.allowance),
-    classLookup: new ClassLookupService(store, participants, sessionRoster),
+    classLookup: new ClassLookupService(store, codes, participants, sessionRoster),
     sessionRoster,
     participants,
     admission: new AdmissionService(store, caller, sessionRoster, sessionRoster),
     answers: new AnswerService(store, caller, participants, sessionRoster, sessionRoster),
-    rewards: new RewardService(store, caller, participants, sessionRoster),
+    rewards: new RewardService(store, caller, participants, sessionRoster, codes),
     records,
     retention: new RetentionService(store, caller),
-    board: new BoardService(store),
+    board: new BoardService(store, codes, runtime.guard),
     seatView: new SeatViewService(store, participants),
   };
 }

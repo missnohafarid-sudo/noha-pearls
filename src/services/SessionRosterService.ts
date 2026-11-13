@@ -6,8 +6,12 @@ import { seenRoster, type SeenRoster } from '../domain/visibility';
 import type { DocumentStore, Unsubscribe } from '../ports/store';
 import type { Caller } from '../ports/caller';
 import { adminWatch, requireAdmin } from './AuthService';
+import type { ClassResolver } from './ClassResolver';
+import { watchByCode } from './classData';
 import type { PresenceMarker } from './PresenceMarker';
 import { NO_ROSTER, type SessionRosterSource } from './SessionRosterSource';
+
+const NO_SEEN: SeenRoster = { groups: [], students: [] };
 
 /** The roster with the new lists and everything else (its id, its roll) as it was; null when the rule refused. */
 function merged(roster: SessionRoster, lists: ClassRoster | null): SessionRoster | null {
@@ -22,15 +26,16 @@ export class SessionRosterService implements SessionRosterSource, PresenceMarker
   constructor(
     private readonly store: DocumentStore,
     private readonly caller: Caller,
+    private readonly codes: ClassResolver,
   ) {}
 
   watchRoster(sessionId: Id, listener: (roster: SessionRoster) => void): Unsubscribe {
     return adminWatch(this.caller, listener, (emit) => this.watchRosterOf(sessionId, emit));
   }
 
-  /** The groups and students without the roll or card numbers: all a device needs to pick its group and name. Open to anyone. */
-  watchSeen(sessionId: Id, listener: (roster: SeenRoster) => void): Unsubscribe {
-    return this.watchRosterOf(sessionId, (roster) => listener(seenRoster(roster)));
+  /** The groups and students without the roll or card numbers: all a device needs to pick its group and name, of the class this code opens for it. */
+  watchSeen(code: string, listener: (roster: SeenRoster) => void): Unsubscribe {
+    return watchByCode(this.codes, code, (session) => (emit) => this.watchRosterOf(session.id, (roster) => emit(seenRoster(roster))), NO_SEEN, listener);
   }
 
   watchRosterOf(sessionId: Id, listener: (roster: SessionRoster) => void): Unsubscribe {

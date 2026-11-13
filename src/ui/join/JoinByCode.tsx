@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { joinLanding } from '../../domain/admission';
 import { t } from '../../i18n';
 import type { Session } from '../../domain/models';
-import { useMyParticipant, useSeenRoster, useSessionByCode } from '../hooks/data';
+import { useMyParticipant, useSessionByCode } from '../hooks/data';
+import { useSeenRoster } from '../hooks/byCode';
 import { navigate } from '../routing/routes';
 import { CodeForm } from './CodeForm';
 import { GroupChoices } from './GroupChoices';
@@ -13,7 +14,7 @@ const th = t.home.join;
 /** A device that still holds a seat in this class goes straight back to it, live or ended; any other picks its group, or is told the class has ended. */
 function ChooseOrReturn({ session }: { session: Session }) {
   const seat = useMyParticipant(session.id);
-  const roster = useSeenRoster(session.id);
+  const roster = useSeenRoster(session.code);
   const landing = seat === undefined || roster === undefined ? undefined : joinLanding(session, seat, roster.students);
   const groupId = landing?.to === 'group' ? landing.groupId : null;
   useEffect(() => {

@@ -3,7 +3,8 @@ import type { Id, SchoolClass } from '../../domain/models';
 import { shiftPeriod, type PeriodKind } from '../../domain/periods';
 import { t } from '../../i18n';
 import { Loading } from '../common/PageState';
-import { useAsked, useKeptRecordCount } from '../hooks/data';
+import { useAsked } from '../hooks/data';
+import { useClassKeptCount } from '../hooks/byCode';
 import { classRoute } from '../routing/routes';
 import { RouteLink } from '../routing/useRoute';
 import { ClassSwitcher } from '../roster/ClassSwitcher';
@@ -69,7 +70,7 @@ function ClassStandings({ schoolClass, kind, back, onKind, onBack }: PeriodProps
   const { records } = useServices();
   const current = useMemo(() => records.currentPeriod(kind), [records, kind]);
   const period = shiftPeriod(current, -back);
-  const kept = useKeptRecordCount(schoolClass.id);
+  const kept = useClassKeptCount(schoolClass.id);
   const found = useAsked(() => records.standingsOf(schoolClass.id, period), [records, schoolClass.id, period.kind, period.start, kept]);
 
   return (

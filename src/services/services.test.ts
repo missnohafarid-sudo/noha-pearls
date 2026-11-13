@@ -17,15 +17,12 @@ import { AuthService, NotAuthorizedError } from './AuthService';
 import { FolderService } from './FolderService';
 import { FolderError } from './requireFolder';
 import { LessonError, LessonService } from './LessonService';
-import { ParticipantService } from './ParticipantService';
-import { RecordService } from './RecordService';
 import { RetentionError, RetentionService } from './RetentionService';
-import { RewardService } from './RewardService';
 import { NameError } from './requireName';
 import { RosterError, RosterService } from './RosterService';
-import { SessionRosterService } from './SessionRosterService';
 import { SessionService } from './SessionService';
 import { TeacherError, TeacherService } from './TeacherService';
+import { participantsFor, recordsFor, rewardsFor, rostersFor } from './serviceKit';
 
 const question: ChoiceSlide = {
   id: 'q1', kind: 'choice', title: 'س', tag: '', prompt: '؟', options: ['a', 'b'],
@@ -61,9 +58,9 @@ async function setup() {
   const auth = new AuthService(await gateway());
   const caller = callerOf(auth);
   const roster = new RosterService(store, caller);
-  const sessionRoster = new SessionRosterService(store, caller);
-  const teacherDevice = new ParticipantService(store, callerOf(auth), sessionRoster);
-  const records = new RecordService(store, caller, sessionRoster, roster, teacherDevice);
+  const sessionRoster = rostersFor(store, caller);
+  const teacherDevice = participantsFor(store, callerOf(auth), sessionRoster);
+  const records = recordsFor(store, caller, sessionRoster, roster, teacherDevice);
   const lessons = new LessonService(store, caller);
   const clock = { now: NOW };
   return {
@@ -81,16 +78,17 @@ async function setup() {
     roster,
     teachers: new TeacherService(store, caller),
     folders: new FolderService(store, caller, lessons),
-    rewards: new RewardService(store, caller, teacherDevice, sessionRoster),
-    participants: (deviceName: string) => new ParticipantService(store, callerOf(auth, `${deviceName}-${newId()}`), sessionRoster),
+    rewards: rewardsFor(store, caller, teacherDevice, sessionRoster),
+    participants: (deviceName: string) => participantsFor(store, callerOf(auth, `${deviceName}-${newId()}`), sessionRoster),
     /** One student device: its own seat memory, and the services that act through that seat. */
     device: (deviceName: string) => {
-      const participants = new ParticipantService(store, callerOf(auth, `${deviceName}-${newId()}`), sessionRoster);
+      const own = callerOf(auth, `${deviceName}-${newId()}`);
+      const participants = participantsFor(store, own, sessionRoster);
       return {
         participants,
         answers: new AnswerService(store, caller, participants, sessionRoster, sessionRoster),
-        rewards: new RewardService(store, caller, participants, sessionRoster),
-        records: new RecordService(store, caller, sessionRoster, roster, participants),
+        rewards: rewardsFor(store, caller, participants, sessionRoster),
+        records: recordsFor(store, own, sessionRoster, roster, participants),
       };
     },
   };
@@ -176,7 +174,7 @@ describe('a live class', () => {
     await storeClassList();
     deviceCount += 1;
     const device = ctx.device(`device-${deviceCount}`);
-    const mine = (await device.participants.join(sessionId, groupId, studentId))!;
+    const mine = (await device.participants.join((await ctx.store.get('sessions', sessionId))!.code, groupId, studentId))!;
     await ctx.admission.admit(mine.id, studentId);
     return device;
   };
@@ -374,7 +372,7 @@ describe('a live class', () => {
     const session = await begin();
     await storeClassList();
     const device = ctx.device('d1');
-    const mine = (await device.participants.join(session.id, 'g2', 's2'))!;
+    const mine = (await device.participants.join(session.code, 'g2', 's2'))!;
     expect(mine.admitted).toBe(false);
     expect(await device.answers.submitFromDevice(session.id, 'q1', 1)).toBe(false);
     expect(await device.rewards.giveAsPeer(session.id, 's1')).toBe(false);
@@ -393,7 +391,7 @@ describe('a live class', () => {
     await storeClassList();
     await seated(session.id, 'g2', 's2');
     const waiting = ctx.device('impostor');
-    expect(await waiting.participants.join(session.id, 'g2', 's2')).not.toBeNull();
+    expect(await waiting.participants.join(session.code, 'g2', 's2')).not.toBeNull();
     const stranger = ctx.device('stranger');
     for (const device of [waiting, stranger]) {
       expect(await device.answers.submitFromDevice(session.id, 'q1', 1)).toBe(false);
@@ -409,12 +407,12 @@ describe('a live class', () => {
     await storeClassList();
     const device = ctx.device('d1').participants;
     expect(await device.join('nope', 'g1', 's1')).toBeNull();
-    expect(await device.join(session.id, 'nope', null)).toBeNull();
-    expect(await device.join(session.id, 'nope', 's1')).toBeNull();
-    expect(await device.join(session.id, 'g1', 's2')).toBeNull();
-    expect(await device.join(session.id, 'g1', 'nobody')).toBeNull();
+    expect(await device.join(session.code, 'nope', null)).toBeNull();
+    expect(await device.join(session.code, 'nope', 's1')).toBeNull();
+    expect(await device.join(session.code, 'g1', 's2')).toBeNull();
+    expect(await device.join(session.code, 'g1', 'nobody')).toBeNull();
     await sessions.end(session.id);
-    expect(await device.join(session.id, 'g1', 's1')).toBeNull();
+    expect(await device.join(session.code, 'g1', 's1')).toBeNull();
     expect(await store.list('participants')).toEqual([]);
   });
 
@@ -422,7 +420,7 @@ describe('a live class', () => {
     const session = await begin();
     const device = await seated(session.id, 'g1', 's1');
     expect(await device.participants.admittedSeat(session.id)).not.toBeNull();
-    const again = await device.participants.join(session.id, 'g1', 's1');
+    const again = await device.participants.join(session.code, 'g1', 's1');
     expect(again?.admitted).toBe(false);
     expect(await device.participants.admittedSeat(session.id)).toBeNull();
     expect(await device.answers.submitFromDevice(session.id, 'q1', 1)).toBe(false);
@@ -433,10 +431,10 @@ describe('a live class', () => {
     const session = await begin();
     await storeClassList();
     const [first, second, shared, sharedToo] = ['d1', 'd2', 'd3', 'd4'].map(ctx.participants);
-    expect(await first.join(session.id, 'g1', 's1')).not.toBeNull();
-    expect(await second.join(session.id, 'g1', 's1')).not.toBeNull();
-    expect(await shared.join(session.id, 'g1', null)).not.toBeNull();
-    expect(await sharedToo.join(session.id, 'g1', null)).not.toBeNull();
+    expect(await first.join(session.code, 'g1', 's1')).not.toBeNull();
+    expect(await second.join(session.code, 'g1', 's1')).not.toBeNull();
+    expect(await shared.join(session.code, 'g1', null)).not.toBeNull();
+    expect(await sharedToo.join(session.code, 'g1', null)).not.toBeNull();
     expect(await store.list('participants', { sessionId: session.id })).toHaveLength(4);
   });
 
@@ -446,7 +444,7 @@ describe('a live class', () => {
     const dead = await seated(session.id, 'g1', 's1');
     const [other, shared] = [await seated(session.id, 'g1', 's3'), await seated(session.id, 'g1', null)];
     const fresh = participants('fresh');
-    const waiting = (await fresh.join(session.id, 'g1', 's1'))!;
+    const waiting = (await fresh.join(session.code, 'g1', 's1'))!;
     expect(await store.list('participants', { sessionId: session.id })).toHaveLength(4);
     await ctx.admission.admit(waiting.id, 's1');
     const seats = await store.list('participants', { sessionId: session.id });
@@ -462,9 +460,9 @@ describe('a live class', () => {
     const session = await begin();
     await storeClassList();
     const [a, b, lone] = ['a', 'b', 'lone'].map(participants);
-    const seatA = (await a.join(session.id, 'g1', 's1'))!;
-    const seatB = (await b.join(session.id, 'g1', 's1'))!;
-    await lone.join(session.id, 'g1', 's3');
+    const seatA = (await a.join(session.code, 'g1', 's1'))!;
+    const seatB = (await b.join(session.code, 'g1', 's1'))!;
+    await lone.join(session.code, 'g1', 's3');
     const admitted = async () => (await store.list('participants', { sessionId: session.id })).filter((p) => p.admitted).map((p) => p.studentId);
 
     await ctx.admission.takeRoll(session.id, ['s1', 's3']);
@@ -481,11 +479,11 @@ describe('a live class', () => {
     const session = await begin();
     await storeClassList();
     const [a, b, twinOne, twinTwo, shared] = ['a', 'b', 'twin1', 'twin2', 'shared'].map(participants);
-    await a.join(session.id, 'g1', 's1');
-    await b.join(session.id, 'g2', 's2');
-    await twinOne.join(session.id, 'g1', 's3');
-    await twinTwo.join(session.id, 'g1', 's3');
-    await shared.join(session.id, 'g1', null);
+    await a.join(session.code, 'g1', 's1');
+    await b.join(session.code, 'g2', 's2');
+    await twinOne.join(session.code, 'g1', 's3');
+    await twinTwo.join(session.code, 'g1', 's3');
+    await shared.join(session.code, 'g1', null);
     const admitted = async () => (await store.list('participants', { sessionId: session.id })).filter((p) => p.admitted).length;
 
     await auth.signOut();
@@ -501,7 +499,7 @@ describe('a live class', () => {
     const session = await begin();
     const holder = await seated(session.id, 'g1', 's1');
     const fresh = participants('fresh');
-    const waiting = (await fresh.join(session.id, 'g1', 's1'))!;
+    const waiting = (await fresh.join(session.code, 'g1', 's1'))!;
     const heldSeat = (await holder.participants.admittedSeat(session.id))!;
     await ctx.admission.takeRoll(session.id, ['s1']);
     expect((await store.list('participants', { sessionId: session.id })).map((p) => [p.id, p.admitted]).sort()).toEqual([[heldSeat.id, true], [waiting.id, false]].sort());
@@ -515,7 +513,7 @@ describe('a live class', () => {
     const { store, participants } = ctx;
     const session = await begin();
     const holder = await seated(session.id, 'g1', 's1');
-    const waiting = (await participants('fresh').join(session.id, 'g1', 's1'))!;
+    const waiting = (await participants('fresh').join(session.code, 'g1', 's1'))!;
     await ctx.admission.admit(waiting.id, 's1');
     expect(await holder.participants.admittedSeat(session.id)).toBeNull();
     expect((await store.list('participants', { sessionId: session.id })).map((p) => [p.id, p.admitted])).toEqual([[waiting.id, true]]);
@@ -526,8 +524,8 @@ describe('a live class', () => {
     const session = await begin();
     await storeClassList();
     const device = participants('d1');
-    const shown = (await device.join(session.id, 'g1', 's1'))!;
-    await device.join(session.id, 'g1', 's3');
+    const shown = (await device.join(session.code, 'g1', 's1'))!;
+    await device.join(session.code, 'g1', 's3');
     await ctx.admission.admit(shown.id, 's1');
     expect((await store.get('participants', shown.id))?.admitted).toBe(false);
     await ctx.admission.admit(shown.id, null);
@@ -543,7 +541,7 @@ describe('a live class', () => {
     const { store, participants } = ctx;
     const session = await begin();
     await storeClassList();
-    const shared = (await participants('d1').join(session.id, 'g1', null))!;
+    const shared = (await participants('d1').join(session.code, 'g1', null))!;
     await ctx.admission.admit(shared.id, 's1');
     expect((await store.get('participants', shared.id))?.admitted).toBe(false);
     await ctx.admission.admit(shared.id, null);
@@ -554,7 +552,7 @@ describe('a live class', () => {
     const { store, participants, auth } = ctx;
     const session = await begin();
     const holder = await seated(session.id, 'g1', 's1');
-    const waiting = (await participants('fresh').join(session.id, 'g1', 's1'))!;
+    const waiting = (await participants('fresh').join(session.code, 'g1', 's1'))!;
     const losing: DocumentStore = {
       get: (collection, id) => store.get(collection, id),
       list: (collection, where) => store.list(collection, where),
@@ -572,13 +570,13 @@ describe('a live class', () => {
     const session = await begin();
     await storeClassList();
     const device = participants('d1');
-    const waiting = (await device.join(session.id, 'g1', 's1'))!;
+    const waiting = (await device.join(session.code, 'g1', 's1'))!;
     await auth.signOut();
     await expect(ctx.admission.remove(waiting.id)).rejects.toBeInstanceOf(NotAuthorizedError);
     await auth.signIn({ password: 'secret', code: await validCode() });
     await ctx.admission.remove(waiting.id);
     expect(await store.list('participants', { sessionId: session.id })).toEqual([]);
-    expect(await device.join(session.id, 'g1', 's1')).not.toBeNull();
+    expect(await device.join(session.code, 'g1', 's1')).not.toBeNull();
   });
 
   it('removes an admitted seat, frees its name and leaves the other seats alone', async () => {
@@ -594,7 +592,7 @@ describe('a live class', () => {
     expect(await inside.participants.admittedSeat(session.id)).toBeNull();
     expect(await other.participants.admittedSeat(session.id)).not.toBeNull();
     expect(await store.list('participants', { sessionId: session.id })).toHaveLength(1);
-    expect(await inside.participants.join(session.id, 'g1', 's1')).not.toBeNull();
+    expect(await inside.participants.join(session.code, 'g1', 's1')).not.toBeNull();
   });
 
   it('admits by cards only the waiting seats of the named students in that session', async () => {
@@ -602,9 +600,9 @@ describe('a live class', () => {
     const session = await begin();
     await storeClassList();
     const [d1, d2, d3] = ['d1', 'd2', 'd3'].map(participants);
-    await d1.join(session.id, 'g1', 's1');
-    await d2.join(session.id, 'g1', 's3');
-    await d3.join(session.id, 'g1', null);
+    await d1.join(session.code, 'g1', 's1');
+    await d2.join(session.code, 'g1', 's3');
+    await d3.join(session.code, 'g1', null);
     await store.put('participants', { id: 'other:d9', sessionId: 'other', groupId: 'g1', studentId: 's1', joinedAt: 0, admitted: false });
     const admitted = async () => (await store.list('participants')).filter((p) => p.admitted).map((p) => p.studentId);
 
@@ -801,8 +799,8 @@ describe('a live class', () => {
     const other = await roster.addClass('11-4');
     const otherGroup = await roster.addGroup(other.id, 'ج');
     const session = await begin();
-    expect(await ctx.participants('d1').join(session.id, otherGroup.id, null)).toBeNull();
-    expect(await ctx.participants('d1').join(session.id, 'g1', null)).not.toBeNull();
+    expect(await ctx.participants('d1').join(session.code, otherGroup.id, null)).toBeNull();
+    expect(await ctx.participants('d1').join(session.code, 'g1', null)).not.toBeNull();
     expect(await store.list('participants')).toHaveLength(1);
   });
 
@@ -896,7 +894,7 @@ describe('a live class', () => {
     const session = await begin();
     const latecomer = await roster.addStudent('متأخرة', 'g1');
     const device = ctx.device('late');
-    expect(await device.participants.join(session.id, 'g1', latecomer.id)).toBeNull();
+    expect(await device.participants.join(session.code, 'g1', latecomer.id)).toBeNull();
     expect(await answers.submitForStudent(session.id, 'q1', latecomer.id, 0, 'card')).toBe(false);
     expect(await rewards.giveAsTeacher(session.id, { kind: 'student', id: latecomer.id })).toBe(false);
     await store.put('participants', { id: 'late-seat', sessionId: session.id, groupId: 'g1', studentId: latecomer.id, joinedAt: 1, admitted: false });
@@ -913,8 +911,8 @@ describe('a live class', () => {
     const session = await begin();
     const insider = await seated(session.id, 'g1', 's1');
     const insiderSeat = (await insider.participants.admittedSeat(session.id))!;
-    const waiting = (await participants('waiting').join(session.id, 'g2', 's2'))!;
-    await participants('mate').join(session.id, 'g1', 's3');
+    const waiting = (await participants('waiting').join(session.code, 'g2', 's2'))!;
+    await participants('mate').join(session.code, 'g1', 's3');
     await sessions.goTo(session.id, 1);
     await sessions.end(session.id);
     const frozen = async () =>
@@ -938,7 +936,7 @@ describe('a live class', () => {
     await admission.admitAll(session.id);
     await admission.remove(insiderSeat.id);
     await insider.participants.leave(session.id);
-    expect(await insider.participants.join(session.id, 'g1', 's1')).toBeNull();
+    expect(await insider.participants.join(session.code, 'g1', 's1')).toBeNull();
     expect(await insider.answers.submitFromDevice(session.id, 'q1', 0)).toBe(false);
     expect(await insider.rewards.giveAsPeer(session.id, 'nour')).toBe(false);
     expect(await ctx.answers.submitForStudent(session.id, 'q1', 's2', 0, 'manual')).toBe(false);
@@ -1010,9 +1008,9 @@ describe('a live class', () => {
     const otherStudent = await roster.addStudent('ريم', otherGroup.id);
     await ctx.teachers.add('أ. سلمى');
     const second = (await ctx.sessions.start(lesson.id, other.id, 't1'))!;
-    expect(await ctx.participants('a').join(second.id, 'g1', 's1')).toBeNull();
-    expect(await ctx.participants('a').join(first.id, otherGroup.id, otherStudent.id)).toBeNull();
-    expect(await ctx.participants('a').join(second.id, otherGroup.id, otherStudent.id)).not.toBeNull();
+    expect(await ctx.participants('a').join(second.code, 'g1', 's1')).toBeNull();
+    expect(await ctx.participants('a').join(first.code, otherGroup.id, otherStudent.id)).toBeNull();
+    expect(await ctx.participants('a').join(second.code, otherGroup.id, otherStudent.id)).not.toBeNull();
     expect(await store.list('participants')).toHaveLength(1);
   });
 
@@ -1046,7 +1044,7 @@ describe('a live class', () => {
   it('writes the roll once when a card lets a waiting device in', async () => {
     const { admission, participants, store } = ctx;
     const session = await begin();
-    await participants('waiting').join(session.id, 'g1', 's1');
+    await participants('waiting').join(session.code, 'g1', 's1');
     const roster = vi.spyOn(MemoryStorage.prototype, 'setItem');
     await admission.takeRoll(session.id, ['s1']);
     const rosterWrites = roster.mock.calls.filter(([key]) => key.includes('/rosters/'));
@@ -1058,7 +1056,7 @@ describe('a live class', () => {
   it('lets in only the name the stored seat holds at that moment', async () => {
     const { store, participants, auth } = ctx;
     const session = await begin();
-    const waiting = (await participants('wavering').join(session.id, 'g1', 's1'))!;
+    const waiting = (await participants('wavering').join(session.code, 'g1', 's1'))!;
     const switching: DocumentStore = {
       get: (collection, id) => store.get(collection, id),
       list: (collection, where) => store.list(collection, where),
@@ -1102,8 +1100,8 @@ describe('a live class', () => {
       const session = await begin();
       const holder = await seated(session.id, 'g1', 's1');
       const heldSeat = (await holder.participants.admittedSeat(session.id))!;
-      await participants('mate').join(session.id, 'g1', 's3');
-      const rival = (await participants('rival').join(session.id, 'g1', 's1'))!;
+      await participants('mate').join(session.code, 'g1', 's3');
+      const rival = (await participants('rival').join(session.code, 'g1', 's1'))!;
 
       await ctx.admission.takeRoll(session.id, ['s1', 's3', 's2', 'nobody']);
       expect((await rollOf(session.id))!.slice().sort()).toEqual(['s1', 's2', 's3']);
@@ -1123,26 +1121,26 @@ describe('a live class', () => {
 
     it('starts a roll when a device is let in by tap, by let everyone in, and by card', async () => {
       const tapped = await begin();
-      const seat = (await ctx.participants('a').join(tapped.id, 'g1', 's1'))!;
+      const seat = (await ctx.participants('a').join(tapped.code, 'g1', 's1'))!;
       await ctx.admission.admit(seat.id, 's1');
       expect(await rollOf(tapped.id)).toEqual(['s1']);
 
       const everyone = await begin();
-      await ctx.participants('b').join(everyone.id, 'g1', 's1');
-      await ctx.participants('c').join(everyone.id, 'g2', 's2');
-      await ctx.participants('d').join(everyone.id, 'g1', null);
+      await ctx.participants('b').join(everyone.code, 'g1', 's1');
+      await ctx.participants('c').join(everyone.code, 'g2', 's2');
+      await ctx.participants('d').join(everyone.code, 'g1', null);
       await ctx.admission.admitAll(everyone.id);
       expect((await rollOf(everyone.id))!.slice().sort()).toEqual(['s1', 's2', 's3']);
 
       const carded = await begin();
-      await ctx.participants('e').join(carded.id, 'g2', 's2');
+      await ctx.participants('e').join(carded.code, 'g2', 's2');
       await ctx.admission.takeRoll(carded.id, ['s2']);
       expect(await rollOf(carded.id)).toEqual(['s2']);
     });
 
     describe('a shared device of a group', () => {
       const sorted = async (sessionId: string) => (await rollOf(sessionId))!.slice().sort();
-      const askShared = async (sessionId: string, groupId: string) => (await ctx.participants(`shared-${groupId}`).join(sessionId, groupId, null))!;
+      const askShared = async (sessionId: string, groupId: string) => (await ctx.participants(`shared-${groupId}`).join((await ctx.store.get('sessions', sessionId))!.code, groupId, null))!;
 
       it('puts exactly the students of its group on the roll when it is let in, starting a roll if none was taken', async () => {
         const session = await begin();
@@ -1348,12 +1346,12 @@ describe('the kept record of an ended class', () => {
   it('gives a visitor the groups\' totals only, and her own line only through the seat she was let in at', async () => {
     const session = await begin();
     const device = ctx.device('d1');
-    const mine = (await device.participants.join(session.id, 'g1', 's1'))!;
+    const mine = (await device.participants.join(session.code, 'g1', 's1'))!;
     const waitingLine = await device.records.ownStandingIn(session.id, periodAt('month', session.startedAt));
     await ctx.admission.admit(mine.id, 's1');
     await ctx.answers.submitForStudent(session.id, 'q1', 's1', 0, 'manual');
     const other = ctx.device('d2');
-    const shared = (await other.participants.join(session.id, 'g1', null))!;
+    const shared = (await other.participants.join(session.code, 'g1', null))!;
     await ctx.admission.admit(shared.id, null);
     const stranger = ctx.device('d3');
     await ctx.sessions.end(session.id);
@@ -1362,7 +1360,8 @@ describe('the kept record of an ended class', () => {
 
     const period = periodAt('month', session.startedAt);
     expect(waitingLine).toBeNull();
-    expect(await ctx.records.groupStandingsOf('c1', period)).toEqual([{ groupId: 'g1', name: 'أ', score: 1, max: question.points + groupQuestion.points, hearts: 1 }]);
+    expect(await device.records.groupStandingsOf(session.code, period.kind)).toEqual([{ groupId: 'g1', name: 'أ', score: 1, max: question.points + groupQuestion.points, hearts: 1 }]);
+    expect(await stranger.records.groupStandingsOf(session.code, period.kind)).toEqual([]);
     expect(await device.records.ownStandingIn(session.id, period)).toEqual({ classes: 1, attended: 1, points: 1, hearts: 1 });
     expect(await other.records.ownStandingIn(session.id, period)).toBeNull();
     expect(await stranger.records.ownStandingIn(session.id, period)).toBeNull();
@@ -1373,7 +1372,7 @@ describe('the kept record of an ended class', () => {
   it('gives nothing to a device whose seat was removed', async () => {
     const session = await begin();
     const device = ctx.device('d1');
-    const mine = (await device.participants.join(session.id, 'g1', 's1'))!;
+    const mine = (await device.participants.join(session.code, 'g1', 's1'))!;
     await ctx.admission.admit(mine.id, 's1');
     await ctx.sessions.end(session.id);
     await ctx.store.remove('participants', mine.id);
@@ -1587,7 +1586,7 @@ describe('keeping and clearing class data', () => {
   const endedClass = async (startedAt: number) => {
     const session = (await ctx.sessions.start('l1', 'c1', 't1'))!;
     const device = ctx.device(`d-${session.id}`);
-    const seat = (await device.participants.join(session.id, 'g1', 's1'))!;
+    const seat = (await device.participants.join(session.code, 'g1', 's1'))!;
     await ctx.admission.admit(seat.id, 's1');
     await ctx.answers.submitForStudent(session.id, 'q1', 's1', 0, 'manual');
     await ctx.sessions.end(session.id);

@@ -17,7 +17,7 @@ export function GroupStandingsOfClass({ session }: { session: Session }) {
   const [kind, setKind] = useState<PeriodKind>('week');
   const period = useMemo(() => records.currentPeriod(kind), [records, kind]);
   const version = useStandingsVersion(session);
-  const groups = useAsked(() => records.groupStandingsOf(session.classId, period), [records, session.classId, period.kind, period.start, version]);
+  const groups = useAsked(() => records.groupStandingsOf(session.code, kind), [records, session.code, kind, version]);
 
   return (
     <section className="stack">

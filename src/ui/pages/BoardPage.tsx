@@ -7,7 +7,8 @@ import { HeartButton } from '../common/HeartButton';
 import { Loading } from '../common/PageState';
 import { PearlString } from '../common/PearlString';
 import { toneStyle } from '../common/tone';
-import { useAdmin, useBoardTotals, useCardResults, useSessionRoster } from '../hooks/data';
+import { useAdmin, useSessionRoster } from '../hooks/data';
+import { useBoardTotals, useCardResults } from '../hooks/byCode';
 import { useTeacherHearts } from '../hooks/useTeacherHearts';
 import { BoardCodeEntry } from '../board/BoardCodeEntry';
 import { CardProbe } from '../board/CardProbe';
@@ -42,12 +43,12 @@ export function BoardPage({ code }: { code: string | undefined }) {
 
 function BoardView({ session }: { session: Session }) {
   const admin = useAdmin();
-  const totals = useBoardTotals(session.id);
+  const totals = useBoardTotals(session.code);
   const roster = useSessionRoster(session);
   const [card, setCard] = useState<number | null>(null);
   const [reads, setReads] = useState<number[]>([]);
   const [identifying, setIdentifying] = useState(false);
-  const results = useCardResults(session.id, card);
+  const results = useCardResults(session.code, card);
   const noteRead = useCallback((read: number) => setReads((now) => (now.includes(read) ? now : [...now, read])), []);
   const showCard = useCallback((found: number) => setCard((now) => now ?? found), []);
   const heartFor = useTeacherHearts(session);
@@ -110,7 +111,7 @@ function BoardView({ session }: { session: Session }) {
       {identifying && !results && (
         <CardIdentify onCard={noteRead} onClose={() => setIdentifying(false)} />
       )}
-      {card === null && reads.map((read) => <CardProbe key={read} sessionId={session.id} card={read} onFound={showCard} />)}
+      {card === null && reads.map((read) => <CardProbe key={read} code={session.code} card={read} onFound={showCard} />)}
 
       <AdminPanel title={t.board.panelTitle}>
         <p className="muted">{t.board.panelBody}</p>

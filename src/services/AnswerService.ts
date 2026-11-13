@@ -1,10 +1,13 @@
 import { seatAnswerer } from '../domain/admission';
+import { deviceAnswerStep } from '../domain/answerChanges';
 import { answerId, canAnswer, canScanCards, normalizeAnswerValue, subjectFor } from '../domain/answering';
 import type { Answer, AnswerSource, Id, QuestionSlide, Student } from '../domain/models';
 import { studentById } from '../domain/roster';
+import { ANSWER_CHANGES_PER_QUESTION } from '../ports/limits';
 import type { DocumentStore, Unsubscribe } from '../ports/store';
 import type { Caller } from '../ports/caller';
 import { adminWatch, requireAdmin } from './AuthService';
+import { requireWithin } from './LimitError';
 import type { SeatSource } from './SeatSource';
 import type { PresenceMarker } from './PresenceMarker';
 import type { SessionRosterSource } from './SessionRosterSource';
@@ -83,15 +86,14 @@ export class AnswerService {
     const subject = subjectFor(question, answerer);
     const normalized = normalizeAnswerValue(question, value);
     if (normalized === null) return false;
-    await this.store.put('answers', {
-      id: answerId(sessionId, question.id, subject),
-      sessionId,
-      slideId: question.id,
-      subject,
-      value: normalized,
-      source,
-      at: Date.now(),
-    });
+    const id = answerId(sessionId, question.id, subject);
+    const existing = await this.store.get('answers', id);
+    const changes = existing?.changes;
+    const step = source === 'device' ? deviceAnswerStep(existing, normalized, ANSWER_CHANGES_PER_QUESTION) : { kind: 'write' as const, changes };
+    requireWithin(step.kind !== 'refused', 'answer-changes');
+    if (step.kind === 'same') return true;
+    const counted = step.kind === 'write' ? step.changes : undefined;
+    await this.store.put('answers', { id, sessionId, slideId: question.id, subject, value: normalized, source, at: Date.now(), ...(counted !== undefined && { changes: counted }) });
     return true;
   }
 

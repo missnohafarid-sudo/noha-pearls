@@ -8,12 +8,10 @@ import type { BoardTotal, CardResults } from '../domain/visibility';
 import { LocalChangeBus, LocalDocumentStore } from '../infrastructure/LocalDocumentStore';
 import { MemoryStorage } from '../infrastructure/storage';
 import type { Caller } from '../ports/caller';
-import { BoardService } from './BoardService';
-import { RewardService } from './RewardService';
-import { SessionRosterService } from './SessionRosterService';
-import { ParticipantService } from './ParticipantService';
+import { boardFor, participantsFor, rewardsFor, rostersFor } from './serviceKit';
 
 let store: LocalDocumentStore;
+const caller: Caller = { isAdmin: () => false, deviceId: () => 'visitor' };
 
 beforeEach(async () => {
   store = new LocalDocumentStore(new MemoryStorage(), new LocalChangeBus(), 'test');
@@ -63,10 +61,10 @@ function oldResults(cardNumber: number, session = live, given = hearts, answered
 
 describe('the totals of the board', () => {
   it('equal what the page computed from the same stored data, across a reveal and a heart', async () => {
-    const board = new BoardService(store);
+    const board = boardFor(store, caller);
     await Promise.all(answers.map((a) => store.put('answers', a)));
     await Promise.all(hearts.map((h) => store.put('rewards', h)));
-    const totals = watched<BoardTotal[]>((l) => board.watchTotals('x', l));
+    const totals = watched<BoardTotal[]>((l) => board.watchTotals(live.code, l));
     await vi.waitFor(() => expect(totals.last()).toEqual(oldTotals()));
 
     const revealed = { ...live, reveals: reveal1 };
@@ -80,7 +78,7 @@ describe('the totals of the board', () => {
   });
 
   it('are empty for a class that is not stored', async () => {
-    const totals = watched<BoardTotal[]>((l) => new BoardService(store).watchTotals('nope', l));
+    const totals = watched<BoardTotal[]>((l) => boardFor(store, caller).watchTotals('nope', l));
     await vi.waitFor(() => expect(totals.last()).toEqual([]));
     totals.stop();
   });
@@ -88,9 +86,9 @@ describe('the totals of the board', () => {
 
 describe('the results behind a card', () => {
   it('equal the student report, her hearts and her group, and follow a reveal and a heart', async () => {
-    const board = new BoardService(store);
+    const board = boardFor(store, caller);
     await Promise.all(answers.map((a) => store.put('answers', a)));
-    const results = watched<CardResults | null>((l) => board.watchCardResults('x', 1, l));
+    const results = watched<CardResults | null>((l) => board.watchCardResults(live.code, 1, l));
     await vi.waitFor(() => expect(shown(results.last() ?? null)).toEqual(shown(oldResults(1, live, []))));
 
     const revealed = { ...live, reveals: reveal1 };
@@ -104,7 +102,7 @@ describe('the results behind a card', () => {
   });
 
   it('are null for a card no student holds', async () => {
-    const results = watched<CardResults | null>((l) => new BoardService(store).watchCardResults('x', 3, l));
+    const results = watched<CardResults | null>((l) => boardFor(store, caller).watchCardResults(live.code, 3, l));
     await vi.waitFor(() => expect(results.seen).toHaveLength(1));
     expect(results.last()).toBeNull();
     results.stop();
@@ -114,9 +112,9 @@ describe('the results behind a card', () => {
 describe('the count of hearts', () => {
   it('follows the hearts given', async () => {
     const caller: Caller = { isAdmin: () => true, deviceId: () => 'd1' };
-    const rosters = new SessionRosterService(store, caller);
-    const rewards = new RewardService(store, caller, new ParticipantService(store, caller, rosters), rosters);
-    const count = watched<number>((l) => rewards.watchHeartCount('x', l));
+    const rosters = rostersFor(store, caller);
+    const rewards = rewardsFor(store, caller, participantsFor(store, caller, rosters), rosters);
+    const count = watched<number>((l) => rewards.watchHeartCount(live.code, l));
     await vi.waitFor(() => expect(count.last()).toBe(0));
     await rewards.giveAsTeacher('x', { kind: 'student', id: 's1' });
     await vi.waitFor(() => expect(count.last()).toBe(1));

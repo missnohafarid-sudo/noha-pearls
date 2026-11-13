@@ -9,7 +9,8 @@ import { NamePicker } from '../join/NamePicker';
 import { DeviceScreen } from '../join/DeviceScreen';
 import { StatusMessage } from '../join/StatusMessage';
 import { Loading } from '../common/PageState';
-import { useMyParticipant, useNameClaims, useSeenRoster, useSessionByCode } from '../hooks/data';
+import { useMyParticipant, useSessionByCode } from '../hooks/data';
+import { useNameClaims, useSeenRoster } from '../hooks/byCode';
 import { useServices } from '../ServicesContext';
 import './join.css';
 
@@ -17,9 +18,9 @@ import './join.css';
 export function JoinPage({ code, groupId }: { code: string; groupId: string }) {
   const { participants } = useServices();
   const session = useSessionByCode(code);
-  const seen = useSeenRoster(session?.id);
+  const seen = useSeenRoster(session?.code);
   const participant = useMyParticipant(session?.id);
-  const claims = useNameClaims(session?.id);
+  const claims = useNameClaims(session?.code);
   const { lost, leave } = useSeatLost(participant);
 
   const invalid = <StatusMessage title={t.join.invalidLink} hint={t.join.invalidLinkHint} />;
@@ -46,7 +47,7 @@ export function JoinPage({ code, groupId }: { code: string; groupId: string }) {
           lost={lost}
           students={membersOf(groupId, students)}
           heldIds={claims.heldByOthers}
-          onPick={(studentId) => void participants.join(session.id, groupId, studentId)}
+          onPick={(studentId) => void participants.join(session.code, groupId, studentId)}
         />
       );
     } else if (!isAdmitted(participant)) {

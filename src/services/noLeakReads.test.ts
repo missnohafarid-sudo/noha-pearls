@@ -63,12 +63,12 @@ describe('what a let-in seat is given', () => {
 
 describe('what the board gives anyone', () => {
   it('totals hold nothing of any student but her group\'s name, score and hearts', async () => {
-    const text = await emitted((l) => services().board.watchTotals('x', l));
+    const text = await emitted((l) => services().board.watchTotals(live.code, l));
     expectNone(text, [...THINGS_OF_OTHERS, 'SARA-TEXT', 'PROMPT-PICK', 'EXPLANATION']);
   });
 
   it('a card\'s results hold no prompt, no option she did not choose, no picture, no hidden text and no key', async () => {
-    const text = await emitted((l) => services().board.watchCardResults('x', 1, l));
+    const text = await emitted((l) => services().board.watchCardResults(live.code, 1, l));
     expect(text).toContain('SARA-TEXT');
     expect(text).toContain('OPTION-A');
     expectNone(text, [

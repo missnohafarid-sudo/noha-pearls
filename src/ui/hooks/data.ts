@@ -2,8 +2,7 @@ import { useEffect, useMemo, useState, useSyncExternalStore, type DependencyList
 import type { CardCodec } from '../../services/Services';
 import { FolderTree } from '../../domain/folders';
 import type { Answer, ClassRoster, Id, Lesson, LessonFolder, LessonSummary, Participant, Reward, RetentionSettings, SchoolClass, Session, SessionRoster, SiteContent, Teacher } from '../../domain/models';
-import { liveSessions } from '../../domain/sessions';
-import type { BoardTotal, CardResults, NameClaims, SeatView, SeenRoster } from '../../domain/visibility';
+import type { SeatView } from '../../domain/visibility';
 import type { ClearingNotices } from '../../services/RetentionService';
 import { useServices } from '../ServicesContext';
 import { useLive, type Subscribe } from './useLive';
@@ -30,7 +29,7 @@ function useCallerLive<T>(subscribe: Subscribe<T> | null, deps: DependencyList):
 }
 
 /** A live read only the teacher may make: nothing is asked of the services for anyone else, and it starts when she signs in. */
-function useAdminLive<T>(subscribe: Subscribe<T> | null, deps: DependencyList): T | undefined {
+export function useAdminLive<T>(subscribe: Subscribe<T> | null, deps: DependencyList): T | undefined {
   const admin = useAdmin();
   return useLive(admin ? subscribe : null, [...deps, admin]);
 }
@@ -77,12 +76,6 @@ export function useSessionRoster(session: Session | null | undefined): SessionRo
   return useAdminLive(sessionId ? (listener) => sessionRoster.watchRoster(sessionId, listener) : null, [sessionRoster, sessionId]);
 }
 
-/** The groups and students a device picks from: no roll, no card numbers. */
-export function useSeenRoster(sessionId: MaybeId): SeenRoster | undefined {
-  const { sessionRoster } = useServices();
-  return useLive(sessionId ? (listener) => sessionRoster.watchSeen(sessionId, listener) : null, [sessionRoster, sessionId]);
-}
-
 export function useLessons(): LessonSummary[] | undefined {
   const { lessons } = useServices();
   return useCallerLive((listener) => lessons.watchLessons(listener), [lessons]);
@@ -106,8 +99,8 @@ export function useSessions(): Session[] | undefined {
 
 /** The classes running now, newest first. */
 export function useLiveSessions(): Session[] | undefined {
-  const all = useSessions();
-  return useMemo(() => all && liveSessions(all), [all]);
+  const { sessions } = useServices();
+  return useAdminLive((listener) => sessions.watchLive(listener), [sessions]);
 }
 
 /** Whether any class is running now. */
@@ -139,24 +132,6 @@ export function useParticipants(sessionId: MaybeId): Participant[] | undefined {
   );
 }
 
-/** The group totals of the class: score, pearls' basis and hearts, for the board. */
-export function useBoardTotals(sessionId: MaybeId): BoardTotal[] | undefined {
-  const { board } = useServices();
-  return useLive(sessionId ? (listener) => board.watchTotals(sessionId, listener) : null, [board, sessionId]);
-}
-
-/** The results of the student who holds this card; null while no student of the class does. */
-export function useCardResults(sessionId: MaybeId, cardNumber: number | null): CardResults | null | undefined {
-  const { board } = useServices();
-  return useLive(sessionId && cardNumber !== null ? (listener) => board.watchCardResults(sessionId, cardNumber, listener) : null, [board, sessionId, cardNumber]);
-}
-
-/** How many hearts the class has been given. */
-export function useHeartCount(sessionId: MaybeId): number | undefined {
-  const { rewards } = useServices();
-  return useLive(sessionId ? (listener) => rewards.watchHeartCount(sessionId, listener) : null, [rewards, sessionId]);
-}
-
 /** This device's seat in the session; null when it has not joined yet. */
 export function useMyParticipant(sessionId: MaybeId): Participant | null | undefined {
   const { participants } = useServices();
@@ -167,18 +142,6 @@ export function useMyParticipant(sessionId: MaybeId): Participant | null | undef
 export function useSeatView(sessionId: MaybeId): SeatView | null | undefined {
   const { seatView } = useServices();
   return useLive(sessionId ? (listener) => seatView.watchMine(sessionId, listener) : null, [seatView, sessionId]);
-}
-
-/** The names other devices hold, and this device's request number when its own name is contested. */
-export function useNameClaims(sessionId: MaybeId): NameClaims | undefined {
-  const { participants } = useServices();
-  return useLive(sessionId ? (listener) => participants.watchNameClaims(sessionId, listener) : null, [participants, sessionId]);
-}
-
-/** How many ended classes of this class list have been kept; changes the moment one more is. */
-export function useKeptRecordCount(classId: MaybeId): number | undefined {
-  const { records } = useServices();
-  return useLive(classId ? (listener) => records.watchKeptCount(classId, listener) : null, [records, classId]);
 }
 
 /** When students' data is cleared; null when none were ever saved. Admin only: nothing is asked of anyone else. */

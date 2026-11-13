@@ -44,7 +44,7 @@ export interface ServiceClasses {
 /**
  * The one table of what the interface may ask of the application: for each service, the names of its methods.
  * A method missing here is internal: `sessionRoster.rosterOf`, `watchRosterOf`, `joinRoll`, `addToRoll`,
- * `roster.rosterOfClass`, `lessons.moveLessons`, `lessons.watchPlacements`, `participants.admittedSeat`, `watchReader`, `records.keep`, `retention.clearIfDue`.
+ * `roster.rosterOfClass`, `lessons.moveLessons`, `lessons.watchPlacements`, `participants.admittedSeat`, `watchReader`, `records.keep`, `retention.clearIfDue`, `retention.clearingDueAt`, `retention.nextCheckAt`.
  */
 export const UI_SURFACE = {
   content: ['watchSite', 'updateSite'],
@@ -52,7 +52,7 @@ export const UI_SURFACE = {
   teachers: ['watchTeachers', 'add', 'rename', 'remove'],
   folders: ['watchFolders', 'add', 'rename', 'move', 'remove'],
   lessons: ['watchLessons', 'watchLesson', 'create', 'save', 'moveToFolder', 'remove', 'importFromText', 'exportToText'],
-  sessions: ['watchAll', 'start', 'end', 'goTo', 'reveal', 'setPacing', 'sendMessage', 'clearMessage', 'setMinInteractions'],
+  sessions: ['watchAll', 'watchLive', 'start', 'end', 'goTo', 'reveal', 'setPacing', 'sendMessage', 'clearMessage', 'setMinInteractions'],
   allowance: ['watchLevel'],
   classLookup: ['watchAnyLive', 'watchByCode'],
   sessionRoster: ['watchRoster', 'watchSeen', 'moveStudent', 'addStudent', 'renameGroup', 'markPresent', 'markAbsent'],
@@ -60,7 +60,7 @@ export const UI_SURFACE = {
   admission: ['admit', 'takeRoll', 'admitAll', 'remove'],
   answers: ['watchAnswers', 'submitFromDevice', 'submitForStudent', 'clearForStudent'],
   rewards: ['watchRewards', 'watchHeartCount', 'giveAsTeacher', 'giveAsPeer'],
-  records: ['currentPeriod', 'standingsOf', 'groupStandingsOf', 'ownStandingIn', 'watchKeptCount'],
+  records: ['currentPeriod', 'standingsOf', 'groupStandingsOf', 'ownStandingIn', 'watchKeptCount', 'watchClassKeptCount'],
   retention: ['watchSettings', 'watchNotices', 'rangeLimits', 'setYearEnd', 'classesToRemove', 'removeClasses'],
   board: ['watchTotals', 'watchCardResults'],
   seatView: ['watchMine', 'watchLesson'],

@@ -4,9 +4,8 @@ import { answers, classData, ended, heart, hearts, lesson, live, reveal1, roster
 import { LocalChangeBus, LocalDocumentStore } from '../infrastructure/LocalDocumentStore';
 import { MemoryStorage } from '../infrastructure/storage';
 import type { Caller } from '../ports/caller';
-import { ParticipantService } from './ParticipantService';
 import { SeatViewService } from './SeatViewService';
-import { SessionRosterService } from './SessionRosterService';
+import { participantsFor, rostersFor } from './serviceKit';
 
 let store: LocalDocumentStore;
 const seatId = 'x:d1';
@@ -28,8 +27,8 @@ function watched<T>(start: (listener: (value: T) => void) => () => void) {
 
 const caller: Caller = { isAdmin: () => false, deviceId: () => 'd1' };
 const viewOfDevice = () => {
-  const rosters = new SessionRosterService(store, caller);
-  return new SeatViewService(store, new ParticipantService(store, caller, rosters));
+  const rosters = rostersFor(store, caller);
+  return new SeatViewService(store, participantsFor(store, caller, rosters));
 };
 
 describe('the view of a seat', () => {
@@ -85,7 +84,7 @@ describe('the view of a seat', () => {
 describe('the lesson of a class', () => {
   it('is the lesson the session names, and follows a change of it', async () => {
     const teacher: Caller = { isAdmin: () => true, deviceId: () => 'd1' };
-    const seats = new SeatViewService(store, new ParticipantService(store, teacher, new SessionRosterService(store, teacher)));
+    const seats = new SeatViewService(store, participantsFor(store, teacher, rostersFor(store, teacher)));
     const seen = watched<unknown>((l) => seats.watchLesson('x', l));
     await vi.waitFor(() => expect(seen.last()).toEqual(lesson));
     const edited = { ...lesson, title: 'edited' };

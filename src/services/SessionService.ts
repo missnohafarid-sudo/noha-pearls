@@ -6,7 +6,7 @@ import type { GroupPacing, Id, Lesson, PacingMode, Session } from '../domain/mod
 import { pacingFor } from '../domain/pacing';
 import { answerKey } from '../domain/scoring';
 import { isOnRoster } from '../domain/roster';
-import { acceptsChanges, isLive, newUniqueJoinCode, sessionBasis } from '../domain/sessions';
+import { acceptsChanges, isLive, liveSessions, newUniqueJoinCode, sessionBasis } from '../domain/sessions';
 import { cleanMessage } from '../domain/text';
 import type { DocumentStore, Unsubscribe } from '../ports/store';
 import type { Caller } from '../ports/caller';
@@ -28,6 +28,11 @@ export class SessionService {
   /** Every class, live or ended. The teacher's only. */
   watchAll(listener: (sessions: Session[]) => void): Unsubscribe {
     return adminWatch(this.caller, listener, (emit) => this.store.watch('sessions', {}, emit));
+  }
+
+  /** The running classes, newest first, read without reading the ended ones. The teacher's only. */
+  watchLive(listener: (sessions: Session[]) => void): Unsubscribe {
+    return adminWatch(this.caller, listener, (emit) => this.store.watch('sessions', { status: 'live' }, (sessions) => emit(liveSessions(sessions))));
   }
 
   /**

@@ -1,6 +1,7 @@
 import type { Id, Lesson, Session } from '../domain/models';
 import type { ClassData } from '../domain/visibility';
 import type { DocumentStore, Unsubscribe } from '../ports/store';
+import type { ClassResolver } from './ClassResolver';
 import { combineWatches, followWatch, type Watch } from './combineWatches';
 import { NO_ROSTER } from './SessionRosterSource';
 
@@ -22,4 +23,20 @@ export function watchClassData(store: DocumentStore, sessionId: Id, listener: (d
   return combineWatches([watchSessionAndLesson(store, sessionId), roster, answers, rewards], ([found, lesson], rosterNow, answersNow, rewardsNow) =>
     listener(found && { session: found, lesson, roster: rosterNow, answers: answersNow, rewards: rewardsNow }),
   );
+}
+
+/**
+ * Follows what a class code opens for this caller: `inner` is the live read of that class, `none` what a code that opens nothing reads as.
+ * The read is closed and opened again when the code comes to open another class.
+ */
+export function watchByCode<T>(codes: ClassResolver, code: string, inner: (session: Session) => Watch<T>, none: T, listener: (value: T) => void): Unsubscribe {
+  const named: Watch<Session | null> = (emit) => codes.watchSession(code, emit);
+  const readOf = (session: Session | null): Watch<T> => (emit) => {
+    if (!session) {
+      emit(none);
+      return () => undefined;
+    }
+    return inner(session)(emit);
+  };
+  return followWatch(named, (session) => session?.id ?? '', readOf)(([, value]) => listener(value));
 }

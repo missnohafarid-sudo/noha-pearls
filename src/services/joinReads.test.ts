@@ -7,8 +7,7 @@ import { LocalChangeBus, LocalDocumentStore } from '../infrastructure/LocalDocum
 import { MemoryStorage } from '../infrastructure/storage';
 import type { Caller } from '../ports/caller';
 import { ClassLookupService } from './ClassLookupService';
-import { ParticipantService } from './ParticipantService';
-import { SessionRosterService } from './SessionRosterService';
+import { codesFor, participantsFor, rostersFor } from './serviceKit';
 
 let store: LocalDocumentStore;
 
@@ -34,24 +33,24 @@ const participantsRaw = () =>
 
 const device = (deviceId: string) => {
   const caller: Caller = { isAdmin: () => false, deviceId: () => deviceId };
-  return { caller, rosters: new SessionRosterService(store, caller) };
+  return { caller, rosters: rostersFor(store, caller) };
 };
 const participantsOf = (deviceId: string) => {
   const { caller, rosters } = device(deviceId);
-  return new ParticipantService(store, caller, rosters);
+  return participantsFor(store, caller, rosters);
 };
 
 describe('the name claims of a class', () => {
   it('equal the names held by others and the request number, for two devices asking one name', async () => {
     const first = participantsOf('d1');
     const second = participantsOf('d2');
-    const claims = watched<NameClaims>((l) => second.watchNameClaims('x', l));
+    const claims = watched<NameClaims>((l) => second.watchNameClaims(live.code, l));
     await vi.waitFor(() => expect(claims.last()).toEqual({ heldByOthers: [], requestNumber: null }));
 
-    await first.join('x', 'g1', 's1');
+    await first.join(live.code, 'g1', 's1');
     await vi.waitFor(() => expect(claims.last()).toEqual({ heldByOthers: ['s1'], requestNumber: null }));
 
-    const own = await second.join('x', 'g1', 's1');
+    const own = await second.join(live.code, 'g1', 's1');
     const everyone = await participantsRaw();
     const expected = { heldByOthers: [...namesHeldByOthers(everyone, own?.id ?? null)], requestNumber: own && contestedRequestNumber(everyone, own) };
     expect(expected.requestNumber).not.toBeNull();
@@ -60,8 +59,8 @@ describe('the name claims of a class', () => {
   });
 
   it('reveal no seat of another device', async () => {
-    await participantsOf('d1').join('x', 'g1', 's1');
-    const claims = watched<NameClaims>((l) => participantsOf('d2').watchNameClaims('x', l));
+    await participantsOf('d1').join(live.code, 'g1', 's1');
+    const claims = watched<NameClaims>((l) => participantsOf('d2').watchNameClaims(live.code, l));
     await vi.waitFor(() => expect(claims.seen.length).toBeGreaterThan(0));
     expect(JSON.stringify(claims.last())).not.toContain('d1');
     claims.stop();
@@ -71,7 +70,7 @@ describe('the name claims of a class', () => {
 describe('the seen roster', () => {
   it('has no roll and no card numbers, keeps the order, and follows a change', async () => {
     await store.put('rosters', { ...roster, present: ['s1'] });
-    const seen = watched<SeenRoster>((l) => device('d1').rosters.watchSeen('x', l));
+    const seen = watched<SeenRoster>((l) => device('d1').rosters.watchSeen(live.code, l));
     await vi.waitFor(() => expect(seen.last()?.students).toHaveLength(3));
     expect(seen.last()).toEqual({ groups, students: students.map(({ id, name, groupId }) => ({ id, name, groupId })) });
     expect(JSON.stringify(seen.last())).not.toMatch(/cardNumber|present/);
@@ -85,7 +84,7 @@ describe('the seen roster', () => {
 describe('whether any class is live', () => {
   it('flips when a class ends and when another starts', async () => {
     const { caller, rosters } = device('d1');
-    const lookup = new ClassLookupService(store, new ParticipantService(store, caller, rosters), rosters);
+    const lookup = new ClassLookupService(store, codesFor(store, caller), participantsFor(store, caller, rosters), rosters);
     const any = watched<boolean>((l) => lookup.watchAnyLive(l));
     await vi.waitFor(() => expect(any.last()).toBe(true));
     await store.put('sessions', ended);

@@ -35,6 +35,33 @@
   font-weight: var(--weight-label);
 }
 
+.slide__labels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Who answers: two looks that differ in colour and in the drawing, so they are told apart at a glance and not by colour alone. */
+.scope-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 12px;
+  border-radius: var(--radius-pill);
+  font-size: clamp(0.85rem, 1.8cqi, 1.4rem);
+  font-weight: var(--weight-label);
+}
+
+.scope-badge--individual {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.scope-badge--group {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+
 .slide__head {
   display: grid;
   gap: 8px;

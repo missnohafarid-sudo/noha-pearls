@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
+import { isQuestion } from '../../domain/answering';
 import type { AnswerKey, Slide } from '../../domain/models';
 import { t } from '../../i18n';
+import { ScopeBadge } from './ScopeBadge';
 import { slideUi } from './slideUi';
 import './slides.css';
 
@@ -24,7 +26,12 @@ export function SlideView({ slide, answer = null, onAnswer = null, reveal = null
   return (
     <article className="slide">
       <header className="slide__head">
-        {slide.tag && <span className="chip">{slide.tag}</span>}
+        {(slide.tag || isQuestion(slide)) && (
+          <div className="slide__labels">
+            {slide.tag && <span className="chip">{slide.tag}</span>}
+            {isQuestion(slide) && <ScopeBadge scope={slide.scope} />}
+          </div>
+        )}
         <h2 className="slide__title">{slide.title || t.slides.view.emptySlide}</h2>
       </header>
       {/* Keyed by slide: nothing typed on one slide may leak into the next. */}

@@ -52,8 +52,9 @@ A teacher. She is not a programmer and cannot judge your code.
 | Slide kinds: edit fields and drawing | `ui/slides/slideUi.tsx` |
 | Lesson file format and checks | `domain/lessonFormat.ts` |
 | Lesson edits (add, copy, move, remove slide) | `domain/lessonOps.ts` |
-| The lesson folder tree: nesting, moving, what a folder holds, removing one without losing anything | `domain/folders.ts` |
-| The lesson library screen: path line, folder tiles, moving by drag or by the move dialog | `ui/library/` (words in `i18n/library.ts`) |
+| The lesson folder tree: nesting, moving, what a folder holds at any depth | `domain/folders.ts` |
+| Removing a folder: alone (what it holds moves up one level) or with everything inside it | `services/FolderService.ts` (its lessons through `services/LessonShelf.ts`) |
+| The lesson library screen: path line, folder tiles, moving by drag or by the move dialog, the delete-folder dialog, selecting several lessons to publish, move or delete together | `ui/library/` (words in `i18n/library.ts`) |
 | Which folders a reader sees, and the folder a page shows for a requested one | `domain/folders.ts` |
 | Where an item may be put (by drag or by the move dialog), and repairing a stored folder tree | `domain/folders.ts` |
 | Drag wiring (what carries a drag, what is dropped on) | `ui/library/useDragMove.tsx` |

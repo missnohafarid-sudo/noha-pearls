@@ -56,3 +56,17 @@ export const DAY_ROWS_FLUSH_MS = MINUTE;
 
 /** The page opens its socket again quickly for the first minutes, then slows down; a refused page waits at least half of `limitedMs`. */
 export const RECONNECT: RetryPolicy = { firstMs: 500, quickTries: 8, quickMaxMs: 15 * SECOND, slowMaxMs: MINUTE, limitedMs: MINUTE };
+
+/** How many values of one kind a place that computes once for everyone keeps before it forgets the oldest. */
+export const MAX_COMPUTED_ENTRIES = 256;
+/** How many different card results one class's reading keeps: a card number is the visitor's to invent. */
+export const MAX_CARD_RESULTS_PER_CLASS = 64;
+/** How many answers to recent questions the store remembers (`infrastructure/sql/resultCache.ts`). */
+export const MAX_REMEMBERED_QUERIES = 256;
+/** How many classes' packed rows the store keeps read (`infrastructure/sql/packedRows.ts`). */
+export const MAX_REMEMBERED_ROWS = 64;
+/** How long the page waits between messages before it sends one to keep the socket open. */
+export const KEEP_ALIVE_MS = SECOND * 30;
+
+/** The longest name a socket's service or method may carry. */
+export const MAX_WIRE_NAME_LENGTH = 64;

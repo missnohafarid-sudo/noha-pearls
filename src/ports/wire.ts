@@ -4,7 +4,7 @@
  * A socket's identity never changes: when it must, the hub closes the socket and the page opens a new one.
  */
 import { isRecord } from '../domain/argumentChecks';
-import { MAX_ADMIN_MESSAGE_LENGTH } from './limits';
+import { MAX_ADMIN_MESSAGE_LENGTH, MAX_WIRE_NAME_LENGTH } from './limits';
 
 /** An error as it crosses the wire: its class name and its code, never a stack or an internal message. */
 export interface WireError {
@@ -67,7 +67,7 @@ export interface SignInAnswer {
 export const encode = (message: ClientMessage | ServerMessage): string => JSON.stringify(message);
 
 const isId = (value: unknown): value is number => typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
-const isName = (value: unknown): value is string => typeof value === 'string' && value.length > 0 && value.length <= 64;
+const isName = (value: unknown): value is string => typeof value === 'string' && value.length > 0 && value.length <= MAX_WIRE_NAME_LENGTH;
 
 function parseJson(text: string, maxLength: number): unknown {
   if (text.length > maxLength) return null;

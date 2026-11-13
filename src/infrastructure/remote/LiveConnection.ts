@@ -1,5 +1,5 @@
 import { retryDelay } from '../../domain/reconnect';
-import { RECONNECT } from '../../ports/limits';
+import { KEEP_ALIVE_MS, RECONNECT } from '../../ports/limits';
 import type { ConnectionStatus, RemoteLink, TurnedAway } from '../../ports/remote';
 import type { Unsubscribe } from '../../ports/store';
 import { CLOSE_ADDRESS_LOCKED, CLOSE_RATE_LIMITED, CONNECTION_LOST, encode, parseServerMessage, PING, STATUS_TOO_MANY, type CallOutcome, type ClientMessage, type Hello, type WireError } from '../../ports/wire';
@@ -30,8 +30,6 @@ export interface LiveConnectionDeps {
   onHello(hello: Hello): void;
   timers: Timers;
 }
-
-const KEEP_ALIVE_MS = 30_000;
 
 const closeReasons: Readonly<Record<number, TurnedAway>> = { [CLOSE_RATE_LIMITED]: 'rate', [CLOSE_ADDRESS_LOCKED]: 'address' };
 

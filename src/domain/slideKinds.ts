@@ -2,27 +2,13 @@ import { MAX_CHOICES, MIN_CHOICES } from './choices';
 import { isHttpsUrl, isMediaChoice, isMediaProblem, mediaView, picturesHaveProblem } from './media';
 import type { AnswerScope, ChoiceSlide, ContentSlide, MediaSlide, Slide, SlideKind, TextSlide } from './models';
 import type { FileField, IssueReporter, RawSlide, SlideKindSpec } from './slideFile';
+import { isAbsent, picturesOf, requiredText, storedPictures, text, trimmedLinks, type StoredPictures } from './slideFields';
 
 /**
  * Registry of slide kinds. Everything a kind needs outside the UI lives here:
  * its blank template and how it is read from and written to a lesson file.
  * A new kind is added here (and in the UI registry); no caller changes.
  */
-
-function text(raw: RawSlide, field: string): string {
-  const value = raw[field];
-  return typeof value === 'string' ? value.trim() : '';
-}
-
-function requiredText(raw: RawSlide, field: string, report: IssueReporter): string {
-  const value = text(raw, field);
-  if (!value) report('missing-field', field);
-  return value;
-}
-
-const trimmedLinks = (links: readonly string[]) => links.map((link) => link.trim()).filter((link) => link !== '');
-
-const isAbsent = (value: unknown) => value === undefined || value === null;
 
 /** Absent: the kind's default. Present: exactly `individual` or `group`. */
 function scopeOf(raw: RawSlide, fallback: AnswerScope, report: IssueReporter): AnswerScope {
@@ -49,30 +35,6 @@ function pointsOf(raw: RawSlide, report: IssueReporter): number {
   if (typeof value === 'number' && Number.isInteger(value) && value >= MIN_POINTS && value <= MAX_POINTS) return value;
   report('bad-points', 'points');
   return DEFAULT_POINTS;
-}
-
-/** A list of photo links from a file: the new `images`, or the one `imageUrl` that older files held. Entries are trimmed, blanks dropped, and every kept link must be https. */
-function picturesOf(raw: RawSlide, report: IssueReporter): string[] {
-  const modern = !isAbsent(raw.images);
-  const field = modern ? 'images' : 'imageUrl';
-  const listed = modern ? raw.images : [raw.imageUrl];
-  if (!Array.isArray(listed) || !listed.every((link) => isAbsent(link) || typeof link === 'string')) {
-    report('bad-images', field);
-    return [];
-  }
-  const links = listed.flatMap((link: unknown) => (typeof link === 'string' && link.trim() !== '' ? [link.trim()] : []));
-  if (!links.every(isHttpsUrl)) report('bad-url', field);
-  return links;
-}
-
-/** Stored before pictures became a list: a content slide held one `imageUrl`, a text slide had no pictures. */
-interface StoredPictures {
-  images?: string[];
-  imageUrl?: string;
-}
-
-function storedPictures({ images, imageUrl }: StoredPictures): string[] {
-  return images ?? (imageUrl ? [imageUrl] : []);
 }
 
 const COMMON_FIELDS: readonly FileField[] = [

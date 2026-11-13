@@ -9,6 +9,7 @@ import { removeOption } from './choices';
 import { isMoveKey, listKeyEffect, movedIndex, typeaheadIndex } from './listNavigation';
 import { exportLesson, importLesson, lessonFileText } from './lessonFormat';
 import { addSlide, createLesson, duplicateSlide, indexAfterRemoval, moveSlide, normalizeSlide, removeSlide, slideHasProblem, updateSlide } from './lessonOps';
+import { picturesOf, storedPictures } from './slideFields';
 import { isHttpsUrl, MEDIA_CHOICES, MEDIA_TYPES, mediaLink, mediaView, pictureSources, steppedZoom } from './media';
 import type { Answer, AttendedRoster, ClassRecord, ClassRoster, Reward, ChoiceSlide, Group, Lesson, MediaSlide, Participant, SchoolClass, Session, Student, Teacher, TextSlide } from './models';
 import { resolveStudentView } from './pacing';
@@ -290,6 +291,29 @@ describe('pictures on content slides and written questions', () => {
     expect(slideHasProblem(withImages(['https://www.youtube.com/watch?v=abc']))).toBe(true);
     expect(pictureSources([PHOTO_A, '', 'http://example.org/x.png', PHOTO_B])).toEqual([PHOTO_A, PHOTO_B]);
     expect(pictureSources(['https://drive.google.com/file/d/FILE_ID_1/view'])).toEqual(['https://drive.google.com/thumbnail?id=FILE_ID_1&sz=w2000']);
+  });
+});
+
+describe('reading picture links', () => {
+  const issuesOf = (raw: Record<string, unknown>) => {
+    const found: string[] = [];
+    const links = picturesOf(raw, (code, field) => found.push(`${code}:${field}`));
+    return { links, found };
+  };
+
+  it('takes the list, or the one link of an older file, and says which field was wrong', () => {
+    expect(issuesOf({ images: [' https://example.org/a.png ', ''] })).toEqual({ links: ['https://example.org/a.png'], found: [] });
+    expect(issuesOf({ imageUrl: 'https://example.org/a.png' }).links).toEqual(['https://example.org/a.png']);
+    expect(issuesOf({ images: ['http://example.org/a.png'] }).found).toEqual(['bad-url:images']);
+    expect(issuesOf({ imageUrl: 'http://example.org/a.png' }).found).toEqual(['bad-url:imageUrl']);
+    expect(issuesOf({ images: 'https://example.org/a.png' })).toEqual({ links: [], found: ['bad-images:images'] });
+  });
+
+  it('keeps the list of a stored slide and turns the old single link into a list', () => {
+    expect(storedPictures({ images: ['https://example.org/a.png'], imageUrl: 'https://example.org/b.png' })).toEqual(['https://example.org/a.png']);
+    expect(storedPictures({ imageUrl: 'https://example.org/b.png' })).toEqual(['https://example.org/b.png']);
+    expect(storedPictures({ imageUrl: '' })).toEqual([]);
+    expect(storedPictures({})).toEqual([]);
   });
 });
 

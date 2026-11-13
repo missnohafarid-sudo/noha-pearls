@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { admittedDevices, awaitingAdmission, canClaimSeat, contestedRequestNumber, isAdmitted, isNameHeldElsewhere, isSeatOfGroupPage, joinLanding, namesHeldByOthers, returnGroupId, seatAnswerer, requestNumber, seatGroupId, seatLoss, seatsDisplacedBy, seatsForBulkAdmission, seatsForCards, seatsNeedingTap } from './admission';
 import { addToRoll, countedGroups, isOnRoll, isPresent, joinRoll, markAbsent, presentGroups, presentStudents, rollTaken, sightingChangesAnything } from './attendance';
 import { buildMonitor, RewardIndex, studentReport, tallyChoices } from './analytics';
-import { canAnswer, canScanCards, nextManualChoice, normalizeAnswerValue, subjectFor, tallyAnswerers } from './answering';
+import { answerStatusByGroup, canAnswer, canScanCards, nextManualChoice, normalizeAnswerValue, subjectFor, tallyAnswerers } from './answering';
 import { CardReadStabilizer, choiceFromCorners, presenceReadings, type Point } from './cards';
 import { toAsciiDigits } from './digits';
 import { removeOption } from './choices';
@@ -1332,6 +1332,60 @@ describe('the groups a group question counts', () => {
     const given = [answer('q3', 'group', 'g1', 0), answer('q3', 'group', 'g2', 1)];
     expect(tallyChoices(groupChoice, onlyG1, [], given)).toEqual([1, 1, 0]);
     expect(tallyChoices(groupChoice, onlyG1, [sharedTablet], given.slice(0, 1))).toEqual([1, 0, 0]);
+  });
+});
+
+describe('who has answered the slide, group by group', () => {
+  const sharedTablet: Participant = { id: 't', sessionId: 'x', groupId: 'g2', studentId: null, joinedAt: 0, admitted: true };
+  const forGroup = (groupId: string): Answer => answer('q2', 'group', groupId, 'ن');
+  const waitingOf = (statuses: ReturnType<typeof answerStatusByGroup>) =>
+    statuses.flatMap((entry) => [...(entry.mark === 'waiting' ? [entry.group.id] : []), ...entry.students.filter((s) => s.mark === 'waiting').map((s) => s.student.id)]);
+  const cases: { name: string; slide: ChoiceSlide | TextSlide; roster: AttendedRoster; participants: Participant[]; answers: Answer[] }[] = [
+    { name: 'no roll taken', slide: choice, roster: everyone, participants: [], answers: [answer('q1', 'student', 's1', 0)] },
+    { name: 'a roll with an absent student', slide: choice, roster: { ...everyone, present: ['s1', 's3'] }, participants: [], answers: [answer('q1', 'student', 's1', 0), answer('q1', 'student', 's2', 1)] },
+    { name: 'a group question with no roll', slide: groupText, roster: everyone, participants: [], answers: [forGroup('g1')] },
+    { name: 'a group question and a roll', slide: groupText, roster: { ...everyone, present: ['s1'] }, participants: [], answers: [] },
+    { name: 'a shared group device', slide: groupText, roster: { ...everyone, present: ['s1'] }, participants: [sharedTablet], answers: [] },
+    { name: 'an individual question and a shared group device', slide: choice, roster: { ...everyone, present: ['s1'] }, participants: [sharedTablet], answers: [] },
+  ];
+
+  it.each(cases)('has as many waiting as the tally says: $name', ({ slide, roster, participants, answers }) => {
+    const tally = tallyAnswerers(slide, roster, participants, answers);
+    const waiting = waitingOf(answerStatusByGroup(slide, roster, participants, answers));
+    expect(waiting.sort()).toEqual(tally.waiting.map(({ id }) => id).sort());
+  });
+
+  it('marks each student of an individual question, and an absent one as absent, not as waiting', () => {
+    const statuses = answerStatusByGroup(choice, { ...everyone, present: ['s1', 's3'] }, [], [answer('q1', 'student', 's1', 0), answer('q1', 'student', 's2', 1)]);
+    expect(statuses.map((entry) => entry.group.id)).toEqual(['g1', 'g2']);
+    expect(statuses[0].mark).toBeNull();
+    expect(statuses[0].students.map((s) => [s.student.id, s.present, s.mark])).toEqual([['s1', true, 'answered'], ['s2', false, null]]);
+    expect(statuses[1].students.map((s) => [s.student.id, s.present, s.mark])).toEqual([['s3', true, 'waiting']]);
+  });
+
+  it('marks the groups of a group question and leaves the students unmarked', () => {
+    const statuses = answerStatusByGroup(groupText, everyone, [], [forGroup('g1')]);
+    expect(statuses.map((entry) => entry.mark)).toEqual(['answered', 'waiting']);
+    expect(statuses.flatMap((entry) => entry.students.map((s) => s.mark))).toEqual([null, null, null]);
+  });
+
+  it('leaves a group nobody counts unmarked, and counts one with a shared device', () => {
+    const onlyG1 = { ...everyone, present: ['s1'] };
+    expect(answerStatusByGroup(groupText, onlyG1, [], []).map((entry) => entry.mark)).toEqual(['waiting', null]);
+    expect(answerStatusByGroup(groupText, onlyG1, [sharedTablet], []).map((entry) => entry.mark)).toEqual(['waiting', 'waiting']);
+  });
+
+  it('marks no one on a slide that is not a question or when there is no slide', () => {
+    const content = { id: 'c', kind: 'content', title: 'ع', tag: '', body: '' } as unknown as Lesson['slides'][number];
+    for (const slide of [content, undefined]) {
+      const statuses = answerStatusByGroup(slide, everyone, [], []);
+      expect([...statuses.map((entry) => entry.mark), ...statuses.flatMap((entry) => entry.students.map((s) => s.mark))].every((mark) => mark === null)).toBe(true);
+    }
+  });
+
+  it('lists students in card order and every student, absent or not', () => {
+    const shuffled: AttendedRoster = { ...everyone, students: [students[1], students[0], students[2]] };
+    expect(answerStatusByGroup(choice, shuffled, [], [])[0].students.map((s) => s.student.id)).toEqual(['s1', 's2']);
   });
 });
 

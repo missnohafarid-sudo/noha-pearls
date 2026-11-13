@@ -19,6 +19,14 @@
   min-block-size: 0;
 }
 
+/* The stage, with the pearl button and its panel floating over its end-side bottom corner. */
+.presenter__main {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-block-size: 0;
+}
+
 .presenter__corner {
   display: flex;
   align-items: center;
@@ -34,6 +42,15 @@
   min-block-size: 0;
   overflow-y: auto;
   padding: 4px;
+  padding-block-end: 80px;
+}
+
+/* On wide screens the pearl sits in the stage's own end-side gutter instead of over the slide. */
+@media (min-width: 901px) {
+  .presenter__content {
+    padding-block-end: 4px;
+    padding-inline-end: 80px;
+  }
 }
 
 .class-code {
@@ -72,6 +89,25 @@
   margin-inline-start: auto;
   padding-inline-start: 12px;
   border-inline-start: 1px solid var(--line-soft);
+}
+
+/* Below 1400px the bar's buttons are compact so the bar keeps to one row beside the side panel. */
+@media (max-width: 1400px) {
+  .presenter__bar {
+    gap: 6px 8px;
+    padding: 8px 12px;
+  }
+
+  .presenter__bar .btn {
+    min-block-size: 38px;
+    padding-inline: 12px;
+    font-size: 0.9rem;
+  }
+
+  .presenter__end {
+    gap: 6px;
+    padding-inline-start: 8px;
+  }
 }
 
 @media (max-width: 600px) {

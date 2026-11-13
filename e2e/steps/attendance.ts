@@ -44,10 +44,9 @@ export function attendanceSteps(world: World): void {
     return answers.filter((answer) => answer.slideId === slideId).length;
   };
   const waitingNames = () =>
-    world.admin.page.evaluate((summary) => {
-      const details = [...document.querySelectorAll('details')].find((candidate) => candidate.querySelector('summary')?.textContent?.includes(summary));
-      return [...(details?.querySelectorAll('li') ?? [])].map((item) => item.textContent ?? '');
-    }, t.session.notAnswered);
+    world.admin.page.evaluate(() =>
+      [...document.querySelectorAll('.pearl-panel .pearl-student')].filter((row) => row.querySelector('.pearl-mark--waiting')).map((row) => row.querySelector('.pearl-student__name')?.textContent ?? ''),
+    );
 
   it('the devices let in put their students on the roll, and the panel counts them', async () => {
     await openRunningClass(world.admin, world.firstClassCode);
@@ -70,6 +69,7 @@ export function attendanceSteps(world: World): void {
     await world.admin.click(t.session.notAnswered);
     await world.admin.until('her name in the waiting list', async () => (await waitingNames()).includes(silent().name));
     expect(await waitingNames()).toEqual([silent().name]);
+    await world.admin.click(t.common.close, '.pearl-panel');
     expect(await world.student.has(t.session.notAnswered)).toBe(false);
   });
 

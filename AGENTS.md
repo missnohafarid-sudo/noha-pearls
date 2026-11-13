@@ -57,6 +57,7 @@ A teacher. She is not a programmer and cannot judge your code.
 | Where an item may be put (by drag or by the move dialog), and repairing a stored folder tree | `domain/folders.ts` |
 | Drag wiring (what carries a drag, what is dropped on) | `ui/library/useDragMove.tsx` |
 | Who may answer what, text length limit | `domain/answering.ts` |
+| Who has answered the slide on screen, group by group (the pearl panel) | `domain/answering.ts` (`answerStatusByGroup`) |
 | Marking and group scores | `domain/scoring.ts` |
 | Pearls a group has earned | `domain/scoring.ts` |
 | Tallies, monitor table, heart totals | `domain/analytics.ts` |
@@ -84,6 +85,7 @@ A teacher. She is not a programmer and cannot judge your code.
 | How the data services are wired together | `services/createDataServices.ts` |
 | Addresses and links | `ui/routing/routes.ts` |
 | Whether the edit panel shows | `ui/shell/AdminPanel.tsx` |
+| The pearl and its panel over the slide's corner (groups, answered marks, hearts) | `ui/session/pearlPanel/`; how a teacher's heart is given: `ui/hooks/useTeacherHearts.ts` |
 | Settings (password hash, authenticator key) | `app/config.ts` |
 | When students' data is cleared at the end of the school year (the setting) | `services/RetentionService.ts`, edited on the results page |
 | Colours, fonts, radii | `ui/styles/tokens.css` |

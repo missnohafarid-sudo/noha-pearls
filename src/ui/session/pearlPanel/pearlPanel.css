@@ -1,0 +1,198 @@
+/* The pearl button of the presenting bar. */
+.pearl-icon {
+  inline-size: 1.5rem;
+  block-size: 1.5rem;
+}
+
+.pearl-icon__body {
+  fill: currentColor;
+}
+
+.pearl-icon__rim {
+  fill: none;
+  stroke: var(--rose-gold);
+  stroke-width: 1.2;
+}
+
+.pearl-icon__shine {
+  fill: var(--pearl-shine);
+  opacity: 0.85;
+}
+
+.btn.pearl-toggle {
+  position: absolute;
+  inset-inline-end: 12px;
+  inset-block-end: 12px;
+  z-index: 2;
+  inline-size: 56px;
+  block-size: 56px;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--rose-gold-light);
+  box-shadow: 0 0 0 6px var(--surface), var(--shadow-lift);
+}
+
+.pearl-toggle .pearl-icon {
+  inline-size: 2rem;
+  block-size: 2rem;
+}
+
+.btn.pearl-toggle[aria-expanded='true'] {
+  background: var(--accent-soft);
+}
+
+.pearl-toggle__count {
+  position: absolute;
+  inset-block-start: -4px;
+  inset-inline-start: -4px;
+  padding-inline: 8px;
+  font-weight: var(--weight-label);
+  box-shadow: var(--shadow-button);
+}
+
+/* The quiet button on the stage that opens the panel. */
+.pearl-open {
+  border: 0;
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+/* The panel grows from the pearl's corner over the slide: up to two thirds of the stage's width, the whole stage on a phone. */
+.pearl-panel {
+  position: absolute;
+  inset-block: 0 80px;
+  inset-inline-end: 12px;
+  z-index: 1;
+  inline-size: min(66%, 780px);
+  transform-origin: 0 100%;
+  animation: pearl-panel-in 0.2s ease-out;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 6px;
+  min-block-size: 0;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.pearl-panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.pearl-panel__groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr));
+  gap: 10px;
+  align-content: start;
+  min-block-size: 0;
+  padding: 2px;
+  overflow-y: auto;
+}
+
+.pearl-card {
+  display: grid;
+  gap: 4px;
+  align-content: start;
+  padding: 12px;
+  padding-block-start: 22px;
+}
+
+.pearl-card__head,
+.pearl-card__pearls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.pearl-card__name {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: var(--weight-label);
+}
+
+.pearl-card__students {
+  display: grid;
+}
+
+.pearl-student {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-block-start: 1px solid var(--line-soft);
+}
+
+.pearl-student__name {
+  flex: 1;
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pearl-student--absent {
+  color: var(--muted);
+  opacity: 0.75;
+}
+
+.pearl-panel .chip {
+  padding: 1px 8px;
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
+.pearl-panel .btn--small {
+  min-block-size: 32px;
+  padding: 0 12px;
+}
+
+@media (max-width: 600px), (pointer: coarse) {
+  .pearl-panel .btn--small {
+    min-block-size: 44px;
+  }
+}
+
+.pearl-mark--answered {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+
+.pearl-mark--answered::before {
+  content: '\2713';
+}
+
+.pearl-mark--waiting {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--edge-soft);
+  color: var(--muted);
+}
+
+.pearl-mark--waiting::before {
+  content: '\25CB';
+}
+
+@keyframes pearl-panel-in {
+  from {
+    transform: scale(0.85);
+    opacity: 0;
+  }
+}
+
+@media (max-width: 900px) {
+  .pearl-panel {
+    inset-inline-start: 12px;
+    inline-size: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pearl-panel {
+    animation: none;
+  }
+}

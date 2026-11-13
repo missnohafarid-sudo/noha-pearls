@@ -12,6 +12,7 @@ import { lessonEditingSteps } from './steps/lessonEditing';
 import { liveClassSteps } from './steps/liveClass';
 import { mediaSlidesSteps } from './steps/mediaSlides';
 import { passwordFieldSteps } from './steps/passwordField';
+import { pearlPanelSteps } from './steps/pearlPanel';
 import { presenterBarSteps } from './steps/presenterBar';
 import { regroupingSteps } from './steps/regrouping';
 import { retentionSteps } from './steps/retention';
@@ -54,6 +55,7 @@ describe('walkthrough', () => {
   mediaSlidesSteps(world);
   liveClassSteps(world);
   presenterBarSteps(world);
+  pearlPanelSteps(world);
   twoDevicesSteps(world);
   twoClassesSteps(world);
   classCardsSteps(world);

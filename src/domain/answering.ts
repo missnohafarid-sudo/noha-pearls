@@ -1,6 +1,7 @@
-import { countedGroups, presentStudents } from './attendance';
+import { countedGroups, isPresent, presentStudents } from './attendance';
 import { acceptsChanges } from './sessions';
-import type { Answer, AnswerScope, AttendedRoster, ChoiceSlide, Id, Participant, QuestionSlide, Session, Slide, SubjectRef } from './models';
+import type { Answer, AnswerScope, AttendedRoster, ChoiceSlide, Group, Id, Participant, QuestionSlide, Session, Slide, Student, SubjectRef } from './models';
+import { membersOf } from './roster';
 import { cleanText } from './text';
 
 /** The single home for the rules of answering: who may answer what, and when. */
@@ -94,6 +95,47 @@ export function tallyAnswerers(
   const kind = subjectKindOf(slide.scope);
   const waiting = counted.filter(({ id }) => findAnswer(answers, slide.id, { kind, id }) === null);
   return { answered: counted.length - waiting.length, expected: counted.length, waiting };
+}
+
+/** Where a counted group or student stands on the question on screen. */
+export type AnswerMark = 'answered' | 'waiting';
+
+export interface StudentAnswerStatus {
+  student: Student;
+  present: boolean;
+  /** Null when the question does not count her: no question, a group question, or she is absent. */
+  mark: AnswerMark | null;
+}
+
+export interface GroupAnswerStatus {
+  group: Group;
+  /** Null when the question does not count the group: no question, an individual question, or a group no one counts. */
+  mark: AnswerMark | null;
+  /** In card number order. */
+  students: StudentAnswerStatus[];
+}
+
+/** Who has answered the slide on screen, group by group, over the people `tallyAnswerers` counts: the marks 'waiting' are exactly its `waiting`. */
+export function answerStatusByGroup(
+  slide: Slide | undefined,
+  roster: AttendedRoster,
+  participants: readonly Participant[],
+  answers: readonly Answer[],
+): GroupAnswerStatus[] {
+  const question = slide && isQuestion(slide) ? slide : null;
+  const kind = question && subjectKindOf(question.scope);
+  const counted = question ? new Set(countedSubjects(question, roster, participants, answers).map(({ id }) => id)) : new Set<Id>();
+  const markOf = (subjectKind: SubjectRef['kind'], id: Id): AnswerMark | null => {
+    if (!question || kind !== subjectKind || !counted.has(id)) return null;
+    return findAnswer(answers, question.id, { kind: subjectKind, id }) ? 'answered' : 'waiting';
+  };
+  return roster.groups.map((group) => ({
+    group,
+    mark: markOf('group', group.id),
+    students: membersOf(group.id, roster.students)
+      .sort((a, b) => a.cardNumber - b.cardNumber)
+      .map((student) => ({ student, present: isPresent(roster, student.id), mark: markOf('student', student.id) })),
+  }));
 }
 
 /**

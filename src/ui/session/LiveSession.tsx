@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { awaitingAdmission } from '../../domain/admission';
-import { canScanCards, isRevealed } from '../../domain/answering';
+import { canScanCards, isQuestion, isRevealed, tallyAnswerers } from '../../domain/answering';
 import type { Session } from '../../domain/models';
 import { t } from '../../i18n';
 import { Loading } from '../common/PageState';
@@ -12,6 +12,7 @@ import { AdmissionPanel } from './AdmissionPanel';
 import { ClassCodeChip } from './ClassCodeChip';
 import { ClassPanel } from './ClassPanel';
 import { JoinCodes } from './JoinCodes';
+import { PearlCorner } from './pearlPanel/PearlCorner';
 import { MessagePanel } from './MessagePanel';
 import { PacingPanel } from './PacingPanel';
 import { PresenterBar } from './PresenterBar';
@@ -32,6 +33,7 @@ export function LiveSession({ session }: { session: Session }) {
   const [admitting, setAdmitting] = useState(false);
   const [regrouping, setRegrouping] = useState(false);
   const [scanSlideId, setScanSlideId] = useState<string | null>(null);
+  const [pearlOpen, setPearlOpen] = useState(false);
 
   const waiting = participants ? awaitingAdmission(participants).length : 0;
   const slide = lesson?.slides[session.slideIndex];
@@ -56,24 +58,46 @@ export function LiveSession({ session }: { session: Session }) {
 
   const scannable = slide && canScanCards(session, slide) ? slide : null;
   const scanning = scannable !== null && scanSlideId === scannable.id;
+  const tally = slide && isQuestion(slide) ? tallyAnswerers(slide, roster, participants, answers) : null;
 
   return (
     <div className="page session">
       <div ref={presenterRef} className="presenter">
-        <div className="session__stage">
-          <div className="presenter__corner">
-            {!showCodes && <ClassCodeChip code={session.code} />}
-            {admin && waiting > 0 && (
-              <WaitingCountButton className="session__waiting" count={waiting} onPress={() => fullscreen.active && fullscreen.toggle()} />
-            )}
+        <div className="presenter__main">
+          <div className="session__stage">
+            <div className="presenter__corner">
+              {!showCodes && <ClassCodeChip code={session.code} />}
+              {admin && waiting > 0 && (
+                <WaitingCountButton className="session__waiting" count={waiting} onPress={() => fullscreen.active && fullscreen.toggle()} />
+              )}
+            </div>
+            <div className="presenter__content">
+              {showCodes ? (
+                <JoinCodes session={session} groups={groups} students={students} participants={participants} />
+              ) : (
+                <PresenterStage
+                  session={session}
+                  slide={slide}
+                  answers={answers}
+                  roster={roster}
+                  participants={participants}
+                  tally={tally}
+                  onOpenPanel={pearlOpen ? null : () => setPearlOpen(true)}
+                />
+              )}
+            </div>
           </div>
-          <div className="presenter__content">
-            {showCodes ? (
-              <JoinCodes session={session} groups={groups} students={students} participants={participants} />
-            ) : (
-              <PresenterStage session={session} slide={slide} answers={answers} roster={roster} participants={participants} />
-            )}
-          </div>
+          <PearlCorner
+            open={pearlOpen}
+            waiting={tally?.waiting.length ?? 0}
+            onToggle={() => setPearlOpen(!pearlOpen)}
+            session={session}
+            lesson={lesson}
+            slide={slide}
+            roster={roster}
+            participants={participants}
+            answers={answers}
+          />
         </div>
         <PresenterBar
           session={session}

@@ -1,10 +1,11 @@
 import { answersForSlide, tallyChoices } from '../../domain/analytics';
-import { isQuestion, tallyAnswerers } from '../../domain/answering';
+import { isQuestion, type AnswerTally } from '../../domain/answering';
 import type { Answer, Participant, Session, SessionRoster, Slide } from '../../domain/models';
 import { subjectName } from '../../domain/roster';
 import { t } from '../../i18n';
 import { useAdmin } from '../hooks/data';
 import { SlideView } from '../slides/SlideView';
+import { PEARL_PANEL_ID } from './pearlPanel/panelId';
 
 interface Props {
   session: Session;
@@ -12,15 +13,18 @@ interface Props {
   answers: readonly Answer[];
   roster: SessionRoster;
   participants: readonly Participant[];
+  /** How far the question on screen is answered; null when the slide is no question. */
+  tally: AnswerTally | null;
+  /** Opens the pearl panel; null while it is open. */
+  onOpenPanel: (() => void) | null;
 }
 
 /** The current slide, read-only, with live tallies and the wall of text answers. */
-export function PresenterStage({ session, slide, answers, roster, participants }: Props) {
+export function PresenterStage({ session, slide, answers, roster, participants, tally, onOpenPanel }: Props) {
   const admin = useAdmin();
   if (!slide) return <p className="muted">{t.session.noSlide}</p>;
   const given = answersForSlide(answers, slide.id);
   const question = isQuestion(slide) ? slide : null;
-  const tally = question && tallyAnswerers(question, roster, participants, answers);
 
   return (
     <SlideView
@@ -32,18 +36,10 @@ export function PresenterStage({ session, slide, answers, roster, participants }
         <>
           <p className="muted">{t.common.answeredCount(tally.answered, tally.expected)}</p>
           {admin && question && tally.expected > 0 && tally.waiting.length === 0 && <p className="muted">{t.session.allAnswered[question.scope]}</p>}
-          {admin && tally.waiting.length > 0 && (
-            <details>
-              <summary className="summary-row">
-                {t.session.notAnswered}
-                <span className="chip">{tally.waiting.length}</span>
-              </summary>
-              <ul className="list-reset stack stack--tight">
-                {tally.waiting.map(({ id, name }) => (
-                  <li key={id}>{name}</li>
-                ))}
-              </ul>
-            </details>
+          {admin && onOpenPanel && tally.waiting.length > 0 && (
+            <button type="button" className="chip chip--accent pearl-open" aria-controls={PEARL_PANEL_ID} onClick={onOpenPanel}>
+              {t.pearlPanel.notAnsweredCount(tally.waiting.length)}
+            </button>
           )}
         </>
       )}

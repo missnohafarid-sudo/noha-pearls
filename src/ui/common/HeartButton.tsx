@@ -22,7 +22,7 @@ export function HeartButton({ owner, count, onGive, onTake }: Props) {
   }
   const takeLabel = t.common.takeHeartFrom(owner);
   return (
-    <>
+    <span className="heart-actions">
       <button type="button" className="btn btn--small btn--heart" aria-label={label} onClick={onGive}>
         {HEART} {count}
       </button>
@@ -31,6 +31,6 @@ export function HeartButton({ owner, count, onGive, onTake }: Props) {
           {'\u2212'}
         </button>
       )}
-    </>
+    </span>
   );
 }

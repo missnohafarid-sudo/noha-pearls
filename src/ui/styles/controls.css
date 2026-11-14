@@ -71,10 +71,17 @@
   background: var(--heart-soft);
 }
 
+.heart-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .btn--take-heart {
   background: var(--heart-soft);
   color: var(--heart-ink);
   padding-inline: 10px;
+  font-weight: 700;
 }
 
 .btn--take-heart:hover:not(:disabled) {

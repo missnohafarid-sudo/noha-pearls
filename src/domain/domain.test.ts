@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { admittedDevices, awaitingAdmission, canClaimSeat, contestedRequestNumber, isAdmitted, isNameHeldElsewhere, isSeatOfGroupPage, joinLanding, namesHeldByOthers, returnGroupId, seatAnswerer, requestNumber, seatGroupId, seatLoss, seatsDisplacedBy, seatsForBulkAdmission, seatsForCards, seatsNeedingTap, studentsJoiningRoll } from './admission';
 import { addToRoll, countedGroups, isOnRoll, isPresent, joinRoll, markAbsent, presentGroups, presentStudents, rollTaken, sightingChangesAnything } from './attendance';
-import { buildMonitor, netHeartCount, RewardIndex, studentReport, tallyChoices } from './analytics';
+import { buildMonitor, RewardIndex, studentReport, tallyChoices } from './analytics';
 import { answersForWholeGroup, answerStatusByGroup, canAnswer, takesAnswerPerStudent, deviceAnswer, effectiveAnswer, nextManualChoice, nextManualChoiceFor, normalizeAnswerValue, subjectFor, tallyAnswerers } from './answering';
 import { CardReadStabilizer, cardNumberLabel, choiceFromCorners, presenceReadings, type Point } from './cards';
 import { toAsciiDigits } from './digits';
@@ -737,8 +737,6 @@ describe('scoring and read models', () => {
     const s1: SubjectRef = { kind: 'student', id: 's1' };
     const index = new RewardIndex([heart('1', s1), heart('2', s1, { source: 'peer' }), heart('3', s1, { effect: 'taken' })]);
     expect(index.of(s1)).toEqual({ total: 1, bySource: { teacher: 1, peer: 1, guest: 0, supervisor: 0 }, taken: 1 });
-    expect(netHeartCount([heart('1', s1), heart('2', s1), heart('3', s1, { effect: 'taken' }), heart('4', s1, { effect: 'returned' })])).toBe(2);
-    expect(netHeartCount([])).toBe(0);
   });
 
   it('gives a taken heart back before adding a new one, never taking the count of taken below zero', () => {

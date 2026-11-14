@@ -446,7 +446,7 @@ describe('a live class', () => {
     expect(stored).toHaveLength(5);
     expect(stored.filter((r) => r.effect === 'taken')).toHaveLength(2);
     expect(stored.filter((r) => r.effect).every((r) => r.source === 'teacher')).toBe(true);
-    await vi.waitFor(() => expect(counts.at(-1)).toBe(1));
+    await vi.waitFor(() => expect(counts.at(-1)).toBe(5));
   });
 
   it('gives a taken heart back before adding a new one, and a peer heart does not undo a take', async () => {

@@ -1,4 +1,4 @@
-import { netHeartCount, RewardIndex } from '../domain/analytics';
+import { RewardIndex } from '../domain/analytics';
 import { newId } from '../domain/ids';
 import type { Id, Reward, RewardEffect, RewardSource, SubjectRef } from '../domain/models';
 import { canGiveAnotherPeerHeart, canGivePeerHeart, canGiveTeacherHeart, canTakeTeacherHeart, teacherHeartEffect } from '../domain/rewards';
@@ -27,9 +27,9 @@ export class RewardService {
     return adminWatch(this.caller, listener, (emit) => this.store.watch('rewards', { sessionId }, emit));
   }
 
-  /** How many hearts the class this code opens has been given, and nothing about whom. */
+  /** A number that grows by one whenever a heart of the class this code opens is given, taken or given back, and says nothing about whom. */
   watchHeartCount(code: string, listener: (count: number) => void): Unsubscribe {
-    return watchByCode<number>(this.codes, code, (session) => (emit) => this.store.watch('rewards', { sessionId: session.id }, (rewards) => emit(netHeartCount(rewards))), 0, listener);
+    return watchByCode<number>(this.codes, code, (session) => (emit) => this.store.watch('rewards', { sessionId: session.id }, (rewards) => emit(rewards.length)), 0, listener);
   }
 
   /** Admin only: a heart in the teacher's name, for a student or a group of the session's roster; it gives back a heart she took from that target first. Returns false when the target is not on it. Accepted after the class has ended too. */

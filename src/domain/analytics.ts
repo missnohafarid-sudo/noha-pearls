@@ -204,8 +204,3 @@ export class RewardIndex {
     return target.kind === 'group' ? this.groupTotal({ id: target.id }, students) : this.of(target).total;
   }
 }
-
-/** How many hearts a class has, taken ones subtracted. */
-export function netHeartCount(rewards: readonly Pick<Reward, 'effect'>[]): number {
-  return rewards.reduce((sum, reward) => sum + (reward.effect === 'taken' ? -1 : 1), 0);
-}

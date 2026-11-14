@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { HIDDEN_FENCE, hiddenBlocksBefore, hiddenPartCount, hideSelection, keepOpenedParts, slideTextBlocks, type TextBlock } from './slideText';
+import { HIDDEN_FENCE, hiddenBlocksBefore, hiddenPartCount, hideSelection, insertStarterTable, keepOpenedParts, slideTextBlocks, type TextBlock } from './slideText';
 
 const line = (text: string, bullet = false): TextBlock => ({ kind: 'line', text, bullet });
 const hidden = (...blocks: TextBlock[]): TextBlock => ({ kind: 'hidden', blocks });
 const pictures = (...links: string[]): TextBlock => ({ kind: 'pictures', links });
+const table = (header: string[] | null, ...rows: string[][]): TextBlock => ({ kind: 'table', header, rows });
 const lines = (...rows: string[]) => rows.join('\n');
 const F = HIDDEN_FENCE;
 const PHOTO = 'https://example.org/a.png';
@@ -137,6 +138,7 @@ describe('slideTextBlocks: pictures', () => {
 function flatten(blocks: readonly TextBlock[]): string[] {
   return blocks.flatMap((block) => {
     if (block.kind === 'line') return [block.bullet ? `- ${block.text}`.trim() : block.text.trim()];
+    if (block.kind === 'table') return [...(block.header ? [block.header] : []), ...block.rows].map((cells) => `|${cells.join('|')}|`);
     return block.kind === 'pictures' ? block.links : flatten(block.blocks);
   });
 }
@@ -349,5 +351,78 @@ describe('hidden parts: counting, numbering and cutting', () => {
 
   it('keeps the parts that remain readable as the same blocks', () => {
     expect(slideTextBlocks(keepOpenedParts(text, [1]))).toEqual([line('a'), line('b'), hidden(line('s1'), line('more')), line('c')]);
+  });
+});
+
+describe('slideTextBlocks: tables', () => {
+  it('makes one table of consecutive row lines, cells trimmed', () => {
+    expect(slideTextBlocks('|a|b|\n  | c | d |  ')).toEqual([table(null, ['a', 'b'], ['c', 'd'])]);
+  });
+
+  it('makes the first row the header when a row of dashes follows it, and never draws that row', () => {
+    expect(slideTextBlocks('|a|b|\n|---|---|\n|1|2|')).toEqual([table(['a', 'b'], ['1', '2'])]);
+    expect(slideTextBlocks('| a | b |\n| :--- | ---: |\n| 1 | 2 |')).toEqual([table(['a', 'b'], ['1', '2'])]);
+  });
+
+  it('drops a row of dashes anywhere else, and a table of nothing else', () => {
+    expect(slideTextBlocks('|a|b|\n|1|2|\n|---|---|\n|3|4|')).toEqual([table(null, ['a', 'b'], ['1', '2'], ['3', '4'])]);
+    expect(slideTextBlocks('|---|---|')).toEqual([]);
+    expect(slideTextBlocks('|a|\n|---|\n|---|\n|1|')).toEqual([table(['a'], ['1'])]);
+  });
+
+  it('pads rows shorter than the widest, header included', () => {
+    expect(slideTextBlocks('|a|\n|---|\n|1|2|3|')).toEqual([table(['a', '', ''], ['1', '2', '3'])]);
+    expect(slideTextBlocks('|1|\n|2|3|')).toEqual([table(null, ['1', ''], ['2', '3'])]);
+  });
+
+  it('needs more than a lone bar, and a bar at both ends', () => {
+    expect(slideTextBlocks('|')).toEqual([line('|')]);
+    expect(slideTextBlocks('a | b')).toEqual([line('a | b')]);
+    expect(slideTextBlocks('|a')).toEqual([line('|a')]);
+    expect(slideTextBlocks('||')).toEqual([table(null, [''])]);
+  });
+
+  it('leaves a bullet that contains bars as a bullet', () => {
+    expect(slideTextBlocks('- |a|b|')).toEqual([line('|a|b|', true)]);
+  });
+
+  it('splits tables around other lines, and keeps a table inside a hidden part', () => {
+    expect(slideTextBlocks(lines('|a|', 'text', '|b|'))).toEqual([table(null, ['a']), line('text'), table(null, ['b'])]);
+    expect(slideTextBlocks(lines('|a|b|', F, '|s|t|', '|u|v|', F, 'end'))).toEqual([table(null, ['a', 'b']), hidden(table(null, ['s', 't'], ['u', 'v'])), line('end')]);
+  });
+
+  it('keeps a table of an opened hidden part whole when other parts are cut', () => {
+    const text = lines('|a|b|', F, 'x', F, F, '|c|d|', F, F, '|e|f|', '|---|---|', '|1|2|', F, '|g|h|');
+    expect(slideTextBlocks(keepOpenedParts(text, [2]))).toEqual([table(null, ['a', 'b']), hidden(table(['e', 'f'], ['1', '2'])), table(null, ['g', 'h'])]);
+  });
+});
+
+describe('insertStarterTable', () => {
+  const headers = ['one', 'two'];
+  const apply = (text: string, caret: number) => {
+    const edit = insertStarterTable(text, caret, headers);
+    return { edit, result: text.slice(0, edit.from) + edit.insert + text.slice(edit.to) };
+  };
+
+  it('puts a header, a row of dashes and an empty row on lines after the caret line, with the caret in the first header cell', () => {
+    const { edit, result } = apply('before\nafter', 2);
+    expect(result).toBe('before\n| one | two |\n| --- | --- |\n|  |  |\nafter');
+    expect(result.slice(edit.selectFrom, edit.selectFrom + 3)).toBe('one');
+    expect(edit.selectTo).toBe(edit.selectFrom);
+    expect(slideTextBlocks(result)).toEqual([line('before'), table(['one', 'two'], ['', '']), line('after')]);
+  });
+
+  it('uses a blank line the caret is on', () => {
+    expect(apply('a\n\nb', 2).result).toBe('a\n| one | two |\n| --- | --- |\n|  |  |\nb');
+  });
+
+  it('works on an empty text and at the end of a line', () => {
+    expect(apply('', 0).result).toBe('| one | two |\n| --- | --- |\n|  |  |');
+    expect(apply('a', 1).result).toBe('a\n| one | two |\n| --- | --- |\n|  |  |');
+  });
+
+  it('puts the table inside a hidden part when the caret is in one', () => {
+    const { result } = apply(lines(F, 'x', F), 5);
+    expect(slideTextBlocks(result)).toEqual([hidden(line('x'), table(['one', 'two'], ['', '']))]);
   });
 });

@@ -1,0 +1,19 @@
+.slide-table {
+  max-inline-size: 100%;
+  overflow-x: auto;
+}
+
+.slide-table table {
+  border-collapse: collapse;
+}
+
+.slide-table th,
+.slide-table td {
+  padding: 6px 14px;
+  border-block-end: 1px solid var(--line-soft);
+  text-align: start;
+}
+
+.slide-table th {
+  font-weight: var(--weight-label);
+}

@@ -2,8 +2,9 @@ import { hiddenBlocksBefore, type TextBlock } from '../../domain/slideText';
 import { DirectedText } from './DirectedText';
 import { HiddenSection } from './HiddenSection';
 import { Pictures } from './Pictures';
+import { SlideTable } from './SlideTable';
 
-/** A list of text blocks in reading order: lines, pictures, and hidden parts. The first hidden block here is part `firstPart` of its slide. */
+/** A list of text blocks in reading order: lines, pictures, tables, and hidden parts. The first hidden block here is part `firstPart` of its slide. */
 export function TextBlocks({ blocks, firstPart }: { blocks: readonly TextBlock[]; firstPart: number }) {
   return (
     <>
@@ -17,6 +18,8 @@ export function TextBlocks({ blocks, firstPart }: { blocks: readonly TextBlock[]
             );
           case 'pictures':
             return <Pictures key={index} links={block.links} />;
+          case 'table':
+            return <SlideTable key={index} header={block.header} rows={block.rows} />;
           case 'hidden':
             return (
               <HiddenSection key={index} part={firstPart + hiddenBlocksBefore(blocks, index)}>

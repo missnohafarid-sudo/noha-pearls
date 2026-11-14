@@ -2,6 +2,7 @@ import type { MediaChoice } from '../domain/models';
 import { HIDDEN_FENCE } from '../domain/slideText';
 
 const HIDE_BUTTON = 'إخفاء المحدَّد';
+const TABLE_BUTTON = 'جدول';
 
 export const slides = {
   kind: {
@@ -18,7 +19,7 @@ export const slides = {
     badgeText: (number: number) => `نص الشارة ${number}`,
     badgeColor: (number: number) => `لون الشارة ${number}`,
     body: 'النص',
-    bodyHint: `ابدئي السطر بشرطة (-) ليظهر كنقطة. لإخفاء جزء من النص ظلّليه واضغطي «${HIDE_BUTTON}»، أو ضعي قبله سطرًا فيه ${HIDDEN_FENCE} وبعده سطرًا فيه ${HIDDEN_FENCE}. والسطر الذي فيه رابط صورة فقط (ملف صورة مثل ‎.jpg أو ‎.png أو ‎.gif، أو صورة على Google Drive) يظهر صورة.`,
+    bodyHint: `ابدئي السطر بشرطة (-) ليظهر كنقطة. لإخفاء جزء من النص ظلّليه واضغطي «${HIDE_BUTTON}»، أو ضعي قبله سطرًا فيه ${HIDDEN_FENCE} وبعده سطرًا فيه ${HIDDEN_FENCE}. والسطر الذي فيه رابط صورة فقط (ملف صورة مثل ‎.jpg أو ‎.png أو ‎.gif، أو صورة على Google Drive) يظهر صورة. وللجدول اكتبي كل صف في سطر وافصلي خاناته بالعلامة | ، أو اضغطي «${TABLE_BUTTON}».`,
     images: 'روابط الصور (اختياري)',
     imagesHint: 'الصقي رابطًا عامًّا يبدأ بـ https لكل صورة. ملفات Google Drive يجب أن تكون متاحة لكل من لديه الرابط.',
     image: (number: number) => `رابط الصورة ${number}`,
@@ -50,6 +51,8 @@ export const slides = {
   tools: {
     symbols: 'رموز',
     hide: HIDE_BUTTON,
+    table: TABLE_BUTTON,
+    tableHeaders: ['العمود ١', 'العمود ٢'],
     hint: 'ضعي المؤشر في الخانة ثم اختاري الرمز.',
     group: { math: 'رياضيات', powers: 'أسس وأدلة', science: 'علوم' },
   },

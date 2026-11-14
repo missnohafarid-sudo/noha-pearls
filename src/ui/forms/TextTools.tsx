@@ -1,5 +1,5 @@
 import { useId, useState, type FocusEvent, type PointerEvent, type ReactNode } from 'react';
-import { hideSelection } from '../../domain/slideText';
+import { hideSelection, insertStarterTable, type TextEdit } from '../../domain/slideText';
 import { isolatedText, plainPosition, plainText, shownPosition } from '../../domain/textDirection';
 import { SYMBOL_GROUPS } from '../../domain/symbols';
 import { t } from '../../i18n';
@@ -24,10 +24,11 @@ function insertSymbol(control: Control, symbol: string): void {
   announce(control);
 }
 
-function hideSelected(control: Control): void {
+/** Applies the edit a rule makes for the text of the box and its selection, in plain-text positions, and shows the result with the box's isolated pieces. */
+function editText(control: Control, makeEdit: (text: string, start: number, end: number) => TextEdit | null): void {
   const shown = control.value;
   const text = plainText(shown);
-  const edit = hideSelection(text, plainPosition(shown, control.selectionStart ?? 0), plainPosition(shown, control.selectionEnd ?? 0));
+  const edit = makeEdit(text, plainPosition(shown, control.selectionStart ?? 0), plainPosition(shown, control.selectionEnd ?? 0));
   if (!edit) return;
   const next = text.slice(0, edit.from) + edit.insert + text.slice(edit.to);
   control.focus();
@@ -36,7 +37,10 @@ function hideSelected(control: Control): void {
   announce(control);
 }
 
-/** A tools bar above an editing form: symbols to put at the caret of the box she was last in, and a button that hides the lines she selected in a slide-text box. */
+const hideSelected = (control: Control): void => editText(control, hideSelection);
+const insertTable = (control: Control): void => editText(control, (text, start) => insertStarterTable(text, start, tt.tableHeaders));
+
+/** A tools bar above an editing form: symbols to put at the caret of the box she was last in, and buttons that hide the lines she selected, or put a starter table, in a slide-text box. */
 export function TextTools({ children }: { children: ReactNode }) {
   const [target, setTarget] = useState<Control | null>(null);
   const [open, setOpen] = useState(false);
@@ -55,6 +59,9 @@ export function TextTools({ children }: { children: ReactNode }) {
           </button>
           <button type="button" className="btn btn--small" disabled={!live?.hasAttribute(SLIDE_TEXT_ATTRIBUTE)} onClick={() => live && hideSelected(live)}>
             {tt.hide}
+          </button>
+          <button type="button" className="btn btn--small" disabled={!live?.hasAttribute(SLIDE_TEXT_ATTRIBUTE)} onClick={() => live && insertTable(live)}>
+            {tt.table}
           </button>
           {!live && <span className="field__hint">{tt.hint}</span>}
         </div>

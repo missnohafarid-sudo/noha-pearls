@@ -1,9 +1,11 @@
 import { isPictureLink } from './media';
+import { addTableRow, isTableRow, starterTable, startTable, type SlideTable } from './slideTable';
 
 /** One piece of a slide's plain text, in reading order. */
 export type TextBlock =
   | { kind: 'line'; text: string; bullet: boolean }
   | { kind: 'pictures'; links: string[] }
+  | ({ kind: 'table' } & SlideTable)
   | { kind: 'hidden'; blocks: TextBlock[] };
 
 /** A line of only these, three or more, opens a hidden block and the next such line closes it. */
@@ -24,13 +26,18 @@ function lineBlock(line: string): TextBlock {
 }
 
 function add(blocks: TextBlock[], line: string): void {
-  if (!isPictureLine(line)) {
-    blocks.push(lineBlock(line));
-    return;
-  }
   const last = blocks[blocks.length - 1];
-  if (last?.kind === 'pictures') last.links.push(line.trim());
-  else blocks.push({ kind: 'pictures', links: [line.trim()] });
+  if (isPictureLine(line)) {
+    if (last?.kind === 'pictures') last.links.push(line.trim());
+    else blocks.push({ kind: 'pictures', links: [line.trim()] });
+  } else if (!isTableRow(line)) {
+    blocks.push(lineBlock(line));
+  } else if (last?.kind === 'table') {
+    addTableRow(last, line);
+  } else {
+    const table = startTable(line);
+    if (table) blocks.push({ kind: 'table', ...table });
+  }
 }
 
 interface ScannedLine {
@@ -62,7 +69,7 @@ function partStretches(lines: readonly ScannedLine[]): number[] {
 
 /**
  * What the plain text of a slide is made of: one line per non-blank line (a line starting with "- " is a bullet),
- * a picture for each line that is only a picture address, and a hidden block for the lines between two fence lines.
+ * a picture for each line that is only a picture address, a table for consecutive row lines between upright bars, and a hidden block for the lines between two fence lines.
  * A fence that is never closed hides everything after it; a hidden block with nothing in it is dropped.
  */
 export function slideTextBlocks(text: string): TextBlock[] {
@@ -168,6 +175,13 @@ function putOnOwnLines(rows: readonly Row[], at: number, block: string, caretInB
   const point = onBlankLine ? rows[at].start : rows[at].end;
   const caret = point + lead.length + caretInBlock;
   return { from: point, to: point, insert: `${lead}${block}`, selectFrom: caret, selectTo: caret };
+}
+
+/** The edit that puts a starter table with these header words on lines of its own after the caret's line, with the caret in its first header cell. */
+export function insertStarterTable(text: string, caret: number, headers: readonly string[]): TextEdit {
+  const rows = rowsOf(text);
+  const table = starterTable(headers);
+  return putOnOwnLines(rows, rowAt(rows, Math.max(0, Math.min(caret, text.length))), table.text, table.caret);
 }
 
 /**

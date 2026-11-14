@@ -11,6 +11,7 @@
 .answer-card {
   inline-size: calc(var(--marker) + 2 * var(--band));
   background: var(--paper);
+  color: var(--print-ink);
   border: 1px dashed var(--print-line);
   border-radius: 4px;
   break-inside: avoid;

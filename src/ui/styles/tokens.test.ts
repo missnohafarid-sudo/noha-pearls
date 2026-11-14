@@ -14,6 +14,9 @@ const PAIRS: readonly (readonly [text: string, over: string])[] = [
   ['accent', 'surface'],
   ['accent', 'accent-soft'],
   ['on-accent', 'accent'],
+  ['accent', 'blush-deep'],
+  ['rose-ink', 'bg'],
+  ['on-accent', 'rose-ink'],
   ['gold-ink', 'gold-soft'],
   ['ok', 'ok-soft'],
   ['bad-ink', 'bad-soft'],
@@ -26,7 +29,7 @@ const css = readFileSync(new URL('./tokens.css', import.meta.url), 'utf8').repla
 function declarationsOf(selector: string): Map<string, string> {
   const found = new Map<string, string>();
   for (const [, head, body] of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
-    if (head.trim() !== selector) continue;
+    if (!head.split(',').some((part) => part.trim() === selector)) continue;
     for (const [, name, value] of body.matchAll(/--([\w-]+)\s*:\s*([^;]+);/g)) found.set(name, value.trim());
   }
   return found;
@@ -51,10 +54,26 @@ function contrast(a: string, b: string): number {
   return (light + 0.05) / (dark + 0.05);
 }
 
+const MIX = /^color-mix\(in srgb,\s*(.+?)\s+(\d+)%,\s*(.+)\)$/;
+const VAR = /^var\(--([\w-]+)\)$/;
+
+function mixed(first: string, share: number, second: string): string {
+  const parts = [1, 3, 5].map((from) => Math.round((parseInt(first.slice(from, from + 2), 16) * share + parseInt(second.slice(from, from + 2), 16) * (100 - share)) / 100));
+  return `#${parts.map((part) => part.toString(16).padStart(2, '0')).join('')}`;
+}
+
+/** A token's colour as a six-digit hex: a literal, another token, or a two-colour sRGB mix of those. */
 function hexOf(tokens: Map<string, string>, name: string, look: string): string {
-  const value = tokens.get(name);
-  if (value === undefined || !/^#[0-9a-f]{6}$/i.test(value)) throw new Error(`--${name} is not a six-digit hex colour in the "${look}" look: ${value}`);
-  return value;
+  const resolve = (value: string | undefined): string => {
+    const text = value ?? '';
+    if (/^#[0-9a-f]{6}$/i.test(text)) return text;
+    const reference = VAR.exec(text);
+    if (reference) return resolve(tokens.get(reference[1]));
+    const mix = MIX.exec(text);
+    if (mix) return mixed(resolve(mix[1]), Number(mix[2]), resolve(mix[3]));
+    throw new Error(`--${name} is not a colour in the "${look}" look: ${value}`);
+  };
+  return resolve(tokens.get(name));
 }
 
 describe('the looks of the site stay readable', () => {

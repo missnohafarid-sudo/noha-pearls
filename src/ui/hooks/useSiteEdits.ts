@@ -1,7 +1,9 @@
 import type { SitePatch } from '../../domain/models';
-import { SITE_SAVE_DELAY_MS } from '../../domain/siteEdits';
 import { useAttempt } from '../common/useAttempt';
 import { useServices } from '../ServicesContext';
+
+/** How long the page waits after the last edit of the site record before it sends the edits together, in milliseconds. */
+const SITE_SAVE_DELAY_MS = 300;
 
 type Send = (patch: SitePatch) => void;
 

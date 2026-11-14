@@ -427,7 +427,7 @@ describe('which links are pictures by themselves', () => {
   });
 
   it('leaves a web page, a video, a Tenor page, a PDF, an http address and a blank as text', () => {
-    for (const link of ['https://example.org/page', 'https://www.youtube.com/watch?v=abc', 'https://tenor.com/view/cat-123', 'https://example.org/a.pdf', 'http://example.org/a.png', '']) expect(isPictureLink(link)).toBe(false);
+    for (const link of ['https://example.org/page', 'https://www.youtube.com/watch?v=abc', 'https://tenor.com/view/cat-123', 'https://example.org/a.pdf', 'http://example.org/a.png', '', 'https://example.org/a.png here', 'https://example.org/a.png https://example.org/b.png']) expect(isPictureLink(link)).toBe(false);
   });
 });
 
@@ -2384,6 +2384,7 @@ describe('an option of a choice question: words or a picture', () => {
     expect(optionView('')).toEqual({ kind: 'words', text: '' });
     expect(optionView('https://example.org/page')).toEqual({ kind: 'words', text: 'https://example.org/page' });
     expect(optionView('see https://example.org/a.png')).toEqual({ kind: 'words', text: 'see https://example.org/a.png' });
+    expect(optionView('https://example.org/a.png here')).toEqual({ kind: 'words', text: 'https://example.org/a.png here' });
   });
 
   it('is a picture for an image file, a Drive file or a Giphy page, with the address the slide pictures draw', () => {

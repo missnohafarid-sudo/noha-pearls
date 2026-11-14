@@ -1,6 +1,6 @@
 /* When an option is a picture the options sit two across; a column narrower than a thumbnail falls to one. */
 .slide-options--pictures {
-  grid-template-columns: repeat(auto-fill, minmax(max(140px, calc((100% - 10px) / 2)), 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(max(140px, calc((100% - var(--slide-options-gap)) / 2)), 1fr));
 }
 
 .slide-options--pictures .slide-option-slot {

@@ -18,9 +18,6 @@ const LINE_BREAK = /\r?\n/;
 
 export const isFence = (line: string): boolean => FENCE.test(line.trim());
 
-/** A line that is one picture address (see `isPictureLink`) and nothing else is a picture. */
-const isPictureLine = (line: string): boolean => /^\S+$/.test(line.trim()) && isPictureLink(line);
-
 function lineBlock(line: string): TextBlock {
   const text = line.trimStart();
   return text.startsWith(BULLET_MARK) ? { kind: 'line', text: text.slice(BULLET_MARK.length), bullet: true } : { kind: 'line', text: line, bullet: false };
@@ -28,7 +25,7 @@ function lineBlock(line: string): TextBlock {
 
 function addLine(blocks: TextBlock[], line: string): void {
   const last = blocks[blocks.length - 1];
-  if (!isPictureLine(line)) blocks.push(lineBlock(line));
+  if (!isPictureLink(line)) blocks.push(lineBlock(line));
   else if (last?.kind === 'pictures') last.links.push(line.trim());
   else blocks.push({ kind: 'pictures', links: [line.trim()] });
 }
@@ -47,7 +44,7 @@ function blocksOf(lines: readonly string[]): TextBlock[] {
   };
   for (const line of lines) {
     if (isBlank(line)) continue;
-    if (!isPictureLine(line) && isTableRow(line)) rows.push(line);
+    if (!isPictureLink(line) && isTableRow(line)) rows.push(line);
     else {
       endRows();
       addLine(blocks, line);

@@ -114,8 +114,9 @@
 }
 
 .slide-options {
+  --slide-options-gap: 10px;
   display: grid;
-  gap: 10px;
+  gap: var(--slide-options-gap);
 }
 
 /* The option and whatever is drawn under it; a grid so the option keeps the full width a bare button would not take. */

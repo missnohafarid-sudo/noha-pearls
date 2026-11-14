@@ -1,0 +1,17 @@
+.fraction {
+  display: inline-flex;
+  flex-direction: column;
+  vertical-align: middle;
+  text-align: center;
+  line-height: 1.2;
+  margin-inline: 0.15em;
+}
+
+.fraction__top {
+  padding-inline: 0.2em;
+  border-block-end: 0.08em solid currentColor;
+}
+
+.fraction__bottom {
+  padding-inline: 0.2em;
+}

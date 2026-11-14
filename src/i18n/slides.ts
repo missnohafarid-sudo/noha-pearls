@@ -3,6 +3,7 @@ import { HIDDEN_FENCE } from '../domain/slideText';
 
 const HIDE_BUTTON = 'إخفاء المحدَّد';
 const TABLE_BUTTON = 'جدول';
+const FRACTION_BUTTON = 'كسر';
 
 export const slides = {
   kind: {
@@ -52,6 +53,7 @@ export const slides = {
     symbols: 'رموز',
     hide: HIDE_BUTTON,
     table: TABLE_BUTTON,
+    fraction: FRACTION_BUTTON,
     tableHeaders: ['العمود ١', 'العمود ٢'],
     hint: 'ضعي المؤشر في الخانة ثم اختاري الرمز.',
     group: { math: 'رياضيات', powers: 'أسس وأدلة', science: 'علوم' },

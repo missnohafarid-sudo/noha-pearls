@@ -9,12 +9,14 @@ const LETTER = '\\p{Script=Latin}\\p{Script=Greek}';
 const DIGITS = '0-9\\u00B2\\u00B3\\u00B9\\u2070-\\u209F';
 const SIGNS = "+\\-\\u2212\\u00D7\\u00F7*/=<>\\u2264\\u2265\\u2260\\u2248\\u00B1^_%\\u00B0\\u221A\\u221E\\u2191\\u2192\\u2193\\u2190\\u21CC\\u00B7'\\u2032\\u2033|";
 const BRACKETS = '()\\[\\]{}';
+/** Stands in for a whole fraction while a line is split into runs, so the fraction is one part of the equation it sits in (see `lineRuns` in fractions.ts). */
+export const FRACTION_MARK = '\uE000';
 const INNER_SEPARATORS = ' .,:';
 /** What holds an email or a web address together; without them it would be cut into pieces that swap places. */
 const ADDRESS_MARKS = '@&#?~';
 
 const HAS_LETTER = new RegExp(`[${LETTER}]`, 'u');
-const CANDIDATE = new RegExp(`[${LETTER}${DIGITS}${SIGNS}${BRACKETS}${INNER_SEPARATORS}${ADDRESS_MARKS}]+`, 'gu');
+const CANDIDATE = new RegExp(`[${LETTER}${DIGITS}${SIGNS}${BRACKETS}${FRACTION_MARK}${INNER_SEPARATORS}${ADDRESS_MARKS}]+`, 'gu');
 const EQUATION_SIGN = new RegExp('[=+\\u00D7\\u00F7*^<>\\u2264\\u2265\\u2260\\u2248\\u00B1\\u221A]', 'u');
 const SIGNED_NUMBER = new RegExp('^[-\\u2212+]\\d+(?:[.,]\\d+)?$', 'u');
 const EDGE_PUNCTUATION = /[ .,:;!?]/;

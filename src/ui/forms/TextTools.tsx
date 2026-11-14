@@ -1,4 +1,5 @@
 import { useId, useState, type FocusEvent, type PointerEvent, type ReactNode } from 'react';
+import { fractionEdit } from '../../domain/fractions';
 import { hideSelection, insertStarterTable, type TextEdit } from '../../domain/slideText';
 import { isolatedText, plainPosition, plainText, shownPosition } from '../../domain/textDirection';
 import { SYMBOL_GROUPS } from '../../domain/symbols';
@@ -38,6 +39,7 @@ function editText(control: Control, makeEdit: (text: string, start: number, end:
 }
 
 const hideSelected = (control: Control): void => editText(control, hideSelection);
+const insertFraction = (control: Control): void => editText(control, fractionEdit);
 const insertTable = (control: Control): void => editText(control, (text, start) => insertStarterTable(text, start, tt.tableHeaders));
 
 /** A tools bar above an editing form: symbols to put at the caret of the box she was last in, and buttons that hide the lines she selected, or put a starter table, in a slide-text box. */
@@ -62,6 +64,9 @@ export function TextTools({ children }: { children: ReactNode }) {
           </button>
           <button type="button" className="btn btn--small" disabled={!live?.hasAttribute(SLIDE_TEXT_ATTRIBUTE)} onClick={() => live && insertTable(live)}>
             {tt.table}
+          </button>
+          <button type="button" className="btn btn--small" disabled={!live} onClick={() => live && insertFraction(live)}>
+            {tt.fraction}
           </button>
           {!live && <span className="field__hint">{tt.hint}</span>}
         </div>

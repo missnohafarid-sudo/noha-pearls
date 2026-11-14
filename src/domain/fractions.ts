@@ -1,4 +1,4 @@
-import type { TextEdit } from './slideText';
+import type { TextEdit } from './slideTextEdits';
 import { ARABIC_FRACTION_MARK, directedRuns, FRACTION_MARK, FRACTION_MARKS, hasArabicLetter } from './textDirection';
 
 /** A fraction written as `{top/bottom}`. */

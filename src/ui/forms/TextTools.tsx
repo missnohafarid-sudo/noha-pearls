@@ -1,6 +1,6 @@
 import { useId, useState, type FocusEvent, type PointerEvent, type ReactNode } from 'react';
 import { fractionEdit } from '../../domain/fractions';
-import { hideSelection, insertStarterTable, type TextEdit } from '../../domain/slideText';
+import { hideSelection, insertStarterTable, type TextEdit } from '../../domain/slideTextEdits';
 import { isolatedText, plainPosition, plainText, shownPosition } from '../../domain/textDirection';
 import { SYMBOL_GROUPS } from '../../domain/symbols';
 import { t } from '../../i18n';

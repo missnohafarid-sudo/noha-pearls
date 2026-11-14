@@ -25,6 +25,7 @@ const PUBLIC_BY_DESIGN: Record<string, string> = {
   'participants.join': 'the device asks for its own seat and waits for the teacher',
   'participants.leave': 'the device gives up its own seat',
   'answers.submitFromDevice': 'a let-in device answers for its own seat; checked against the stored seat',
+  'answers.submitForMember': 'a let-in shared device answers for a present member of its group; checked against the stored seat and the seats of the class',
   'rewards.watchHeartCount': 'a number of hearts, nothing about whom',
   'rewards.giveAsPeer': 'a let-in device gives a heart; checked against the stored seat',
   'records.currentPeriod': 'the week or month of today',
@@ -157,7 +158,7 @@ describe('what each method of the surface does', () => {
   it('calls only the live reads and the questions that read reads, and the essential writes are answering, joining and leaving', () => {
     const reads = Object.entries(SURFACE_EFFECTS.read).flatMap(([service, names]) => names.map((name) => `${service}.${name}`));
     expect(reads.filter((method) => !method.split('.')[1].startsWith('watch'))).toEqual(['roster.exportToText', 'lessons.exportToText', 'records.currentPeriod', 'records.standingsOf', 'records.groupStandingsOf', 'records.ownStandingIn', 'retention.rangeLimits', 'retention.classesToRemove']);
-    expect(SURFACE_EFFECTS.essential).toEqual({ participants: ['join', 'leave'], answers: ['submitFromDevice'] });
+    expect(SURFACE_EFFECTS.essential).toEqual({ participants: ['join', 'leave'], answers: ['submitFromDevice', 'submitForMember'] });
   });
 });
 

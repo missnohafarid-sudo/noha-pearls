@@ -81,6 +81,40 @@ describe('the view of a seat', () => {
   });
 });
 
+describe('the members a shared device stands for', () => {
+  const sharedId = 'x:d1';
+  const ownId = 'x:d2';
+  const membersNow = (view: { last: () => SeatView | null | undefined }) => view.last()?.members.map(({ id, helped, answers: shown }) => [id, helped, Object.keys(shown)]);
+
+  it('is empty for a named seat', async () => {
+    await store.put('participants', seatOf(seatId, 'g1', 's1'));
+    const view = watched<SeatView | null>((l) => viewOfDevice().watchMine('x', l));
+    await vi.waitFor(() => expect(view.last()).toBeTruthy());
+    expect(view.last()?.members).toEqual([]);
+    view.stop();
+  });
+
+  it('lists the present students of its own group, drops one marked absent, and follows a seat of her own coming, waiting and going', async () => {
+    await store.put('participants', seatOf(sharedId, 'g1', null));
+    const view = watched<SeatView | null>((l) => viewOfDevice().watchMine('x', l));
+    await vi.waitFor(() => expect(membersNow(view)).toEqual([['s1', true, ['q1']], ['s2', true, ['q1']]]));
+
+    await store.put('participants', seatOf(ownId, 'g1', 's1', false));
+    await vi.waitFor(() => expect(view.seen.length).toBeGreaterThan(1));
+    expect(membersNow(view)).toEqual([['s1', true, ['q1']], ['s2', true, ['q1']]]);
+
+    await store.put('participants', seatOf(ownId, 'g1', 's1'));
+    await vi.waitFor(() => expect(membersNow(view)).toEqual([['s1', false, []], ['s2', true, ['q1']]]));
+
+    await store.remove('participants', ownId);
+    await vi.waitFor(() => expect(membersNow(view)).toEqual([['s1', true, ['q1']], ['s2', true, ['q1']]]));
+
+    await store.put('rosters', { ...roster, present: ['s2', 's3'] });
+    await vi.waitFor(() => expect(membersNow(view)).toEqual([['s2', true, ['q1']]]));
+    view.stop();
+  });
+});
+
 describe('the lesson of a class', () => {
   it('is the lesson the session names, and follows a change of it', async () => {
     const teacher: Caller = { isAdmin: () => true, deviceId: () => 'd1' };

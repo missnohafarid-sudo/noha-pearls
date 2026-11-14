@@ -40,7 +40,7 @@ export const SURFACE_SHAPES = {
   participants: { watchParticipants: id, watchMine: id, watchNameClaims: [isClassCode], join: [isClassCode, isId, optionalFolder], leave: id },
   admission: { admit: [isId, optionalFolder], takeRoll: [isId, listOf(isId)], admitAll: id, remove: id },
   answers: {
-    watchAnswers: id, submitFromDevice: [isId, isId, isAnswerValue], submitForStudent: [isId, isId, isId, isAnswerValue, oneOf('card', 'manual')], clearForStudent: [isId, isId, isId],
+    watchAnswers: id, submitFromDevice: [isId, isId, isAnswerValue], submitForMember: [isId, isId, isId, isAnswerValue], submitForStudent: [isId, isId, isId, isAnswerValue, oneOf('card', 'manual')], clearForStudent: [isId, isId, isId],
   },
   rewards: { watchRewards: id, watchHeartCount: [isClassCode], giveAsTeacher: [isId, isSubject], takeAsTeacher: [isId, isSubject], giveAsPeer: [isId, isId] },
   records: {

@@ -29,7 +29,7 @@ export const SURFACE_EFFECTS = {
   },
   essential: {
     participants: ['join', 'leave'],
-    answers: ['submitFromDevice'],
+    answers: ['submitFromDevice', 'submitForMember'],
   },
   ordinary: {
     content: ['updateSite'],

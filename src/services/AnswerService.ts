@@ -3,6 +3,7 @@ import { deviceAnswerStep } from '../domain/answerChanges';
 import { answerId, canAnswer, takesAnswerPerStudent, normalizeAnswerValue, subjectFor } from '../domain/answering';
 import type { Answer, AnswerSource, Id, QuestionSlide, Student } from '../domain/models';
 import { studentById } from '../domain/roster';
+import { mayAnswerFor } from '../domain/sharedDevice';
 import { ANSWER_CHANGES_PER_QUESTION } from '../ports/limits';
 import type { DocumentStore, Unsubscribe } from '../ports/store';
 import type { Caller } from '../ports/caller';
@@ -42,6 +43,21 @@ export class AnswerService {
     if (!seat || !question) return false;
     const { students } = await this.rosters.rosterOf(sessionId);
     return this.record(sessionId, question, seatAnswerer(seat, students), value, 'device');
+  }
+
+  /**
+   * A shared group device gives one student of its group her own answer on an open individual choice question, as if she
+   * had answered on a device of her own (so the same change limit applies). Refused unless the device was let in and she is
+   * one of the members it answers for (`mayAnswerFor`). Returns false when not accepted.
+   */
+  async submitForMember(sessionId: Id, slideId: Id, studentId: Id, value: unknown): Promise<boolean> {
+    const seat = await this.seats.admittedSeat(sessionId);
+    const question = seat && (await this.openQuestion(sessionId, slideId, true));
+    if (!seat || !question) return false;
+    const [roster, participants] = await Promise.all([this.rosters.rosterOf(sessionId), this.store.list('participants', { sessionId })]);
+    const student = studentById(roster.students, studentId);
+    if (!student || !mayAnswerFor(seat, studentId, roster, participants)) return false;
+    return this.record(sessionId, question, { groupId: student.groupId, studentId }, value, 'device');
   }
 
   /**

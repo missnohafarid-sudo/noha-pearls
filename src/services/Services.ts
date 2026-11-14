@@ -59,7 +59,7 @@ export const UI_SURFACE = {
   sessionRoster: ['watchRoster', 'watchSeen', 'moveStudent', 'addStudent', 'renameGroup', 'markPresent', 'markAbsent'],
   participants: ['watchParticipants', 'watchMine', 'watchNameClaims', 'join', 'leave'],
   admission: ['admit', 'takeRoll', 'admitAll', 'remove'],
-  answers: ['watchAnswers', 'submitFromDevice', 'submitForStudent', 'clearForStudent'],
+  answers: ['watchAnswers', 'submitFromDevice', 'submitForMember', 'submitForStudent', 'clearForStudent'],
   rewards: ['watchRewards', 'watchHeartCount', 'giveAsTeacher', 'takeAsTeacher', 'giveAsPeer'],
   records: ['currentPeriod', 'standingsOf', 'groupStandingsOf', 'ownStandingIn', 'watchKeptCount', 'watchClassKeptCount'],
   retention: ['watchSettings', 'watchNotices', 'rangeLimits', 'setYearEnd', 'classesToRemove', 'removeClasses'],

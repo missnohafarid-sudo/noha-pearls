@@ -14,14 +14,15 @@ export function watchSessionAndLesson(store: DocumentStore, sessionId: Id): Watc
 
 /**
  * Everything one class computes from, live: its session, the lesson the session names (followed when that changes),
- * its roster, answers and hearts. Null while the session is not stored.
+ * its roster, answers, hearts and seats. Null while the session is not stored.
  */
 export function watchClassData(store: DocumentStore, sessionId: Id, listener: (data: ClassData | null) => void): Unsubscribe {
   const roster: Watch<ClassData['roster']> = (emit) => store.watch('rosters', { id: sessionId }, (docs) => emit(docs[0] ?? NO_ROSTER));
   const answers: Watch<ClassData['answers']> = (emit) => store.watch('answers', { sessionId }, emit);
   const rewards: Watch<ClassData['rewards']> = (emit) => store.watch('rewards', { sessionId }, emit);
-  return combineWatches([watchSessionAndLesson(store, sessionId), roster, answers, rewards], ([found, lesson], rosterNow, answersNow, rewardsNow) =>
-    listener(found && { session: found, lesson, roster: rosterNow, answers: answersNow, rewards: rewardsNow }),
+  const participants: Watch<ClassData['participants']> = (emit) => store.watch('participants', { sessionId }, emit);
+  return combineWatches([watchSessionAndLesson(store, sessionId), roster, answers, rewards, participants], ([found, lesson], rosterNow, answersNow, rewardsNow, participantsNow) =>
+    listener(found && { session: found, lesson, roster: rosterNow, answers: answersNow, rewards: rewardsNow, participants: participantsNow }),
   );
 }
 

@@ -43,12 +43,12 @@ describe('one read of a class for everyone who watches it', () => {
     const seen: ClassSnapshot[][] = Array.from({ length: 50 }, () => []);
     const stops = seen.map((into) => feeds.watch(live.id, (snapshot) => into.push(snapshot)));
     await vi.waitFor(() => expect(seen.every((into) => into.length > 0)).toBe(true));
-    expect(opened).toHaveLength(5);
+    expect(opened).toHaveLength(6);
     await store.put('sessions', { ...live, slideIndex: 1 });
     await vi.waitFor(() => expect(seen.every((into) => into.at(-1)?.data?.session.slideIndex === 1)).toBe(true));
     expect(new Set(seen.map((into) => into.at(-1))).size).toBe(1);
     stops.slice(1).forEach((stop) => stop());
-    expect(openNow()).toBe(5);
+    expect(openNow()).toBe(6);
     stops[0]();
     expect(openNow()).toBe(0);
   });
@@ -89,7 +89,7 @@ describe('one read of a class for everyone who watches it', () => {
     const gaveUp = await counted();
     const told: unknown[] = [];
     gaveUp.feeds.watch(live.id, () => undefined, (error) => told.push(error));
-    await vi.waitFor(() => expect(gaveUp.openNow()).toBe(5));
+    await vi.waitFor(() => expect(gaveUp.openNow()).toBe(6));
     gaveUp.dropOne(new Error('the store dropped one read'));
     expect(told).toHaveLength(1);
     expect(gaveUp.openNow()).toBe(0);

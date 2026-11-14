@@ -223,7 +223,12 @@ export function answerStatusByGroup(
  * individual choice questions only, since on a group question each of them would overwrite the group's single answer.
  */
 export function takesAnswerPerStudent(session: Session, slide: Slide): slide is ChoiceSlide {
-  return canAnswer(session, slide) && slide.kind === 'choice' && slide.scope === 'individual';
+  return canAnswer(session, slide) && isPerStudentChoice(slide);
+}
+
+/** Whether the question is an individual choice one, open or not: the only kind whose answers are given one student at a time. */
+export function isPerStudentChoice(slide: Slide): slide is ChoiceSlide {
+  return slide.kind === 'choice' && slide.scope === 'individual';
 }
 
 /** Entering an answer by hand steps through: none, first option, …, last option, none. */

@@ -264,6 +264,78 @@ describe('a live class', () => {
     expect(stored.map((a) => [a.subject.kind, a.subject.id, a.value]).sort()).toEqual([['group', 'g1', 0], ['student', 's1', 1]]);
   });
 
+  describe('a shared device answering for one student of its group', () => {
+    const written: TextSlide = { ...groupQuestion, id: 'q3', scope: 'individual' };
+    const groupChoice: ChoiceSlide = { ...question, id: 'q4', scope: 'group' };
+    const answersOf = async (sessionId: string) =>
+      (await ctx.store.list('answers', { sessionId })).map((a) => [a.subject.kind, a.subject.id, a.value, a.source]).sort();
+
+    it("records the student's own answer, and the group answer still covers the members who were not given one", async () => {
+      const session = await begin();
+      const shared = await seated(session.id, 'g1', null);
+      expect(await shared.answers.submitForMember(session.id, 'q1', 's1', 1)).toBe(true);
+      expect(await shared.answers.submitFromDevice(session.id, 'q1', 0)).toBe(true);
+      expect(await answersOf(session.id)).toEqual([['group', 'g1', 0, 'device'], ['student', 's1', 1, 'device']]);
+      const roster = (await ctx.store.get('rosters', session.id))!;
+      const answers = await ctx.store.list('answers', { sessionId: session.id });
+      expect(effectiveAnswer(roster, answers, question, 's1')).toMatchObject({ from: 'own', answer: { value: 1 } });
+      expect(effectiveAnswer(roster, answers, question, 's3')).toMatchObject({ from: 'group', answer: { value: 0 } });
+    });
+
+    it('is replaced by her own later answer on her own device', async () => {
+      const session = await begin();
+      const shared = await seated(session.id, 'g1', null);
+      await shared.answers.submitForMember(session.id, 'q1', 's1', 1);
+      const own = await seated(session.id, 'g1', 's1');
+      expect(await own.answers.submitFromDevice(session.id, 'q1', 0)).toBe(true);
+      expect(await answersOf(session.id)).toEqual([['student', 's1', 0, 'device']]);
+    });
+
+    it('is refused from a named seat, for another group, for an absent student and for a student with a device of her own', async () => {
+      const session = await begin();
+      const shared = await seated(session.id, 'g1', null);
+      const named = await seated(session.id, 'g1', 's3');
+      expect(await named.answers.submitForMember(session.id, 'q1', 's1', 1)).toBe(false);
+      expect(await shared.answers.submitForMember(session.id, 'q1', 's2', 1)).toBe(false);
+      expect(await shared.answers.submitForMember(session.id, 'q1', 's3', 1)).toBe(false);
+      await ctx.sessionRoster.markAbsent(session.id, 's1');
+      expect(await shared.answers.submitForMember(session.id, 'q1', 's1', 1)).toBe(false);
+      expect(await shared.answers.submitForMember(session.id, 'q1', 'nobody', 1)).toBe(false);
+      expect(await answersOf(session.id)).toEqual([]);
+    });
+
+    it('helps a student again once her own device is taken out', async () => {
+      const session = await begin();
+      const shared = await seated(session.id, 'g1', null);
+      await seated(session.id, 'g1', 's3');
+      expect(await shared.answers.submitForMember(session.id, 'q1', 's3', 1)).toBe(false);
+      const seat = (await ctx.store.list('participants', { sessionId: session.id })).find((p) => p.studentId === 's3')!;
+      await ctx.admission.remove(seat.id);
+      expect(await shared.answers.submitForMember(session.id, 'q1', 's3', 1)).toBe(true);
+    });
+
+    it('is refused on a group question, on a written question and after the reveal', async () => {
+      await ctx.store.put('lessons', { ...lesson, slides: [question, groupQuestion, written, groupChoice] });
+      const session = await begin();
+      const shared = await seated(session.id, 'g1', null);
+      expect(await shared.answers.submitForMember(session.id, 'q4', 's1', 1)).toBe(false);
+      expect(await shared.answers.submitForMember(session.id, 'q3', 's1', 'نص')).toBe(false);
+      expect(await shared.answers.submitForMember(session.id, 'q2', 's1', 'نص')).toBe(false);
+      expect(await shared.answers.submitForMember(session.id, 'q1', 's1', 7)).toBe(false);
+      await ctx.sessions.reveal(session.id, 'q1');
+      expect(await shared.answers.submitForMember(session.id, 'q1', 's1', 1)).toBe(false);
+      expect(await answersOf(session.id)).toEqual([]);
+    });
+
+    it('is refused from a device that was not let in, and from the teacher', async () => {
+      const session = await begin();
+      const waiting = ctx.device('waiting');
+      await waiting.participants.join(session.code, 'g1', null);
+      expect(await waiting.answers.submitForMember(session.id, 'q1', 's1', 1)).toBe(false);
+      expect(await ctx.answers.submitForMember(session.id, 'q1', 's1', 1)).toBe(false);
+    });
+  });
+
   it('applies overlapping commands to the stored session without losing one', async () => {
     const { sessions, store } = ctx;
     const session = await begin();

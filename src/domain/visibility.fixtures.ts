@@ -52,5 +52,5 @@ export const reveal1 = { q1: { correctIndex: 1, explanation: 'because' } };
 export const reveal2 = { ...reveal1, q2: { correctIndex: null, explanation: '' } };
 
 export function classData(over: Partial<ClassData> = {}): ClassData {
-  return { session: live, lesson, roster, answers, rewards: hearts, ...over };
+  return { session: live, lesson, roster, answers, rewards: hearts, participants: [], ...over };
 }

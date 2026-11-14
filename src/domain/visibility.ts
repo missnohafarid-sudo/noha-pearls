@@ -7,6 +7,7 @@ import type { Answer, ClassRoster, Group, Id, Lesson, LessonFolder, LessonSummar
 import { messageFor } from './pacing';
 import { resultsReport, type ResultsReport } from './resultRows';
 import { peerRewardTargets } from './rewards';
+import { memberViews, type MemberView } from './sharedDevice';
 import { groupById, studentByCard, studentById } from './roster';
 import { pearlsEarned, publishedKeys, questionSlides, scoreboard, type GroupScore } from './scoring';
 import { liveSessions } from './sessions';
@@ -120,6 +121,8 @@ export interface ClassData {
   roster: SessionRoster;
   answers: Answer[];
   rewards: Reward[];
+  /** Only for computing what a let-in shared device shows (`seatView`): no reader is ever sent it. */
+  participants: Participant[];
 }
 
 export interface BoardTotal extends GroupScore {
@@ -177,11 +180,17 @@ export interface SeatView {
   own: { report: StudentReport | null; hearts: RewardTally } | null;
   /** The students she may give a heart to; none once the class has ended. */
   classmates: Classmate[];
+  /**
+   * A shared device only: the present students of its group it answers for, with the answer that counts for each on the
+   * individual choice questions. This is the one deliberate widening: it sees the answers of the students it answers for,
+   * and none of a student who answers on a device of her own. Empty for a named seat.
+   */
+  members: MemberView[];
 }
 
 /** The seat's group is read from the same roster as everything else in the view, so one emission never mixes two groupings. */
 export function seatView(held: Participant, data: ClassData): SeatView {
-  const { session, lesson, roster, answers, rewards } = data;
+  const { session, lesson, roster, answers, rewards, participants } = data;
   const seat = seatAnswerer(held, roster.students);
   const index = new RewardIndex(rewards);
   const group = boardTotals(data).find((total) => total.groupId === seat.groupId);
@@ -196,5 +205,6 @@ export function seatView(held: Participant, data: ClassData): SeatView {
     answers: Object.fromEntries(shown),
     own: student && { report: reportOf(data, student), hearts: index.of({ kind: 'student', id: student.id }) },
     classmates: peerRewardTargets(session, seat, roster.students).map(({ id, name }) => ({ id, name, hearts: index.of({ kind: 'student', id }).total })),
+    members: memberViews(held, roster, participants, answers, lesson ? questionSlides(lesson) : []),
   };
 }

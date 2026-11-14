@@ -10,11 +10,11 @@ let store: LocalDocumentStore;
 const caller: Caller = { isAdmin: () => false, deviceId: () => 'd1' };
 const services = () => createDataServices(store, caller);
 
-const intro: ContentSlide = { id: 'c1', kind: 'content', title: 'Intro', tag: '', body: 'INTRO-BODY', images: ['https://pic.example/INTRO-PICTURE.png'], hidden: 'HIDDEN-TEXT' };
+const intro: ContentSlide = { id: 'c1', kind: 'content', title: 'Intro', tag: '', badges: [], body: 'INTRO-BODY', images: ['https://pic.example/INTRO-PICTURE.png'], hidden: 'HIDDEN-TEXT' };
 const pick: ChoiceSlide = {
-  id: 'q1', kind: 'choice', title: 'Pick', tag: '', prompt: 'PROMPT-PICK', options: ['OPTION-A', 'OPTION-B', 'OPTION-C'], correctIndex: 1, explanation: 'EXPLANATION', scope: 'individual', points: 2,
+  id: 'q1', kind: 'choice', title: 'Pick', tag: '', badges: [], prompt: 'PROMPT-PICK', options: ['OPTION-A', 'OPTION-B', 'OPTION-C'], correctIndex: 1, explanation: 'EXPLANATION', scope: 'individual', points: 2,
 };
-const write: TextSlide = { id: 'q2', kind: 'text', title: 'Write', tag: '', prompt: 'PROMPT-WRITE', placeholder: 'PLACEHOLDER', images: ['https://pic.example/WRITE-PICTURE.png'], scope: 'individual', points: 1 };
+const write: TextSlide = { id: 'q2', kind: 'text', title: 'Write', tag: '', badges: [], prompt: 'PROMPT-WRITE', placeholder: 'PLACEHOLDER', images: ['https://pic.example/WRITE-PICTURE.png'], scope: 'individual', points: 1 };
 const lesson: Lesson = { id: 'l1', folderId: null, title: 'Lesson', subject: 'Maths', grade: '7', published: true, slides: [intro, pick, write], updatedAt: 5 };
 const revealed: Session = { ...live, reveals: { q1: { correctIndex: 1, explanation: 'EXPLANATION' } } };
 const stored: Answer[] = [

@@ -1,3 +1,4 @@
+import { storedBadges } from './badges';
 import { newId } from './ids';
 import type { Id, Lesson, Slide, SlideKind } from './models';
 import { slideKindSpec } from './slideKinds';
@@ -35,10 +36,11 @@ export function duplicateSlide(lesson: Lesson, slideId: Id): Lesson {
   return { ...lesson, slides: [...lesson.slides.slice(0, at + 1), copy, ...lesson.slides.slice(at + 1)] };
 }
 
-/** Repairs fields that an edit left inconsistent (see each kind's `normalize`). */
+/** Repairs fields that an edit left inconsistent (see each kind's `normalize`) and the badges slides stored before them lack. */
 export function normalizeSlide(slide: Slide): Slide {
   const spec = slideKindSpec(slide.kind);
-  return spec.normalize ? spec.normalize(slide) : slide;
+  const repaired = { ...slide, badges: storedBadges(slide.badges) };
+  return spec.normalize ? spec.normalize(repaired) : repaired;
 }
 
 /** Whether the slide cannot show what it should (see each kind's `hasProblem`). */

@@ -12,6 +12,7 @@ import { exportLesson, importLesson, lessonFileText } from './lessonFormat';
 import { addSlide, createLesson, duplicateSlide, indexAfterRemoval, moveSlide, normalizeSlide, removeSlide, slideHasProblem, updateSlide } from './lessonOps';
 import { picturesOf, storedPictures } from './slideFields';
 import { isHttpsUrl, MEDIA_CHOICES, MEDIA_TYPES, mediaLink, mediaView, pictureSources, picturesHaveProblem, steppedZoom } from './media';
+import type { SlideBadge } from './lessonModels';
 import type { Answer, AttendedRoster, ClassRecord, ClassRoster, Reward, ChoiceSlide, Group, Lesson, MediaSlide, Participant, SchoolClass, Session, Student, SubjectRef, Teacher, TextSlide } from './models';
 import { resolveStudentView } from './pacing';
 import { addStudentToRoster, cardLabel, createGroup, createSchoolClass, groupById, isCardNumberFree, isOnRoster, moveStudent, nextCardNumber, renameGroupIn, rosterOf, schoolClassForPage, studentByCard, studentById } from './roster';
@@ -28,11 +29,11 @@ import { nextOrder, onlyOne, sortByOrder } from './lists';
 import { optionMark, pearlsEarned, PEARL_COUNT, pointsFor, publishedKeys, rankScores, scoreboard, studentPoints, teacherKeys, verdictFor } from './scoring';
 
 const choice: ChoiceSlide = {
-  id: 'q1', kind: 'choice', title: 'س', tag: '', prompt: '؟', options: ['a', 'b', 'c'],
+  id: 'q1', kind: 'choice', title: 'س', tag: '', badges: [], prompt: '؟', options: ['a', 'b', 'c'],
   correctIndex: 1, explanation: 'لأن', scope: 'individual', points: 2,
 };
 const groupText: TextSlide = {
-  id: 'q2', kind: 'text', title: 'ن', tag: '', prompt: '؟', placeholder: '', images: [], scope: 'group', points: 3,
+  id: 'q2', kind: 'text', title: 'ن', tag: '', badges: [], prompt: '؟', placeholder: '', images: [], scope: 'group', points: 3,
 };
 const lesson: Lesson = {
   id: 'l1', folderId: null, title: 'درس', subject: '', grade: '', published: true, slides: [choice, groupText], updatedAt: 0,
@@ -195,7 +196,7 @@ describe('lesson file', () => {
 });
 
 describe('lesson file: media slides', () => {
-  const mediaSlide: MediaSlide = { id: 'm1', kind: 'media', title: 'صورة', tag: 'الشرح', url: 'https://example.org/a.png', media: 'image', body: '- نقطة\nنص' };
+  const mediaSlide: MediaSlide = { id: 'm1', kind: 'media', title: 'صورة', tag: 'الشرح', badges: [], url: 'https://example.org/a.png', media: 'image', body: '- نقطة\nنص' };
   const fileWith = (slide: object) => JSON.stringify({ format: 'spectrum-lesson', version: 1, title: 'د', slides: [slide] });
   const issues = (slide: object) => {
     const result = importLesson(fileWith(slide));
@@ -253,7 +254,7 @@ describe('pictures on content slides and written questions', () => {
 
   it('survives an export/import round trip on both kinds', () => {
     const slides: Lesson['slides'] = [
-      { id: 'c', kind: 'content', title: 'ش', tag: '', body: 'نص', images: [PHOTO_A, PHOTO_B], hidden: '' },
+      { id: 'c', kind: 'content', title: 'ش', tag: '', badges: [], body: 'نص', images: [PHOTO_A, PHOTO_B], hidden: '' },
       { ...groupText, images: [PHOTO_A] },
     ];
     const result = importLesson(exportLesson({ ...lesson, slides }));
@@ -295,6 +296,48 @@ describe('pictures on content slides and written questions', () => {
   });
 });
 
+describe('badges in lesson files and stored slides', () => {
+  const badges: SlideBadge[] = [{ text: 'الهدف الأول', color: 'gold' }, { text: 'تمهيد', color: 'black' }];
+  const fileWith = (slide: object) => JSON.stringify({ format: 'spectrum-lesson', version: 1, title: 'د', slides: [slide] });
+  const imported = (slide: object) => {
+    const result = importLesson(fileWith(slide));
+    return result.ok ? result.lesson.slides[0] : result.issues;
+  };
+  const strip = ({ id: _id, ...rest }: Lesson['slides'][number]) => rest;
+  const oneOfEach: Lesson['slides'] = [
+    { id: 'c', kind: 'content', title: 'ش', tag: 'وسم', badges, body: '', images: [], hidden: '' },
+    { ...choice, badges },
+    { ...groupText, badges },
+    { id: 'm', kind: 'media', title: 'و', tag: '', badges, url: '', media: 'auto', body: '' },
+  ];
+
+  it('survive an export/import round trip on all four kinds', () => {
+    const result = importLesson(exportLesson({ ...lesson, slides: oneOfEach }));
+    expect(result.ok && result.lesson.slides.map(strip)).toEqual(oneOfEach.map(strip));
+  });
+
+  it('are written after the tag and before the kind\'s own fields', () => {
+    const written = JSON.parse(exportLesson({ ...lesson, slides: oneOfEach })).slides[0];
+    expect(Object.keys(written).slice(0, 4)).toEqual(['kind', 'title', 'tag', 'badges']);
+  });
+
+  it('mean none when a file leaves them out', () => {
+    for (const slide of [{ kind: 'content', title: 'ش' }, { kind: 'text', title: 'ك', prompt: '؟' }]) expect(imported(slide)).toMatchObject({ badges: [] });
+  });
+
+  it('are reported with the slide number when the file gets them wrong', () => {
+    expect(imported({ kind: 'content', title: 'ش', badges: 'x' })).toEqual([{ code: 'bad-badges', slide: 1, field: 'badges' }]);
+    expect(imported({ kind: 'content', title: 'ش', badges: [{ text: 'a', color: 'teal' }] })).toEqual([{ code: 'bad-badges', slide: 1, field: 'badges' }]);
+  });
+
+  it('are given to every kind when stored data predates them', () => {
+    for (const slide of oneOfEach) {
+      const old = { ...slide, badges: undefined } as unknown as Lesson['slides'][number];
+      expect(normalizeSlide(old)).toMatchObject({ badges: [] });
+    }
+  });
+});
+
 describe('the hidden section of a content slide', () => {
   const fileWith = (slide: object) => JSON.stringify({ format: 'spectrum-lesson', version: 1, title: 'د', slides: [slide] });
   const imported = (slide: object) => {
@@ -304,7 +347,7 @@ describe('the hidden section of a content slide', () => {
   const content = { kind: 'content', title: 'ش', body: 'نص' };
 
   it('survives an export/import round trip, written as plain text', () => {
-    const slide: Lesson['slides'][number] = { id: 'c', kind: 'content', title: 'ش', tag: '', body: 'نص', images: [], hidden: '- أ\nب' };
+    const slide: Lesson['slides'][number] = { id: 'c', kind: 'content', title: 'ش', tag: '', badges: [], body: 'نص', images: [], hidden: '- أ\nب' };
     const result = importLesson(exportLesson({ ...lesson, slides: [slide] }));
     expect(result.ok && result.lesson.slides[0]).toMatchObject({ hidden: '- أ\nب' });
     expect(JSON.parse(exportLesson({ ...lesson, slides: [slide] })).slides[0].hidden).toBe('- أ\nب');
@@ -342,7 +385,7 @@ describe('reading picture links', () => {
 });
 
 describe('which slides have a problem', () => {
-  const media = (url: string, type: MediaSlide['media'] = 'auto'): MediaSlide => ({ id: 'm', kind: 'media', title: '', tag: '', url, media: type, body: '' });
+  const media = (url: string, type: MediaSlide['media'] = 'auto'): MediaSlide => ({ id: 'm', kind: 'media', title: '', tag: '', badges: [], url, media: type, body: '' });
 
   it('flags a media slide that cannot be drawn and no other', () => {
     expect(slideHasProblem(media(''))).toBe(true);

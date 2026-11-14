@@ -10,6 +10,10 @@ export const slides = {
   field: {
     title: 'العنوان',
     tag: 'الوسم (مرحلة الدرس)',
+    badges: 'شارات إضافية (اختياري)',
+    badgesHint: 'شارة صغيرة ملوّنة تظهر بجانب الوسم، مثل «الهدف الأول».',
+    badgeText: (number: number) => `نص الشارة ${number}`,
+    badgeColor: (number: number) => `لون الشارة ${number}`,
     body: 'النص',
     bodyHint: 'ابدئي السطر بشرطة (-) ليظهر كنقطة.',
     images: 'روابط الصور (اختياري)',

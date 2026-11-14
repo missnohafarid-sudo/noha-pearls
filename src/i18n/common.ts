@@ -1,3 +1,5 @@
+import type { PearlShade } from '../domain/pearlShades';
+
 const ofTotal = (part: number, total: number) => `${part} من ${total}`;
 
 /** Words shared by more than one page. Page-specific text lives in that page's own file. */
@@ -9,6 +11,15 @@ export const common = {
   close: 'إغلاق',
   remove: 'حذف',
   add: 'إضافة',
+  pearlShade: {
+    white: 'أبيض لؤلؤي',
+    cream: 'كريمي',
+    pink: 'وردي',
+    gold: 'ذهبي',
+    purple: 'بنفسجي',
+    brown: 'برونزي',
+    black: 'أسود',
+  } satisfies Record<PearlShade, string>,
   confirm: 'تأكيد',
   copied: 'تم النسخ',
   previous: 'السابق',

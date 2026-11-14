@@ -5,6 +5,7 @@ import { choiceLetter, t } from '../../i18n';
 import { MAX_POINTS, MIN_POINTS } from '../../domain/slideKinds';
 import { MAX_PICTURES, MEDIA_CHOICES } from '../../domain/media';
 import type { FieldSpec, SelectOption } from '../forms/SchemaForm';
+import { BadgesField } from './BadgesField';
 import { BodyText } from './BodyText';
 import { ChoiceBody } from './ChoiceBody';
 import { HiddenSection } from './HiddenSection';
@@ -67,6 +68,7 @@ function ContentBody({ slide }: SlideBodyProps<ContentSlide>) {
 const COMMON_FIELDS = [
   { kind: 'text', key: 'title', label: f.title },
   { kind: 'text', key: 'tag', label: f.tag },
+  { kind: 'custom', key: 'badges', label: f.badges, hint: f.badgesHint, render: (slide: Slide, onChange: (value: unknown) => void) => <BadgesField badges={slide.badges} onChange={onChange} /> },
 ] as const;
 
 const PICTURES_FIELD = {

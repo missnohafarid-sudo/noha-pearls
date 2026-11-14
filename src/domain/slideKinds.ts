@@ -1,3 +1,4 @@
+import { badgesOf, keptBadges } from './badges';
 import { MAX_CHOICES, MIN_CHOICES } from './choices';
 import { isHttpsUrl, isMediaChoice, isMediaProblem, mediaView, picturesHaveProblem } from './media';
 import type { AnswerScope, ChoiceSlide, ContentSlide, Id, MediaSlide, Slide, SlideKind, TextSlide } from './models';
@@ -39,21 +40,22 @@ function pointsOf(raw: RawSlide, report: IssueReporter): number {
 
 /** The fields every slide shares: blank, read from a file, and written to one (kind, then title, then tag). */
 function blankShared<K extends SlideKind>(id: Id, kind: K) {
-  return { id, kind, title: '', tag: '' };
+  return { id, kind, title: '', tag: '', badges: [] };
 }
 
 function sharedFromFile<K extends SlideKind>(raw: RawSlide, id: Id, kind: K, report: IssueReporter) {
-  return { id, kind, title: requiredText(raw, 'title', report), tag: text(raw, 'tag') };
+  return { id, kind, title: requiredText(raw, 'title', report), tag: text(raw, 'tag'), badges: badgesOf(raw, report) };
 }
 
-function sharedToFile({ kind, title, tag }: Slide): RawSlide {
-  return { kind, title, tag };
+function sharedToFile({ kind, title, tag, badges }: Slide): RawSlide {
+  return { kind, title, tag, badges: keptBadges(badges) };
 }
 
 const COMMON_FIELDS: readonly FileField[] = [
   { name: 'kind', required: true },
   { name: 'title', required: true },
   { name: 'tag', required: false },
+  { name: 'badges', required: false },
 ];
 
 const QUESTION_FIELDS: readonly FileField[] = [

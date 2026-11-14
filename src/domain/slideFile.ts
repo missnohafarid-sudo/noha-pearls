@@ -18,7 +18,8 @@ export type IssueCode =
   | 'bad-points'
   | 'bad-url'
   | 'bad-media'
-  | 'bad-images';
+  | 'bad-images'
+  | 'bad-badges';
 
 export type IssueReporter = (code: IssueCode, field: string | null) => void;
 
@@ -27,6 +28,7 @@ export type FileFieldName =
   | 'kind'
   | 'title'
   | 'tag'
+  | 'badges'
   | 'body'
   | 'images'
   | 'hidden'

@@ -1,0 +1,47 @@
+/* A badge is drawn in its pearl's own colour; light pearls take dark text and dark pearls light text. */
+.slide-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 12px;
+  border-radius: var(--radius-pill);
+  font-size: clamp(0.85rem, 1.8cqi, 1.4rem);
+  font-weight: var(--weight-label);
+  background: var(--badge-pearl);
+  color: var(--badge-ink);
+}
+
+.slide-badge--white {
+  --badge-pearl: var(--pearl-1);
+  --badge-ink: var(--pearl-ink);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pearl-ink) 18%, transparent);
+}
+
+.slide-badge--cream {
+  --badge-pearl: var(--pearl-2);
+  --badge-ink: var(--pearl-ink);
+}
+
+.slide-badge--pink {
+  --badge-pearl: var(--pearl-3);
+  --badge-ink: var(--pearl-ink);
+}
+
+.slide-badge--gold {
+  --badge-pearl: var(--pearl-4);
+  --badge-ink: var(--pearl-ink);
+}
+
+.slide-badge--purple {
+  --badge-pearl: var(--pearl-5);
+  --badge-ink: var(--pearl-ink);
+}
+
+.slide-badge--brown {
+  --badge-pearl: var(--pearl-6);
+  --badge-ink: var(--pearl-shine);
+}
+
+.slide-badge--black {
+  --badge-pearl: var(--pearl-7);
+  --badge-ink: var(--pearl-shine);
+}

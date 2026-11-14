@@ -1,4 +1,5 @@
 import type { Id } from './models';
+import type { PearlShade } from './pearlShades';
 
 /** Lessons, their slides and the folders they sit in. Pure data, like `models.ts`, which re-exports all of it. */
 
@@ -7,11 +8,19 @@ export type SlideKind = 'content' | 'choice' | 'text' | 'media';
 /** Who answers a question: every student, or one answer per group. */
 export type AnswerScope = 'individual' | 'group';
 
+/** A small coloured label shown beside a slide's tag. */
+export interface SlideBadge {
+  text: string;
+  color: PearlShade;
+}
+
 interface SlideBase {
   id: Id;
   title: string;
   /** Short label shown above the title, e.g. the lesson phase. */
   tag: string;
+  /** Extra coloured badges drawn after the tag. */
+  badges: SlideBadge[];
 }
 
 export interface ContentSlide extends SlideBase {

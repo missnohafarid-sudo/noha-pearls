@@ -46,6 +46,8 @@
   --pearl-5: #9d82b8;
   --pearl-6: #6e4631;
   --pearl-7: #2f5a5c;
+  /* Text on a light pearl; a dark pearl takes --pearl-shine. Neither follows the page's look. */
+  --pearl-ink: #3a1626;
 
   /* Printing and camera reading need true black on white, whatever the theme. */
   --paper: #ffffff;

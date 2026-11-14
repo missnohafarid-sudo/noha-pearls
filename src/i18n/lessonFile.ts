@@ -1,7 +1,9 @@
 import { MAX_CHOICES, MIN_CHOICES } from '../domain/choices';
+import { MAX_BADGES } from '../domain/badges';
 import { MEDIA_CHOICES } from '../domain/media';
 import { LESSON_FORMAT, LESSON_FORMAT_VERSION, type ImportIssue } from '../domain/lessonFormat';
 import type { IssueCode } from '../domain/slideFile';
+import { PEARL_SHADES } from '../domain/pearlShades';
 import { MAX_POINTS, MIN_POINTS, SLIDE_KIND_NAMES } from '../domain/slideKinds';
 
 /**
@@ -22,6 +24,7 @@ const ISSUE_TEXT: Record<IssueCode, string> = {
   'bad-json': 'تعذّرت قراءة ملف الدرس لأن صياغة JSON فيه معطوبة، وأكثر أسباب ذلك علامة تنصيص مزدوجة مستقيمة (") داخل أحد النصوص. اطلبي من المساعد إعادة كتابة الملف كاملاً بصيغة JSON صحيحة، مع استعمال « » للاقتباس داخل النصوص.',
   'bad-url': 'الرابط يجب أن يكون عنواناً كاملاً يبدأ بـ https://',
   'bad-images': 'الحقل "images" يجب أن يكون قائمة روابط، كل رابط بين علامتي تنصيص',
+  'bad-badges': `الحقل "badges" يجب أن يكون قائمة فيها ${MAX_BADGES} شارات على الأكثر، كل شارة على صورة {"text": "نص", "color": "اللون"}، واللون واحد من: ${PEARL_SHADES.map((shade) => `"${shade}"`).join('، ')}`,
   'bad-media': `الحقل "media" يجب أن يكون أحد: ${MEDIA_CHOICES.map((choice) => `"${choice}"`).join('، ')}`,
   'bad-correct': 'رقم الإجابة الصحيحة يجب أن يكون رقم أحد الخيارات (ابتداءً من 1) أو null',
 };

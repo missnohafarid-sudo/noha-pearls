@@ -1,6 +1,7 @@
 import { MAX_CHOICES, MIN_CHOICES } from '../domain/choices';
 import { LESSON_FORMAT, LESSON_FORMAT_VERSION } from '../domain/lessonFormat';
 import { MEDIA_CHOICES } from '../domain/media';
+import { PEARL_SHADES } from '../domain/pearlShades';
 import type { FileFieldName } from '../domain/slideFile';
 import { MAX_POINTS, MIN_POINTS, SLIDE_KIND_NAMES, slideKindSpec } from '../domain/slideKinds';
 import sampleLesson from '../domain/sampleLesson.json';
@@ -10,6 +11,7 @@ const FIELD_HELP: Record<FileFieldName, string> = {
   kind: 'نوع الشريحة',
   title: 'عنوان قصير للشريحة',
   tag: 'اسم المرحلة كما ورد تماماً في ترتيب الشرائح (مثل: الهدف، الشرح، الغلق)',
+  badges: `شارات صغيرة ملوّنة تظهر بجانب الوسم: قائمة عناصرها على صورة {"text": "نص الشارة", "color": "اللون"}، واللون واحد من: ${PEARL_SHADES.map((shade) => `"${shade}"`).join('، ')}. أو قائمة فارغة []`,
   body: 'نص الشرح. كل سطر يبدأ بـ "- " يظهر كنقطة. افصل الأسطر بـ \\n',
   images: 'قائمة روابط صور عامة تبدأ بـ https وضعتها المعلّمة بنفسها، أو قائمة فارغة []. لا تخترع رابط صورة أبداً، واسأل المعلّمة عن روابط صورها',
   hidden: 'معلومة اختيارية بتنسيق body نفسه، يفتحها زر داخل الشريحة (مثل تلميح أو معلومة إضافية). اتركها "" ما لم تطلب المعلّمة ذلك',

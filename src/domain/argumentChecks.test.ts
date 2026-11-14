@@ -74,6 +74,11 @@ describe('the shapes of whole objects', () => {
     expect(isLesson('lesson')).toBe(false);
   });
 
+  it('accept a lesson whose slides carry badges', () => {
+    const badges = [{ text: 'الهدف الأول', color: 'gold' }, { text: '', color: 'purple' }];
+    expect(isLesson({ ...lesson, slides: [{ ...lesson.slides[0], badges }] })).toBe(true);
+  });
+
   it('accept the blank slide the editor adds, of every kind', () => {
     for (const kind of SLIDE_KIND_NAMES) expect(isLesson(addSlide(createLesson('x', null), kind, -1).lesson), kind).toBe(true);
   });

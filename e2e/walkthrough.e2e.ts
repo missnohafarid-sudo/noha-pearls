@@ -26,6 +26,7 @@ import { scoringSteps } from './steps/scoring';
 import { scopeBadgeSteps } from './steps/scopeBadge';
 import { shellSteps } from './steps/shell';
 import { signInSteps } from './steps/signIn';
+import { slideBadgesSteps } from './steps/slideBadges';
 import { slideCopySteps } from './steps/slideCopy';
 import { slidePicturesSteps } from './steps/slidePictures';
 import { standingsSteps } from './steps/standings';
@@ -61,6 +62,7 @@ describe('walkthrough', () => {
   slideCopySteps(world);
   slidePicturesSteps(world);
   hiddenSectionSteps(world);
+  slideBadgesSteps(world);
   foldersSteps(world);
   mediaSlidesSteps(world);
   liveClassSteps(world);

@@ -26,11 +26,11 @@ import { TeacherError, TeacherService } from './TeacherService';
 import { participantsFor, recordsFor, rewardsFor, rostersFor } from './serviceKit';
 
 const question: ChoiceSlide = {
-  id: 'q1', kind: 'choice', title: 'س', tag: '', prompt: '؟', options: ['a', 'b'],
+  id: 'q1', kind: 'choice', title: 'س', tag: '', badges: [], prompt: '؟', options: ['a', 'b'],
   correctIndex: 0, explanation: 'شرح', scope: 'individual', points: 1,
 };
 const groupQuestion: TextSlide = {
-  id: 'q2', kind: 'text', title: 'ن', tag: '', prompt: '؟', placeholder: '', images: [], scope: 'group', points: 1,
+  id: 'q2', kind: 'text', title: 'ن', tag: '', badges: [], prompt: '؟', placeholder: '', images: [], scope: 'group', points: 1,
 };
 const lesson: Lesson = {
   id: 'l1', folderId: null, title: 'درس', subject: '', grade: '', published: true, slides: [question, groupQuestion], updatedAt: 0,
@@ -748,7 +748,7 @@ describe('a live class', () => {
 
   it('lists lessons as summaries, newest first, with their slide and question counts', async () => {
     const { lessons, store } = ctx;
-    await store.put('lessons', { ...lesson, id: 'l2', title: 'أحدث', updatedAt: 5, slides: [question, { ...question, id: 'q9' }, { id: 'c1', kind: 'content', title: 'م', tag: '', body: '', images: [], hidden: '' }] });
+    await store.put('lessons', { ...lesson, id: 'l2', title: 'أحدث', updatedAt: 5, slides: [question, { ...question, id: 'q9' }, { id: 'c1', kind: 'content', title: 'م', tag: '', badges: [], body: '', images: [], hidden: '' }] });
     let seen: unknown[] = [];
     const stop = lessons.watchLessons((list) => (seen = list));
     await vi.waitFor(() => expect(seen).toHaveLength(2));

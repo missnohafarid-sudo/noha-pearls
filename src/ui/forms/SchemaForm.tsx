@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { t } from '../../i18n';
 import { Checkbox } from './Checkbox';
 import { Select } from './Select';
@@ -23,6 +23,8 @@ export type FieldSpec<T> =
   | (FieldBase<T> & { kind: 'text'; ltr?: true })
   | (FieldBase<T> & { kind: 'number'; min?: number; max?: number })
   | (FieldBase<T> & { kind: 'select'; options: (value: T) => SelectOption[] })
+  /** A field whose editor is its own component: it draws itself from the record and reports its new value. */
+  | (FieldBase<T> & { kind: 'custom'; render: (record: T, onChange: (value: unknown) => void) => ReactNode })
   | (FieldBase<T> & { kind: 'list'; min: number; max: number; itemLabel: (index: number) => string;
       /** As for `text`: the items are addresses. */
       ltr?: true;
@@ -141,6 +143,13 @@ function Field<T extends object>({ field, record, onChange, onReplace }: FieldPr
         </label>
       );
     }
+    case 'custom':
+      return (
+        <div className="field">
+          {field.render(record, onChange)}
+          {hint}
+        </div>
+      );
     case 'list': {
       const items = Array.isArray(value) ? (value as string[]) : [];
       return (

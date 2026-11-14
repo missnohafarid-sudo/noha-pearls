@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { keptBadges } from '../../domain/badges';
 import { isQuestion } from '../../domain/answering';
 import type { AnswerKey, Slide } from '../../domain/models';
 import { normalizeSlide } from '../../domain/lessonOps';
@@ -6,6 +7,7 @@ import { t } from '../../i18n';
 import { DirectedText } from './DirectedText';
 import { ScopeBadge } from './ScopeBadge';
 import { slideUi } from './slideUi';
+import './badges.css';
 import './slides.css';
 
 interface SlideViewProps {
@@ -30,13 +32,17 @@ interface SlideViewProps {
 export function SlideView({ slide, answer = null, groupAnswer = null, onAnswer = null, reveal = null, tally = null, underOption = null, children }: SlideViewProps) {
   const { Body } = slideUi(slide.kind);
   const repaired = normalizeSlide(slide);
+  const badges = keptBadges(repaired.badges);
   return (
     <article className="slide">
       <header className="slide__head">
-        {(slide.tag || isQuestion(slide)) && (
+        {(repaired.tag || badges.length > 0 || isQuestion(repaired)) && (
           <div className="slide__labels">
-            {slide.tag && <span className="chip"><DirectedText text={slide.tag} /></span>}
-            {isQuestion(slide) && <ScopeBadge scope={slide.scope} />}
+            {repaired.tag && <span className="chip"><DirectedText text={repaired.tag} /></span>}
+            {badges.map((badge, index) => (
+              <span key={index} className={`slide-badge slide-badge--${badge.color}`}><DirectedText text={badge.text} /></span>
+            ))}
+            {isQuestion(repaired) && <ScopeBadge scope={repaired.scope} />}
           </div>
         )}
         <h2 className="slide__title">{slide.title ? <DirectedText text={slide.title} /> : t.slides.view.emptySlide}</h2>

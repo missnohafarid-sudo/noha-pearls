@@ -331,6 +331,15 @@ describe('badges in lesson files and stored slides', () => {
     expect(result.ok && result.lesson.slides.map(strip)).toEqual(oneOfEach.map(strip));
   });
 
+  it('are written as empty lists when a lesson stored before them is exported', () => {
+    const stored = oneOfEach.map(({ badges: _badges, ...rest }) => rest) as unknown as Lesson['slides'];
+    const choiceStored = stored.map((slide) => (slide.kind === 'choice' || slide.kind === 'text' ? (({ images: _images, ...rest }) => rest)(slide) : slide)) as unknown as Lesson['slides'];
+    const written = JSON.parse(exportLesson({ ...lesson, slides: choiceStored })).slides;
+    expect(written).toHaveLength(4);
+    for (const slide of written) expect(slide.badges).toEqual([]);
+    for (const slide of written.filter((s: { kind: string }) => s.kind !== 'media')) expect(slide.images).toEqual([]);
+  });
+
   it('are written after the tag and before the kind\'s own fields', () => {
     const written = JSON.parse(exportLesson({ ...lesson, slides: oneOfEach })).slides[0];
     expect(Object.keys(written).slice(0, 4)).toEqual(['kind', 'title', 'tag', 'badges']);

@@ -1,5 +1,6 @@
 import { isRecord } from './argumentChecks';
 import { newId } from './ids';
+import { normalizeSlide } from './lessonOps';
 import type { Lesson, Slide } from './models';
 import type { IssueCode, RawSlide } from './slideFile';
 import { isSlideKind, slideKindSpec } from './slideKinds';
@@ -40,7 +41,7 @@ export function exportLesson(lesson: Lesson): string {
     title: lesson.title,
     subject: lesson.subject,
     grade: lesson.grade,
-    slides: lesson.slides.map((slide) => slideKindSpec(slide.kind).toFile(slide)),
+    slides: lesson.slides.map((slide) => slideKindSpec(slide.kind).toFile(normalizeSlide(slide))),
   };
   return JSON.stringify(file, null, 2);
 }

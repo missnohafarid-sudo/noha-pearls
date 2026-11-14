@@ -1,4 +1,5 @@
 import type { MediaChoice } from '../domain/models';
+import { HIDDEN_FENCE } from '../domain/slideText';
 
 export const slides = {
   kind: {
@@ -15,12 +16,12 @@ export const slides = {
     badgeText: (number: number) => `نص الشارة ${number}`,
     badgeColor: (number: number) => `لون الشارة ${number}`,
     body: 'النص',
-    bodyHint: 'ابدئي السطر بشرطة (-) ليظهر كنقطة.',
+    bodyHint: `ابدئي السطر بشرطة (-) ليظهر كنقطة. لإخفاء جزء من النص ظلّليه واضغطي «إخفاء المحدَّد»، أو ضعي قبله سطرًا فيه ${HIDDEN_FENCE} وبعده سطرًا فيه ${HIDDEN_FENCE}. والسطر الذي فيه رابط صورة فقط يظهر صورة.`,
     images: 'روابط الصور (اختياري)',
     imagesHint: 'الصقي رابطًا عامًّا يبدأ بـ https لكل صورة. ملفات Google Drive يجب أن تكون متاحة لكل من لديه الرابط.',
     image: (number: number) => `رابط الصورة ${number}`,
-    hidden: 'معلومة مخفية (اختياري)',
-    hiddenHint: 'تُفتح بزر على الشريحة. تكتب بالتنسيق نفسه: ابدئي السطر بشرطة (-) ليظهر كنقطة.',
+    hidden: 'معلومة مخفية في آخر الشريحة (اختياري)',
+    hiddenHint: 'تُفتح بزر في آخر الشريحة. تُكتب بالتنسيق نفسه، ويمكن أن تضعي فيها رابط صورة في سطر وحده.',
     prompt: 'نص السؤال',
     options: 'الخيارات',
     option: (letter: string) => `الخيار ${letter}`,

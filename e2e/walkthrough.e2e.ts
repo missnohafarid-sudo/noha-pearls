@@ -10,6 +10,7 @@ import { engagementSteps } from './steps/engagement';
 import { groupAnswersSteps } from './steps/groupAnswers';
 import { foldersSteps } from './steps/folders';
 import { hiddenSectionSteps } from './steps/hiddenSection';
+import { inlineHiddenSteps } from './steps/inlineHidden';
 import { lessonEditingSteps } from './steps/lessonEditing';
 import { liveClassSteps } from './steps/liveClass';
 import { mediaSlidesSteps } from './steps/mediaSlides';
@@ -63,6 +64,7 @@ describe('walkthrough', () => {
   slidePicturesSteps(world);
   hiddenSectionSteps(world);
   slideBadgesSteps(world);
+  inlineHiddenSteps(world);
   foldersSteps(world);
   mediaSlidesSteps(world);
   liveClassSteps(world);

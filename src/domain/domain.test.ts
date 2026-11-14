@@ -410,6 +410,24 @@ describe('which slides have a problem', () => {
     expect(slideHasProblem(media('https://example.org/a.png'))).toBe(false);
     expect(slideHasProblem(choice)).toBe(false);
   });
+
+  it('flags a picture line in the text of a content slide, hidden parts included, when it cannot be a picture', () => {
+    const PICTURE = 'https://example.org/a.png';
+    const NOT_A_PICTURE = 'https://www.youtube.com/watch?v=abc';
+    const written = (body: string, hidden = ''): Lesson['slides'][number] => ({ id: 'c', kind: 'content', title: '', tag: '', badges: [], body, images: [], hidden });
+    expect(slideHasProblem(written(`text\n${PICTURE}`))).toBe(false);
+    expect(slideHasProblem(written(`text\n${NOT_A_PICTURE}`))).toBe(true);
+    expect(slideHasProblem(written(`+++\n${NOT_A_PICTURE}\n+++`))).toBe(true);
+    expect(slideHasProblem(written('text', NOT_A_PICTURE))).toBe(true);
+    expect(slideHasProblem(written('text', PICTURE))).toBe(false);
+    expect(slideHasProblem(written(`see ${NOT_A_PICTURE} here`))).toBe(false);
+  });
+
+  it('flags a picture line in the text of a media slide the same way', () => {
+    const PICTURE = 'https://example.org/a.png';
+    expect(slideHasProblem({ ...media('https://example.org/a.png'), body: 'https://www.youtube.com/watch?v=abc' })).toBe(true);
+    expect(slideHasProblem({ ...media('https://example.org/a.png'), body: PICTURE })).toBe(false);
+  });
 });
 
 describe('what a media link shows', () => {

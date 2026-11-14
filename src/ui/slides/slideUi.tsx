@@ -4,6 +4,7 @@ import type { AnswerKey, ContentSlide, Slide, SlideKind } from '../../domain/mod
 import { choiceLetter, t } from '../../i18n';
 import { MAX_POINTS, MIN_POINTS } from '../../domain/slideKinds';
 import { MAX_PICTURES, MEDIA_CHOICES } from '../../domain/media';
+import { hiddenPartCount } from '../../domain/slideText';
 import type { FieldSpec, SelectOption } from '../forms/SchemaForm';
 import { BadgesField } from './BadgesField';
 import { BodyText } from './BodyText';
@@ -61,7 +62,7 @@ function ContentBody({ slide }: SlideBodyProps<ContentSlide>) {
       <BodyText text={slide.body} />
       <Pictures links={slide.images} />
       {slide.hidden.trim() !== '' && (
-        <HiddenSection>
+        <HiddenSection part={hiddenPartCount(slide.body)}>
           <BodyText text={slide.hidden} />
         </HiddenSection>
       )}

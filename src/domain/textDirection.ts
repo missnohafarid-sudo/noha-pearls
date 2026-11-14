@@ -121,3 +121,22 @@ export function shownPosition(text: string, position: number): number {
   }
   return shown;
 }
+
+export type DeletionDirection = 'backward' | 'forward';
+
+/**
+ * A deletion key pressed beside a left-to-right piece removes only an invisible isolate mark, so the saved text does not change.
+ * This is the deletion the key meant: the character next to the caret in the saved text (a pair of code units counts as one) goes,
+ * and the caret stays where the character was. At the start (backward) or the end (forward) of the text nothing goes.
+ */
+export function deleteBesideMarks(text: string, caret: number, direction: DeletionDirection): { text: string; caret: number } {
+  const at = Math.max(0, Math.min(caret, text.length));
+  const width = (from: number): number => (/[\uD800-\uDBFF]/.test(text[from] ?? '') && /[\uDC00-\uDFFF]/.test(text[from + 1] ?? '') ? 2 : 1);
+  if (direction === 'backward') {
+    if (at === 0) return { text, caret: 0 };
+    const from = at - (at >= 2 && width(at - 2) === 2 ? 2 : 1);
+    return { text: text.slice(0, from) + text.slice(at), caret: from };
+  }
+  if (at === text.length) return { text, caret: at };
+  return { text: text.slice(0, at) + text.slice(at + width(at)), caret: at };
+}

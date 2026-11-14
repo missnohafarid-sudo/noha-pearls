@@ -75,6 +75,23 @@ export function boxDirectionSteps(world: World): void {
       expect(box?.caret).toBe(box?.value.length);
     });
 
+    it('Backspace after an equation removes its last character, one key press at a time', async () => {
+      const current = await boxState(world, t.slides.field.tag, 'input');
+      await focusField(world, t.slides.field.tag, 'input', [0, current?.value.length ?? 0]);
+      await typeText(world, TAG);
+      await world.admin.until('the tag stored', async () => (await stored(world, lessonId)).tag === TAG);
+      await world.admin.page.keyboard.press('Backspace');
+      await world.admin.until('one character gone', async () => (await stored(world, lessonId)).tag === `${WORD} 25°`);
+      await world.admin.page.keyboard.press('Backspace');
+      await world.admin.until('a second character gone', async () => (await stored(world, lessonId)).tag === `${WORD} 25`);
+    });
+
+    it('Delete in front of an equation removes its first character', async () => {
+      await focusField(world, t.slides.field.tag, 'input', [WORD.length + 1, WORD.length + 1]);
+      await world.admin.page.keyboard.press('Delete');
+      await world.admin.until('the first character gone', async () => (await stored(world, lessonId)).tag === `${WORD} 5`);
+    });
+
     it('an all-English title typed into the title box leaves the box free of the fence marks', async () => {
       const current = await boxState(world, t.slides.field.title, 'input');
       await focusField(world, t.slides.field.title, 'input', [0, current?.value.length ?? 0]);

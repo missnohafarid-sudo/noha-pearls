@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { directedRuns, isolatedText, plainPosition, plainText, shownPosition } from './textDirection';
+import { deleteBesideMarks, directedRuns, isolatedText, plainPosition, plainText, shownPosition } from './textDirection';
 
 const SPEED = 'سرعتها';
 const ABOUT = 'تقريبًا';
@@ -134,5 +134,36 @@ describe('the isolating form of a text', () => {
     const shown = isolatedText(`${SPEED} 25°C`);
     expect(plainPosition(shown, shown.length)).toBe(`${SPEED} 25°C`.length);
     expect(plainPosition(shown, shown.indexOf(OPEN) + 1)).toBe(SPEED.length + 1);
+  });
+});
+
+describe('deleteBesideMarks', () => {
+  const text = 'الشرح 25°C';
+
+  it('removes the last character of a piece when the caret is right after it', () => {
+    expect(deleteBesideMarks(text, text.length, 'backward')).toEqual({ text: 'الشرح 25°', caret: text.length - 1 });
+    expect(deleteBesideMarks('الشرح 25°', 'الشرح 25°'.length, 'backward')).toEqual({ text: 'الشرح 25', caret: 8 });
+  });
+
+  it('removes the first character of a piece when the caret is right before it', () => {
+    expect(deleteBesideMarks(text, 6, 'forward')).toEqual({ text: 'الشرح 5°C', caret: 6 });
+  });
+
+  it('does nothing at the start going back or at the end going forward', () => {
+    expect(deleteBesideMarks(text, 0, 'backward')).toEqual({ text, caret: 0 });
+    expect(deleteBesideMarks(text, text.length, 'forward')).toEqual({ text, caret: text.length });
+    expect(deleteBesideMarks('', 0, 'backward')).toEqual({ text: '', caret: 0 });
+  });
+
+  it('removes the character next to the caret between two pieces', () => {
+    const two = 'x=1 و y=2';
+    expect(deleteBesideMarks(two, 3, 'backward')).toEqual({ text: 'x= و y=2', caret: 2 });
+    expect(deleteBesideMarks(two, 6, 'forward')).toEqual({ text: 'x=1 و =2', caret: 6 });
+  });
+
+  it('removes a whole pair of code units at once and keeps the caret inside the text', () => {
+    expect(deleteBesideMarks('a😀', 3, 'backward')).toEqual({ text: 'a', caret: 1 });
+    expect(deleteBesideMarks('😀a', 0, 'forward')).toEqual({ text: 'a', caret: 0 });
+    expect(deleteBesideMarks('ab', 9, 'backward')).toEqual({ text: 'a', caret: 1 });
   });
 });

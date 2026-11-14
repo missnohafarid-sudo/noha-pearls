@@ -3,7 +3,7 @@ import { MAX_CHOICES, MIN_CHOICES } from './choices';
 import { isHttpsUrl, isMediaChoice, isMediaProblem, mediaView, picturesHaveProblem } from './media';
 import type { AnswerScope, ChoiceSlide, ContentSlide, Id, MediaSlide, Slide, SlideKind, TextSlide } from './models';
 import type { FileField, IssueReporter, RawSlide, SlideKindSpec } from './slideFile';
-import { hiddenPartCount, keepOpenedParts } from './slideText';
+import { contentHiddenParts, mediaHiddenParts } from './slideHiddenParts';
 import { isAbsent, picturesOf, requiredText, storedPictures, text, trimmedLinks, type StoredPictures } from './slideFields';
 
 /**
@@ -68,9 +68,6 @@ const QUESTION_FIELDS: readonly FileField[] = [
 /** A content slide as older data holds it: before pictures were a list and before the hidden section. */
 type StoredContent = Omit<ContentSlide, 'images' | 'hidden'> & StoredPictures & { hidden?: string };
 
-/** The end-of-slide hidden text, which older stored slides lack. */
-const endHidden = ({ hidden }: { hidden?: string }): string => hidden ?? '';
-
 const content: SlideKindSpec<ContentSlide> = {
   kind: 'content',
   create: (id) => ({ ...blankShared(id, 'content'), body: '', images: [], hidden: '' }),
@@ -85,8 +82,7 @@ const content: SlideKindSpec<ContentSlide> = {
   normalize: ({ imageUrl, ...slide }: StoredContent) => ({ ...slide, images: storedPictures({ images: slide.images, imageUrl }), hidden: slide.hidden ?? '' }),
   hasProblem: ({ images }) => picturesHaveProblem(images),
   withoutKey: (slide) => slide,
-  hiddenPartCount: (slide) => hiddenPartCount(slide.body) + (endHidden(slide).trim() === '' ? 0 : 1),
-  withOpenedParts: (slide, opened) => ({ ...slide, body: keepOpenedParts(slide.body, opened), hidden: opened.includes(hiddenPartCount(slide.body)) ? endHidden(slide) : '' }),
+  ...contentHiddenParts,
 };
 
 /** In files the correct option is 1-based (or null for a poll); in memory it is a 0-based index. */
@@ -213,8 +209,7 @@ const media: SlideKindSpec<MediaSlide> = {
   toFile: (slide) => ({ ...sharedToFile(slide), url: slide.url, media: slide.media, body: slide.body }),
   hasProblem: ({ url, media: type }) => isMediaProblem(mediaView(url, type)),
   withoutKey: (slide) => slide,
-  hiddenPartCount: ({ body }) => hiddenPartCount(body),
-  withOpenedParts: (slide, opened) => ({ ...slide, body: keepOpenedParts(slide.body, opened) }),
+  ...mediaHiddenParts,
 };
 
 const SLIDE_KINDS: { [K in SlideKind]: SlideKindSpec<Extract<Slide, { kind: K }>> } = {

@@ -26,7 +26,12 @@ import './home.css';
 const th = t.home;
 const tl = t.library;
 
-const SITE_FIELDS: readonly FieldSpec<SiteContent>[] = [
+/** The part of the site record the home form owns; every other field of the record is left as it is found. */
+type SiteText = Pick<SiteContent, 'schoolName' | 'title' | 'tagline' | 'intro'>;
+
+const siteText = ({ schoolName, title, tagline, intro }: SiteContent): SiteText => ({ schoolName, title, tagline, intro });
+
+const SITE_FIELDS: readonly FieldSpec<SiteText>[] = [
   { kind: 'text', key: 'schoolName', label: th.siteField.schoolName },
   { kind: 'text', key: 'title', label: th.siteField.title },
   { kind: 'text', key: 'tagline', label: th.siteField.tagline },
@@ -76,7 +81,7 @@ function HomeAdminPanels({ site, tree, openId }: { site: SiteContent; tree: Fold
   return (
     <>
       <AdminPanel title={th.panel.site}>
-        <SchemaForm fields={SITE_FIELDS} value={site} resetKey="site" onChange={(next) => void content.updateSite(next)} />
+        <SchemaForm fields={SITE_FIELDS} value={siteText(site)} resetKey="site" onChange={(next) => void content.updateSite({ ...site, ...next })} />
       </AdminPanel>
       <TeachersPanel />
       <AdminPanel title={th.panel.lessons}>

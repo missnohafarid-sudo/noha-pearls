@@ -41,9 +41,9 @@ export function SlideView({ slide, answer = null, groupAnswer = null, onAnswer =
       <header className="slide__head">
         {(repaired.tag || badges.length > 0 || isQuestion(repaired)) && (
           <div className="slide__labels">
-            {repaired.tag && <span className="chip"><DirectedText text={repaired.tag} /></span>}
+            {repaired.tag && <span className="chip"><span><DirectedText text={repaired.tag} /></span></span>}
             {badges.map((badge, index) => (
-              <span key={index} className={`slide-badge slide-badge--${badge.color}`}><DirectedText text={badge.text} /></span>
+              <span key={index} className={`slide-badge slide-badge--${badge.color}`}><span><DirectedText text={badge.text} /></span></span>
             ))}
             {isQuestion(repaired) && <ScopeBadge scope={repaired.scope} />}
           </div>

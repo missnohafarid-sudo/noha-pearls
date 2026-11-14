@@ -88,4 +88,15 @@ describe('lesson prompt', () => {
     expect(prompt).toContain('كرّر الخطوات من 4 إلى 8 لكل هدف');
     expect(prompt).toContain('الحقل badges');
   });
+
+  it('asks the teacher which extra badges she wants and adds none of its own', () => {
+    expect(prompt).toContain('هل تريدين شارات إضافية على بعض الشرائح؟');
+    expect(prompt).toContain('فلا تضف شارة من عندك');
+  });
+
+  it('teaches the table rows, the fraction and the picture option the site draws', () => {
+    expect(prompt).toContain('|---|---|');
+    expect(prompt).toContain('{البسط/المقام}');
+    expect(prompt).toContain('فيظهر الخيار صورة');
+  });
 });

@@ -84,6 +84,21 @@ export function siteThemeSteps(world: World): void {
     expect(await accentOf(visitor)).toBe(await accentOf(admin()));
   });
 
+  it('after a reload the remembered look is on the page at its very first moment, before the site record can have arrived', async () => {
+    await admin().page.evaluateOnNewDocument(() => {
+      const seen = window as unknown as { firstLook?: string };
+      new MutationObserver((_changes, observer) => {
+        const look = document.documentElement.dataset.theme;
+        if (!look) return;
+        seen.firstLook = look;
+        observer.disconnect();
+      }).observe(document, { subtree: true, attributes: true, attributeFilter: ['data-theme'] });
+    });
+    await admin().page.reload({ waitUntil: 'networkidle0' });
+    expect(await admin().page.evaluate(() => (window as unknown as { firstLook?: string }).firstLook)).toBe('purple');
+    await admin().until('the pearl button ready', () => admin().exists(`${PICKER_BUTTON}:not(:disabled)`));
+  });
+
   it('choosing black gives a dark page with light text, on both devices', async () => {
     await choose('black');
     for (const device of [admin(), visitor]) {

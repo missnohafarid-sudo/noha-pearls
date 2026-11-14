@@ -16,6 +16,9 @@ export const ADMIN_TOTP_SECRET: string = DEV_TOTP_SECRET;
 
 export const STORAGE_NAMESPACE = 'pearls';
 
+/** The browser-storage entry where a device keeps the look it showed last; outside the namespace of the documents. */
+export const LOOK_STORAGE_KEY = `${STORAGE_NAMESPACE}-look`;
+
 /**
  * Set by the walkthrough's build (`NOHA_SITE_ONLY=1`, and nothing else counts as on): the page then keeps its data in the browser
  * and holds the prototype sign-in, as before the hub existed. Every other build and `npm run dev` ask the hub. The only place the

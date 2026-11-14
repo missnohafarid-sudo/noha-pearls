@@ -1,4 +1,5 @@
 import type { MarkerDetector, MarkerRenderer, QrRenderer } from '../ports/codes';
+import type { LookMemory } from '../ports/lookMemory';
 import type { ConnectionStatus } from '../ports/remote';
 import type { AllowanceService } from './AllowanceService';
 import type { AdmissionService } from './AdmissionService';
@@ -85,6 +86,8 @@ export type Services = DataServices & {
   /** Whether the data can be reached; always so when it is held in the browser itself. */
   connection: ConnectionStatus;
   qr: QrRenderer;
+  /** The look this device showed last, shown again at once on the next load. */
+  lookMemory: LookMemory;
   /** Loaded on demand: only the teacher's scanner and the card printer need it. */
   loadCardCodec(): Promise<CardCodec>;
 };

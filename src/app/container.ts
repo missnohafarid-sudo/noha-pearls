@@ -1,6 +1,7 @@
 import { BrowserCaller } from '../infrastructure/BrowserCaller';
 import { PrototypeAuthGateway } from '../infrastructure/PrototypeAuthGateway';
 import { LocalDocumentStore, StorageEventChangeBus } from '../infrastructure/LocalDocumentStore';
+import { StoredLook } from '../infrastructure/StoredLook';
 import { QrSvgRenderer } from '../infrastructure/QrSvgRenderer';
 import { browserTimers, openBrowserSocket, postJson } from '../infrastructure/remote/browserTransport';
 import { LiveConnection } from '../infrastructure/remote/LiveConnection';
@@ -12,7 +13,7 @@ import { createDataServices } from '../services/createDataServices';
 import { createRemoteServices } from '../services/remoteServices';
 import { seedIfEmpty } from '../services/seed';
 import type { CardCodec, Services } from '../services/Services';
-import { ADMIN_PASSWORD_SHA256, ADMIN_TOTP_SECRET, SITE_ONLY, STORAGE_NAMESPACE } from './config';
+import { ADMIN_PASSWORD_SHA256, ADMIN_TOTP_SECRET, SITE_ONLY, LOOK_STORAGE_KEY, STORAGE_NAMESPACE } from './config';
 
 /**
  * Composition root: the only place that names concrete adapters.
@@ -22,11 +23,15 @@ export function createServices(): Promise<Services> {
   return SITE_ONLY ? createBrowserOnlyServices() : createHubServices();
 }
 
+/** The look this device showed last. Made at load, so the page can show it before the services are ready. */
+export const lookMemory = new StoredLook(browserStorage(localStorage), LOOK_STORAGE_KEY);
+
 /** What every mode gives the page that has nothing to do with data. */
-function pageParts(): Pick<Services, 'qr' | 'loadCardCodec'> {
+function pageParts(): Pick<Services, 'qr' | 'loadCardCodec' | 'lookMemory'> {
   let cardCodec: Promise<CardCodec> | null = null;
   return {
     qr: new QrSvgRenderer(),
+    lookMemory,
     loadCardCodec: () => (cardCodec ??= import('../infrastructure/ArucoCardCodec').then((module) => new module.ArucoCardCodec())),
   };
 }

@@ -15,29 +15,33 @@ export function ChoiceBody({ slide, interaction }: SlideBodyProps<ChoiceSlide>) 
       <div className="slide-options">
         {slide.options.map((option, index) => (
           <div key={index} className="slide-option-slot" data-option={index}>
-          <button
-            type="button"
-            className={`slide-option slide-option--${optionMark(reveal, index, answer)}`}
-            disabled={!onAnswer}
-            onClick={() => onAnswer?.(index)}
-          >
-            <span className="slide-option__letter">{choiceLetter(index)}</span>
-            <span className="slide-option__text"><DirectedText text={option} /></span>
-            {tally && (
-              <span className="slide-option__tally">
-                <span className="bar">
-                  <span className="bar__fill" style={{ inlineSize: `${(tally[index] / most) * 100}%` }} />
+            <button
+              type="button"
+              className={`slide-option slide-option--${optionMark(reveal, index, answer)}`}
+              disabled={!onAnswer}
+              onClick={() => onAnswer?.(index)}
+            >
+              <span className="slide-option__letter">{choiceLetter(index)}</span>
+              <span className="slide-option__text"><DirectedText text={option} /></span>
+              {tally && (
+                <span className="slide-option__tally">
+                  <span className="bar">
+                    <span className="bar__fill" style={{ inlineSize: `${(tally[index] / most) * 100}%` }} />
+                  </span>
+                  <b>{tally[index]}</b>
                 </span>
-                <b>{tally[index]}</b>
-              </span>
-            )}
-          </button>
-          {underOption?.(index)}
+              )}
+            </button>
+            {underOption?.(index)}
           </div>
         ))}
       </div>
       {(verdict === 'correct' || verdict === 'wrong') && <p className={`slide-verdict slide-verdict--${verdict}`}>{t.slides.view[verdict]}</p>}
-      {reveal?.explanation && <p className="slide-explanation">{reveal.explanation}</p>}
+      {reveal?.explanation && (
+        <p className="slide-explanation">
+          <DirectedText text={reveal.explanation} />
+        </p>
+      )}
     </div>
   );
 }

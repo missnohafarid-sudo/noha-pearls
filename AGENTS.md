@@ -61,13 +61,16 @@ A teacher. She is not a programmer and cannot judge your code.
 | Drag wiring (what carries a drag, what is dropped on) | `ui/library/useDragMove.tsx` |
 | Who may answer what, whose answer counts for a student (her own, else her group's shared device's), text length limit | `domain/answering.ts` |
 | Who has answered the slide on screen, group by group (the pearl panel) | `domain/answering.ts` (`answerStatusByGroup`) |
+| What a shared group device may do for the students of its group: who it stands for, answering an individual choice question for one of them, what it sees of them | `domain/sharedDevice.ts` |
+| Moving a name onto an answer on a shared device: by mouse, finger or pen, or tap then tap | `ui/join/useNameDrag.ts` (the drag), `ui/join/MemberAnswers.tsx` and `memberAnswers.css` (names and look) |
 | Marking and group scores | `domain/scoring.ts` |
 | Pearls a group has earned | `domain/scoring.ts` |
-| Tallies, monitor table, heart totals | `domain/analytics.ts` |
+| Tallies, monitor table, heart totals (given minus taken) | `domain/analytics.ts` |
 | What a group's device shows | `domain/pacing.ts` |
 | Card encoding | `domain/cards.ts` |
 | Choice limits | `domain/choices.ts` |
 | What a media link shows and how: its type, its address, its frame; which photos a slide shows | `domain/media.ts` |
+| Which part of a line of slide text reads left to right (an equation, an English word inside Arabic) | `domain/textDirection.ts`, drawn by `ui/slides/DirectedText.tsx` |
 | Keyboard moves through a list of options, typing to jump | `domain/listNavigation.ts` |
 | Roster rules, group colours | `domain/roster.ts` |
 | Class list format | `domain/rosterFormat.ts` |
@@ -76,7 +79,7 @@ A teacher. She is not a programmer and cannot judge your code.
 | What class data is cleared and when: a date range, the end of the school year | `domain/retention.ts` |
 | Cumulative results of a class list over a period, and what anyone may see of them: group totals, one student's own line | `domain/standings.ts` |
 | What each kind of caller may read | `domain/visibility.ts` |
-| Who may give a heart (the teacher's, live or ended; a student's, live only) | `domain/rewards.ts` |
+| Who may give a heart (the teacher's, live or ended; a student's, live only); the teacher taking one away, and her next heart giving a taken one back first | `domain/rewards.ts` |
 | Who is let into a class, one device per name, who joins the roll when a device is let in (a shared device brings its whole group), and where a returning device lands | `domain/admission.ts` |
 | Who is here: the roll, and who counts in tallies and scores | `domain/attendance.ts` |
 | A session's minimum of interactions, and who is unresponsive | `domain/engagement.ts` |
@@ -91,7 +94,7 @@ A teacher. She is not a programmer and cannot judge your code.
 | How the data services are wired together | `services/createDataServices.ts` |
 | Addresses and links | `ui/routing/routes.ts` |
 | Whether the edit panel shows | `ui/shell/AdminPanel.tsx` |
-| The pearl and its panel over the slide's corner (groups, answered marks, hearts) | `ui/session/pearlPanel/`; how a teacher's heart is given: `ui/hooks/useTeacherHearts.ts` |
+| The pearl and its panel over the slide's corner (groups, answered marks, hearts) | `ui/session/pearlPanel/`; how a teacher's heart is given or taken: `ui/hooks/useTeacherHearts.ts`, drawn by `ui/common/HeartButton.tsx` |
 | Settings (the page's storage name and the browser-only switch; the real admin password and key are Worker secrets, never in the page) | `app/config.ts` |
 | When students' data is cleared at the end of the school year (the setting) | `services/RetentionService.ts`, edited on the results page |
 | Colours, fonts, radii | `ui/styles/tokens.css` |

@@ -1,5 +1,5 @@
 import type { TextEdit } from './slideText';
-import { directedRuns, FRACTION_MARK } from './textDirection';
+import { ARABIC_FRACTION_MARK, directedRuns, FRACTION_MARK, FRACTION_MARKS, hasArabicLetter } from './textDirection';
 
 /** A fraction written as `{top/bottom}`. */
 export interface Fraction {
@@ -16,22 +16,28 @@ export interface LineRun {
   parts: LinePart[];
 }
 
-const FRACTION = /\{([^{}/\r\n]*)\/([^{}/\r\n]*)\}/g;
-const NOT_FRACTION_TEXT = /[{}\r\n]/;
+/** What a part of a fraction may not hold: a brace, a line break, or a comma (a set written `{1/2, 3}` is not a fraction). */
+const NOT_IN_PART = '{},\\u060C\\r\\n';
+const PART = `[^${NOT_IN_PART}/]*`;
+const FRACTION = new RegExp(`\\{(${PART})/(${PART})\\}`, 'g');
+const NOT_FRACTION_TEXT = new RegExp(`[${NOT_IN_PART}]`);
 
-/** Splits one line into runs as `directedRuns` does, with each `{top/bottom}` a single part of the run it sits in: an equation keeps its fraction in place. */
+/**
+ * Splits one line into runs as `directedRuns` does, with each `{top/bottom}` a single part of the run it sits in: an equation keeps its fraction in place.
+ * A fraction with an Arabic letter in a part stays in the right-to-left flow instead, so the words and signs around it keep their reading order.
+ */
 export function lineRuns(line: string): LineRun[] {
   const fractions: Fraction[] = [];
-  const masked = line.replaceAll(FRACTION_MARK, '').replace(FRACTION, (written, top: string, bottom: string) => {
+  const masked = line.replace(FRACTION_MARKS, '').replace(FRACTION, (written, top: string, bottom: string) => {
     if (top.trim() === '' || bottom.trim() === '') return written;
     fractions.push({ top: top.trim(), bottom: bottom.trim() });
-    return FRACTION_MARK;
+    return hasArabicLetter(top + bottom) ? ARABIC_FRACTION_MARK : FRACTION_MARK;
   });
   let used = 0;
   return directedRuns(masked).map(({ text, ltr }) => ({
     ltr,
     parts: text
-      .split(FRACTION_MARK)
+      .split(FRACTION_MARKS)
       .flatMap((piece, index): LinePart[] => (index === 0 ? [piece] : [fractions[used++], piece]))
       .filter((part) => part !== ''),
   }));

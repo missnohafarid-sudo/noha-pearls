@@ -4,13 +4,23 @@ export interface DirectedRun {
   ltr: boolean;
 }
 
-const ARABIC_CONTEXT = new RegExp('[\\u0590-\\u08FF\\uFB1D-\\uFDFF\\uFE70-\\uFEFC]', 'u');
+const ARABIC_LETTER = '\\u0590-\\u08FF\\uFB1D-\\uFDFF\\uFE70-\\uFEFC';
+/** Stands in for a whole fraction while a line is split into runs, so the fraction is one part of the equation it sits in (see `lineRuns` in fractions.ts). */
+export const FRACTION_MARK = '\uE000';
+/** Stands in for a fraction with an Arabic letter in it: it is not an equation character, so the fraction stays in the right-to-left flow, and it counts as Arabic where a line is judged. */
+export const ARABIC_FRACTION_MARK = '\uE001';
+/** Either stand-in, to find and strip them. */
+export const FRACTION_MARKS = new RegExp(`[${FRACTION_MARK}${ARABIC_FRACTION_MARK}]`, 'gu');
+const ARABIC_CONTEXT = new RegExp(`[${ARABIC_LETTER}${ARABIC_FRACTION_MARK}]`, 'u');
+const ARABIC_LETTER_PATTERN = new RegExp(`[${ARABIC_LETTER}]`, 'u');
+
+
+export const hasArabicLetter = (text: string): boolean => ARABIC_LETTER_PATTERN.test(text);
+
 const LETTER = '\\p{Script=Latin}\\p{Script=Greek}';
 const DIGITS = '0-9\\u00B2\\u00B3\\u00B9\\u2070-\\u209F';
 const SIGNS = "+\\-\\u2212\\u00D7\\u00F7*/=<>\\u2264\\u2265\\u2260\\u2248\\u00B1^_%\\u00B0\\u221A\\u221E\\u2191\\u2192\\u2193\\u2190\\u21CC\\u00B7'\\u2032\\u2033|";
 const BRACKETS = '()\\[\\]{}';
-/** Stands in for a whole fraction while a line is split into runs, so the fraction is one part of the equation it sits in (see `lineRuns` in fractions.ts). */
-export const FRACTION_MARK = '\uE000';
 const INNER_SEPARATORS = ' .,:';
 /** What holds an email or a web address together; without them it would be cut into pieces that swap places. */
 const ADDRESS_MARKS = '@&#?~';

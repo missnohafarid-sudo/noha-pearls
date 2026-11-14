@@ -5,7 +5,7 @@ import { buildMonitor, RewardIndex, studentReport, tallyChoices } from './analyt
 import { answersForWholeGroup, answerStatusByGroup, canAnswer, takesAnswerPerStudent, deviceAnswer, effectiveAnswer, nextManualChoice, nextManualChoiceFor, normalizeAnswerValue, subjectFor, tallyAnswerers } from './answering';
 import { CardReadStabilizer, cardNumberLabel, choiceFromCorners, presenceReadings, type Point } from './cards';
 import { toAsciiDigits } from './digits';
-import { removeOption } from './choices';
+import { hasPictureOption, optionView, optionWords, removeOption } from './choices';
 import { studentProgress } from './answerProgress';
 import { isMoveKey, listKeyEffect, movedIndex, movedTabIndex, typeaheadIndex } from './listNavigation';
 import { exportLesson, importLesson, lessonFileText } from './lessonFormat';
@@ -2375,5 +2375,35 @@ describe('a shared device answering an individual question', () => {
       expect(answersForWholeGroup(choice, named)).toBe(false);
       expect(answersForWholeGroup(groupChoice, shared)).toBe(false);
     });
+  });
+});
+
+describe('an option of a choice question: words or a picture', () => {
+  it('is words unless its text alone is a picture link', () => {
+    expect(optionView('Paris')).toEqual({ kind: 'words', text: 'Paris' });
+    expect(optionView('')).toEqual({ kind: 'words', text: '' });
+    expect(optionView('https://example.org/page')).toEqual({ kind: 'words', text: 'https://example.org/page' });
+    expect(optionView('see https://example.org/a.png')).toEqual({ kind: 'words', text: 'see https://example.org/a.png' });
+  });
+
+  it('is a picture for an image file, a Drive file or a Giphy page, with the address the slide pictures draw', () => {
+    expect(optionView('https://example.org/a.png')).toEqual({ kind: 'picture', src: 'https://example.org/a.png' });
+    expect(optionView('  https://example.org/a.gif  ')).toEqual({ kind: 'picture', src: 'https://example.org/a.gif' });
+    const [drive] = pictureSources(['https://drive.google.com/file/d/abc123/view']);
+    expect(optionView('https://drive.google.com/file/d/abc123/view')).toEqual({ kind: 'picture', src: drive });
+    const [giphy] = pictureSources(['https://giphy.com/gifs/funny-cat-abc123']);
+    expect(optionView('https://giphy.com/gifs/funny-cat-abc123')).toEqual({ kind: 'picture', src: giphy });
+    expect(drive).toBeTruthy();
+    expect(giphy).toBeTruthy();
+  });
+
+  it('says whether any option is a picture', () => {
+    expect(hasPictureOption(['a', 'b'])).toBe(false);
+    expect(hasPictureOption(['a', 'https://example.org/a.png'])).toBe(true);
+  });
+
+  it('names an option in a sentence by its text, and a picture by nothing', () => {
+    expect(optionWords('Paris')).toBe('Paris');
+    expect(optionWords('https://example.org/a.png')).toBeNull();
   });
 });

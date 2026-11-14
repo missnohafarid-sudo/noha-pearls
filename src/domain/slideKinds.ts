@@ -106,6 +106,7 @@ const choice: SlideKindSpec<ChoiceSlide> = {
   create: (id) => ({
     ...blankShared(id, 'choice'),
     prompt: '',
+    images: [],
     options: ['', ''],
     correctIndex: null,
     explanation: '',
@@ -118,12 +119,14 @@ const choice: SlideKindSpec<ChoiceSlide> = {
     { name: 'options', required: true },
     { name: 'correct', required: false },
     { name: 'explanation', required: false },
+    { name: 'images', required: false },
   ],
   fromFile: (raw, id, report) => {
     const options = optionsOf(raw, report);
     return {
       ...sharedFromFile(raw, id, 'choice', report),
       prompt: requiredText(raw, 'prompt', report),
+      images: picturesOf(raw, report),
       options,
       correctIndex: correctIndexOf(raw, options.length, report),
       explanation: text(raw, 'explanation'),
@@ -134,6 +137,7 @@ const choice: SlideKindSpec<ChoiceSlide> = {
   toFile: (slide) => ({
     ...sharedToFile(slide),
     prompt: slide.prompt,
+    images: trimmedLinks(slide.images),
     options: slide.options,
     correct: slide.correctIndex === null ? null : slide.correctIndex + 1,
     explanation: slide.explanation,
@@ -143,9 +147,11 @@ const choice: SlideKindSpec<ChoiceSlide> = {
   // Removing an option must not leave the correct answer pointing past the end.
   normalize: (slide) => ({
     ...slide,
+    images: storedPictures(slide),
     points: clampPoints(slide.points),
     correctIndex: slide.correctIndex !== null && slide.correctIndex >= slide.options.length ? null : slide.correctIndex,
   }),
+  hasProblem: ({ images }) => picturesHaveProblem(images),
   withoutKey: (slide) => ({ ...slide, correctIndex: null, explanation: '' }),
 };
 

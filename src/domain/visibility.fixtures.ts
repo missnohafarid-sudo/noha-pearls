@@ -16,11 +16,11 @@ export const roster: SessionRoster = { id: 'x', groups, students, present: null 
 
 export const intro: ContentSlide = { id: 'c1', kind: 'content', title: 'Intro', tag: '', badges: [], body: 'hello', images: ['https://a.example/p.png'], hidden: 'secret text' };
 export const q1: ChoiceSlide = {
-  id: 'q1', kind: 'choice', title: 'Q1', tag: '', badges: [], prompt: '?', options: ['a', 'b', 'c'], correctIndex: 1, explanation: 'because', scope: 'individual', points: 2,
+  id: 'q1', kind: 'choice', title: 'Q1', tag: '', badges: [], prompt: '?', images: [], options: ['a', 'b', 'c'], correctIndex: 1, explanation: 'because', scope: 'individual', points: 2,
 };
 export const q2: TextSlide = { id: 'q2', kind: 'text', title: 'Q2', tag: '', badges: [], prompt: '?', placeholder: '', images: [], scope: 'group', points: 3 };
 export const q3: ChoiceSlide = {
-  id: 'q3', kind: 'choice', title: 'Q3', tag: '', badges: [], prompt: '?', options: ['a', 'b'], correctIndex: 0, explanation: 'since', scope: 'group', points: 1,
+  id: 'q3', kind: 'choice', title: 'Q3', tag: '', badges: [], prompt: '?', images: [], options: ['a', 'b'], correctIndex: 0, explanation: 'since', scope: 'group', points: 1,
 };
 export const lesson: Lesson = { id: 'l1', folderId: null, title: 'Lesson', subject: 'Maths', grade: '7', published: true, slides: [intro, q1, q2, q3], updatedAt: 5 };
 

@@ -103,6 +103,7 @@ const SLIDE_UI: { [K in SlideKind]: SlideUi<Extract<Slide, { kind: K }>> } = {
     fields: [
       ...COMMON_FIELDS,
       { kind: 'textarea', key: 'prompt', label: f.prompt },
+      PICTURES_FIELD,
       {
         kind: 'list',
         key: 'options',

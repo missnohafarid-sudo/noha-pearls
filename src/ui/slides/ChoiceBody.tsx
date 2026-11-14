@@ -2,6 +2,7 @@ import type { ChoiceSlide } from '../../domain/models';
 import { optionMark, verdictOf } from '../../domain/scoring';
 import { choiceLetter, t } from '../../i18n';
 import { DirectedText } from './DirectedText';
+import { Pictures } from './Pictures';
 import type { SlideBodyProps } from './slideUi';
 
 /** A choice question: its prompt and options, for whoever looks at it (answering, read-only, or with the presenter's tallies). */
@@ -12,6 +13,7 @@ export function ChoiceBody({ slide, interaction }: SlideBodyProps<ChoiceSlide>) 
   return (
     <div className="slide-question">
       <p className="slide-question__prompt"><DirectedText text={slide.prompt} /></p>
+      <Pictures links={slide.images} />
       <div className="slide-options">
         {slide.options.map((option, index) => (
           <div key={index} className="slide-option-slot" data-option={index}>

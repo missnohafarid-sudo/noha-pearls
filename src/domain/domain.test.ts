@@ -29,7 +29,7 @@ import { nextOrder, onlyOne, sortByOrder } from './lists';
 import { optionMark, pearlsEarned, PEARL_COUNT, pointsFor, publishedKeys, rankScores, scoreboard, studentPoints, teacherKeys, verdictFor } from './scoring';
 
 const choice: ChoiceSlide = {
-  id: 'q1', kind: 'choice', title: 'س', tag: '', badges: [], prompt: '؟', options: ['a', 'b', 'c'],
+  id: 'q1', kind: 'choice', title: 'س', tag: '', badges: [], prompt: '؟', images: [], options: ['a', 'b', 'c'],
   correctIndex: 1, explanation: 'لأن', scope: 'individual', points: 2,
 };
 const groupText: TextSlide = {
@@ -284,6 +284,21 @@ describe('pictures on content slides and written questions', () => {
     expect(repaired).not.toHaveProperty('imageUrl');
     const none = { ...groupText, images: undefined } as unknown as Lesson['slides'][number];
     expect(normalizeSlide(none)).toMatchObject({ images: [] });
+  });
+
+  it('are carried by a choice question too: file round trip, older stored slide repaired, bad link refused and flagged', () => {
+    const asked = { kind: 'choice', title: 'س', prompt: '؟', options: ['a', 'b'] };
+    const withPhotos: Lesson['slides'] = [{ ...choice, images: [PHOTO_A, PHOTO_B] }];
+    const result = importLesson(exportLesson({ ...lesson, slides: withPhotos }));
+    expect(result.ok && result.lesson.slides.map(({ id: _id, ...rest }) => rest)).toEqual(withPhotos.map(({ id: _id, ...rest }) => rest));
+    const keys = Object.keys(JSON.parse(exportLesson({ ...lesson, slides: withPhotos })).slides[0]);
+    expect(keys.indexOf('images')).toBe(keys.indexOf('prompt') + 1);
+    expect(imported(asked)).toMatchObject({ images: [] });
+    expect(imported({ ...asked, images: [` ${PHOTO_A} `, '', PHOTO_B] })).toMatchObject({ images: [PHOTO_A, PHOTO_B] });
+    expect(normalizeSlide({ ...choice, images: undefined } as unknown as Lesson['slides'][number])).toMatchObject({ images: [] });
+    expect(imported({ ...asked, images: ['http://example.org/a.png'] })).toEqual([{ code: 'bad-url', slide: 1, field: 'images' }]);
+    expect(slideHasProblem({ ...choice, images: ['http://example.org/a.png'] })).toBe(true);
+    expect(slideHasProblem({ ...choice, images: [PHOTO_A] })).toBe(false);
   });
 
   it('flags a bad picture link and nothing else, and draws only what is a picture', () => {

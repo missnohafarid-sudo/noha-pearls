@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Lesson } from '../../src/domain/models';
 import { t } from '../../src/i18n';
 import { presentUpTo } from '../actions';
-import { addPictureLink, answerPictureRequest, boxesOf, PANEL, PICTURE_HOST, typeIntoField } from '../lessonLane';
+import { addPictureLink, answerPictureRequest, boxesOf, PICTURE_HOST, PICTURE_LIST, typeIntoField } from '../lessonLane';
 import { SAMPLE, slideText } from '../sample';
 import { storedRecords, type World } from '../world';
 
@@ -10,7 +10,6 @@ const WRITTEN_SLIDE = 9;
 const CONTENT_SLIDE = 10;
 const PHOTO = `https://${PICTURE_HOST}/for-the-student`;
 const SECRET = 'A secret line for the student';
-const PICTURE_LIST = `${PANEL} fieldset.field`;
 
 /** What the teacher's slides show on a student's phone in the running class: a written question's picture, and a hidden section's button. */
 export function studentSlidesSteps(world: World): void {

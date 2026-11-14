@@ -82,7 +82,8 @@ export async function deleteLessonOnPage(world: World, lessonId: string): Promis
 }
 
 export const PICTURE_HOST = 'pictures.test';
-const PICTURE_LIST = `${PANEL} fieldset.field`;
+/** The editor's list of picture links: a list field sits straight in the form, unlike the badges fieldset nested in its own field. */
+export const PICTURE_LIST = `${PANEL} .stack > fieldset.field`;
 
 const PICTURE = `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="120"><rect width="200" height="120" fill="#888888"/></svg>`;
 

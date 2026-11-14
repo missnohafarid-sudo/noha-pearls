@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { exportLesson } from '../../src/domain/lessonFormat';
-import type { ContentSlide, TextSlide } from '../../src/domain/models';
+import type { ChoiceSlide, ContentSlide, TextSlide } from '../../src/domain/models';
 import { t } from '../../src/i18n';
 import { addPictureLink, answerPictureRequest, boxesOf, deleteLessonOnPage, exportedFileOnPage, importLessonFile, lessonFileText, PICTURE_HOST, storedLessonById, typeIntoField } from '../lessonLane';
 import type { World } from '../world';
@@ -9,14 +9,17 @@ const TITLE = 'Lesson with pictures';
 const PHOTO_ONE = `https://${PICTURE_HOST}/one`;
 const PHOTO_TWO = `https://${PICTURE_HOST}/two`;
 const PHOTO_THREE = `https://${PICTURE_HOST}/three`;
+const PHOTO_FOUR = `https://${PICTURE_HOST}/four`;
 const NOT_HTTPS = `http://${PICTURE_HOST}/one`;
 const PROMPT = 'Question with a picture';
+const CHOSEN = 'Choice question with a picture';
 const CONTENT = { kind: 'content', title: 'Slide with pictures', body: 'Some text' };
 const WRITTEN = { kind: 'text', title: 'Written question', prompt: PROMPT };
+const CHOICE = { kind: 'choice', title: 'Choice question', prompt: CHOSEN, options: ['First option', 'Second option'] };
 const WARNING_MARK = `.slide-row [role=img][aria-label="${t.lesson.slides.problem}"]`;
 const IMAGES = '.slide .slide-pictures__image';
 
-/** Photos on a content slide and on a written question: shown side by side and centred, edited as a list of links, kept by the lesson file. */
+/** Photos on a content slide and on a written or choice question: shown side by side and centred, edited as a list of links, kept by the lesson file. */
 export function slidePicturesSteps(world: World): void {
   describe('pictures on slides', () => {
     let lessonId = '';
@@ -25,7 +28,7 @@ export function slidePicturesSteps(world: World): void {
     beforeAll(async () => {
       await world.admin.page.setRequestInterception(true);
       world.admin.page.on('request', answerPictureRequest);
-      lessonId = await importLessonFile(world, lessonFileText([CONTENT, WRITTEN], TITLE), TITLE);
+      lessonId = await importLessonFile(world, lessonFileText([CONTENT, WRITTEN, CHOICE], TITLE), TITLE);
     });
 
     afterAll(async () => {
@@ -73,22 +76,39 @@ export function slidePicturesSteps(world: World): void {
       expect(prompt.bottom).toBeLessThanOrEqual(picture.top);
     });
 
-    it('the stored lesson holds the pictures of both slides', async () => {
-      const [content, written] = (await storedLessonById(world, lessonId)).slides as [ContentSlide, TextSlide];
+    it('a link added to a choice question shows its picture between the prompt and the first option', async () => {
+      await world.admin.goto(`#/lesson/${encodeURIComponent(lessonId)}/3`);
+      await world.admin.waitFor(CHOSEN);
+      await addPictureLink(world, PHOTO_FOUR, 0);
+      await world.admin.until('the picture', async () => {
+        const boxes = await boxesOf(world.admin, IMAGES);
+        return boxes.length === 1 && boxes[0].loaded;
+      });
+      const [picture] = await boxesOf(world.admin, IMAGES);
+      const [prompt] = await boxesOf(world.admin, '.slide-question__prompt');
+      const [option] = await boxesOf(world.admin, '.slide-option');
+      expect(prompt.bottom).toBeLessThanOrEqual(picture.top);
+      expect(picture.bottom).toBeLessThanOrEqual(option.top);
+    });
+
+    it('the stored lesson holds the pictures of all three slides', async () => {
+      const [content, written, chosen] = (await storedLessonById(world, lessonId)).slides as [ContentSlide, TextSlide, ChoiceSlide];
       expect(content.images).toEqual([PHOTO_ONE, PHOTO_TWO]);
       expect(written.images).toEqual([PHOTO_THREE]);
+      expect(chosen.images).toEqual([PHOTO_FOUR]);
       expect(content).not.toHaveProperty('imageUrl');
     });
 
-    it('exporting the lesson and importing the file again keeps the pictures of both slides', async () => {
+    it('exporting the lesson and importing the file again keeps the pictures of all three slides', async () => {
       const file = await exportedFileOnPage(world, lessonId);
       expect(file.startsWith('```json')).toBe(true);
-      expect(JSON.parse(exportLesson(await storedLessonById(world, lessonId))).slides.map((slide: { images: string[] }) => slide.images)).toEqual([[PHOTO_ONE, PHOTO_TWO], [PHOTO_THREE]]);
+      expect(JSON.parse(exportLesson(await storedLessonById(world, lessonId))).slides.map((slide: { images: string[] }) => slide.images)).toEqual([[PHOTO_ONE, PHOTO_TWO], [PHOTO_THREE], [PHOTO_FOUR]]);
       copyId = await importLessonFile(world, file, TITLE);
       expect(copyId).not.toBe(lessonId);
-      const [content, written] = (await storedLessonById(world, copyId)).slides as [ContentSlide, TextSlide];
+      const [content, written, chosen] = (await storedLessonById(world, copyId)).slides as [ContentSlide, TextSlide, ChoiceSlide];
       expect(content.images).toEqual([PHOTO_ONE, PHOTO_TWO]);
       expect(written.images).toEqual([PHOTO_THREE]);
+      expect(chosen.images).toEqual([PHOTO_FOUR]);
     });
 
     it('the walkthrough removes its two lessons so that later steps meet the lessons they expect', async () => {

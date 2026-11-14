@@ -26,7 +26,7 @@ import { TeacherError, TeacherService } from './TeacherService';
 import { participantsFor, recordsFor, rewardsFor, rostersFor } from './serviceKit';
 
 const question: ChoiceSlide = {
-  id: 'q1', kind: 'choice', title: 'س', tag: '', badges: [], prompt: '؟', options: ['a', 'b'],
+  id: 'q1', kind: 'choice', title: 'س', tag: '', badges: [], prompt: '؟', images: [], options: ['a', 'b'],
   correctIndex: 0, explanation: 'شرح', scope: 'individual', points: 1,
 };
 const groupQuestion: TextSlide = {

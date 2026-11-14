@@ -36,6 +36,8 @@ export interface ContentSlide extends SlideBase {
 export interface ChoiceSlide extends SlideBase {
   kind: 'choice';
   prompt: string;
+  /** Public https addresses of photos shown between the prompt and the options. */
+  images: string[];
   options: string[];
   /** `null` makes it a poll or prediction with no right answer. */
   correctIndex: number | null;

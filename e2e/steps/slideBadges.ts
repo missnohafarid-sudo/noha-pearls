@@ -17,7 +17,7 @@ const WITH_BADGES = {
 const WITHOUT = { kind: 'content', title: 'Slide without badges', body: 'Plain body' };
 const BADGES = '.slide .slide-badge';
 const LABELS = '.slide .slide__labels > *';
-const BADGE_LIST = `${PANEL} fieldset.field`;
+const BADGE_LIST = `${PANEL} .field > fieldset.field`;
 const ADDED = 'Added from the editor';
 
 const classesOf = (world: World, selector: string) => world.admin.page.$$eval(selector, (elements) => elements.map((element) => element.className));

@@ -287,7 +287,9 @@ describe('a first-time teacher on an empty school', () => {
     await teacher.click(SAMPLE.title);
     await teacher.until('the lesson address', async () => /#\/lesson\/[^/]+/.test(teacher.page.url()));
     const lessonAddress = /#\/lesson\/([^/?]+)/.exec(teacher.page.url())?.[1] ?? '';
-    await open(`#/lesson/${lessonAddress}/${slide + 1}`);
+    await teacher.until('the slide rows', async () => (await rows()) > slide);
+    const position = (await teacher.texts(SLIDE_ROWS)).findIndex((row) => row.includes(SAMPLE.slides[slide].title)) + 1;
+    await open(`#/lesson/${lessonAddress}/${position}`);
     await teacher.waitFor(SAMPLE.slides[slide].title);
     await teacher.until('the hidden-text box', () =>
       teacher.page.evaluate(

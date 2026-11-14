@@ -10,9 +10,11 @@ const DIGITS = '0-9\\u00B2\\u00B3\\u00B9\\u2070-\\u209F';
 const SIGNS = "+\\-\\u2212\\u00D7\\u00F7*/=<>\\u2264\\u2265\\u2260\\u2248\\u00B1^_%\\u00B0\\u221A\\u221E\\u2192\\u2190\\u21CC\\u00B7'\\u2032\\u2033|";
 const BRACKETS = '()\\[\\]{}';
 const INNER_SEPARATORS = ' .,:';
+/** What holds an email or a web address together; without them it would be cut into pieces that swap places. */
+const ADDRESS_MARKS = '@&#?~';
 
 const HAS_LETTER = new RegExp(`[${LETTER}]`, 'u');
-const CANDIDATE = new RegExp(`[${LETTER}${DIGITS}${SIGNS}${BRACKETS}${INNER_SEPARATORS}]+`, 'gu');
+const CANDIDATE = new RegExp(`[${LETTER}${DIGITS}${SIGNS}${BRACKETS}${INNER_SEPARATORS}${ADDRESS_MARKS}]+`, 'gu');
 const EQUATION_SIGN = new RegExp('[=+\\u00D7\\u00F7*^<>\\u2264\\u2265\\u2260\\u2248\\u00B1\\u221A]', 'u');
 const SIGNED_NUMBER = new RegExp('^[-\\u2212+]\\d+(?:[.,]\\d+)?$', 'u');
 const EDGE_PUNCTUATION = /[ .,:;!?]/;

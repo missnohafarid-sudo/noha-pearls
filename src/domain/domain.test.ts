@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { admittedDevices, awaitingAdmission, canClaimSeat, contestedRequestNumber, isAdmitted, isNameHeldElsewhere, isSeatOfGroupPage, joinLanding, namesHeldByOthers, returnGroupId, seatAnswerer, requestNumber, seatGroupId, seatLoss, seatsDisplacedBy, seatsForBulkAdmission, seatsForCards, seatsNeedingTap, studentsJoiningRoll } from './admission';
 import { addToRoll, countedGroups, isOnRoll, isPresent, joinRoll, markAbsent, presentGroups, presentStudents, rollTaken, sightingChangesAnything } from './attendance';
-import { buildMonitor, RewardIndex, studentReport, tallyChoices } from './analytics';
+import { buildMonitor, netHeartCount, RewardIndex, studentReport, tallyChoices } from './analytics';
 import { answersForWholeGroup, answerStatusByGroup, canAnswer, canScanCards, deviceAnswer, effectiveAnswer, nextManualChoice, nextManualChoiceFor, normalizeAnswerValue, subjectFor, tallyAnswerers } from './answering';
 import { CardReadStabilizer, cardNumberLabel, choiceFromCorners, presenceReadings, type Point } from './cards';
 import { toAsciiDigits } from './digits';
@@ -12,13 +12,13 @@ import { exportLesson, importLesson, lessonFileText } from './lessonFormat';
 import { addSlide, createLesson, duplicateSlide, indexAfterRemoval, moveSlide, normalizeSlide, removeSlide, slideHasProblem, updateSlide } from './lessonOps';
 import { picturesOf, storedPictures } from './slideFields';
 import { isHttpsUrl, MEDIA_CHOICES, MEDIA_TYPES, mediaLink, mediaView, pictureSources, steppedZoom } from './media';
-import type { Answer, AttendedRoster, ClassRecord, ClassRoster, Reward, ChoiceSlide, Group, Lesson, MediaSlide, Participant, SchoolClass, Session, Student, Teacher, TextSlide } from './models';
+import type { Answer, AttendedRoster, ClassRecord, ClassRoster, Reward, ChoiceSlide, Group, Lesson, MediaSlide, Participant, SchoolClass, Session, Student, SubjectRef, Teacher, TextSlide } from './models';
 import { resolveStudentView } from './pacing';
 import { addStudentToRoster, cardLabel, createGroup, createSchoolClass, groupById, isCardNumberFree, isOnRoster, moveStudent, nextCardNumber, renameGroupIn, rosterOf, schoolClassForPage, studentByCard, studentById } from './roster';
 import { applyRoster, exportRosterText, parseRosterText, type RosterEntry } from './rosterFormat';
 import { cleanMessage, cleanName, MAX_MESSAGE_LENGTH } from './text';
 import { countingQuestions, interactionsOf, isUnresponsive, minInteractions, possibleInteractions, withMinInteractions } from './engagement';
-import { canGivePeerHeart, canGiveTeacherHeart, peerRewardTargets } from './rewards';
+import { canGiveAnotherPeerHeart, canGivePeerHeart, canGiveTeacherHeart, canTakeTeacherHeart, hasHeartToTake, peerRewardTargets, teacherHeartEffect } from './rewards';
 import { acceptsChanges, canRemoveClass, canRemoveLesson, codeToFillIn, canRemoveTeacher, isLive, liveSessionForPage, hasGroupsToStart, liveSessions, newUniqueJoinCode, recentlyEnded, sessionBasis, sessionForPage } from './sessions';
 import { createTeacher } from './teachers';
 import { inPeriod, periodAt, periodDates, shiftPeriod, SCHOOL_UTC_OFFSET_MS } from './periods';
@@ -704,9 +704,56 @@ describe('scoring and read models', () => {
       { id: '2', sessionId: 'x', target: { kind: 'student', id: 's1' }, source: 'peer', at: 0 },
       { id: '3', sessionId: 'x', target: { kind: 'group', id: 'g1' }, source: 'guest', at: 0 },
     ]);
-    expect(index.of({ kind: 'student', id: 's1' })).toEqual({ total: 2, bySource: { teacher: 1, peer: 1, guest: 0, supervisor: 0 } });
+    expect(index.of({ kind: 'student', id: 's1' })).toEqual({ total: 2, bySource: { teacher: 1, peer: 1, guest: 0, supervisor: 0 }, taken: 0 });
     expect(index.groupTotal(groups[0], students)).toBe(3);
     expect(index.groupTotal(groups[1], students)).toBe(0);
+  });
+
+  it('subtracts hearts the teacher took, keeping them out of the sources', () => {
+    const heart = (id: string, target: SubjectRef, over: Partial<Reward> = {}): Reward => ({ id, sessionId: 'x', target, source: 'teacher', at: 0, ...over });
+    const s1: SubjectRef = { kind: 'student', id: 's1' };
+    const index = new RewardIndex([heart('1', s1), heart('2', s1, { source: 'peer' }), heart('3', s1, { effect: 'taken' })]);
+    expect(index.of(s1)).toEqual({ total: 1, bySource: { teacher: 1, peer: 1, guest: 0, supervisor: 0 }, taken: 1 });
+    expect(netHeartCount([heart('1', s1), heart('2', s1), heart('3', s1, { effect: 'taken' }), heart('4', s1, { effect: 'returned' })])).toBe(2);
+    expect(netHeartCount([])).toBe(0);
+  });
+
+  it('gives a taken heart back before adding a new one, never taking the count of taken below zero', () => {
+    const heart = (id: string, target: SubjectRef, over: Partial<Reward> = {}): Reward => ({ id, sessionId: 'x', target, source: 'teacher', at: 0, ...over });
+    const s1: SubjectRef = { kind: 'student', id: 's1' };
+    const g1: SubjectRef = { kind: 'group', id: 'g1' };
+    const press = (rewards: Reward[], target: SubjectRef): Reward[] => [...rewards, heart(`${rewards.length}`, target, { effect: teacherHeartEffect(new RewardIndex(rewards).of(target).taken) })];
+    let rewards = press([], s1);
+    rewards = [...rewards, heart('t', s1, { effect: 'taken' })];
+    expect(new RewardIndex(rewards).of(s1)).toMatchObject({ total: 0, taken: 1 });
+    rewards = press(rewards, s1);
+    expect(new RewardIndex(rewards).of(s1)).toEqual({ total: 1, bySource: { teacher: 1, peer: 0, guest: 0, supervisor: 0 }, taken: 0 });
+    rewards = press(rewards, s1);
+    expect(new RewardIndex(rewards).of(s1)).toMatchObject({ total: 2, taken: 0, bySource: { teacher: 2 } });
+    expect(teacherHeartEffect(0)).toBeUndefined();
+    expect(teacherHeartEffect(1)).toBe('returned');
+
+    const members = [heart('a', s1), heart('b', s1)];
+    const takenFromGroup = [...members, heart('c', g1, { effect: 'taken' })];
+    expect(new RewardIndex(takenFromGroup).shownFor(g1, students)).toBe(1);
+    const back = press(takenFromGroup, g1);
+    expect(new RewardIndex(back).of(g1)).toMatchObject({ total: 0, taken: 0 });
+    expect(new RewardIndex(back).shownFor(g1, students)).toBe(2);
+
+    const withPeer = [...takenFromGroup, heart('p', g1, { source: 'peer' })];
+    expect(new RewardIndex(withPeer).of(g1)).toMatchObject({ taken: 1 });
+  });
+
+  it('shows a student her own total and a group its own plus its members, never below zero', () => {
+    const heart = (id: string, target: SubjectRef, over: Partial<Reward> = {}): Reward => ({ id, sessionId: 'x', target, source: 'teacher', at: 0, ...over });
+    const s1: SubjectRef = { kind: 'student', id: 's1' };
+    const g1: SubjectRef = { kind: 'group', id: 'g1' };
+    const index = new RewardIndex([heart('1', s1), heart('2', g1), heart('3', g1)]);
+    expect(index.shownFor(s1, students)).toBe(1);
+    expect(index.shownFor(g1, students)).toBe(3);
+    const negative = new RewardIndex([heart('1', g1, { effect: 'taken' }), heart('2', s1, { effect: 'taken' })]);
+    expect(negative.groupTotal(groups[0], students)).toBe(0);
+    expect(negative.shownFor(g1, students)).toBe(0);
   });
 
   it('hands out the lowest free card number', () => {
@@ -831,6 +878,22 @@ describe('hearts', () => {
       expect(canGiveTeacherHeart(given, everyone, { kind: 'group', id: 'nobody' })).toBe(false);
     }
     expect(canGiveTeacherHeart(null, everyone, { kind: 'student', id: 's1' })).toBe(false);
+  });
+
+  it('lets the teacher take a heart only from whom she could give one and only while the shown count is above zero', () => {
+    const s1: SubjectRef = { kind: 'student', id: 's1' };
+    expect(hasHeartToTake(0)).toBe(false);
+    expect(hasHeartToTake(1)).toBe(true);
+    expect(canTakeTeacherHeart(null, everyone, s1, 2)).toBe(false);
+    expect(canTakeTeacherHeart(session, everyone, { kind: 'student', id: 'nobody' }, 2)).toBe(false);
+    expect(canTakeTeacherHeart(session, everyone, s1, 0)).toBe(false);
+    expect(canTakeTeacherHeart(session, everyone, s1, 1)).toBe(true);
+    expect(canTakeTeacherHeart({ ...session, status: 'ended' }, everyone, { kind: 'group', id: 'g2' }, 1)).toBe(true);
+  });
+
+  it('does not count a taken heart against a student\'s peer hearts', () => {
+    expect(canGiveAnotherPeerHeart([{ source: 'peer' }, { source: 'teacher' }], 2)).toBe(true);
+    expect(canGiveAnotherPeerHeart([{ source: 'peer' }, { source: 'peer' }], 2)).toBe(false);
   });
 
   it('judges a moved student by the group she is in now, not the one she joined', () => {

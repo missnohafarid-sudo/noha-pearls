@@ -41,7 +41,7 @@ export const SURFACE_EFFECTS = {
     sessionRoster: ['moveStudent', 'addStudent', 'renameGroup', 'markPresent', 'markAbsent'],
     admission: ['admit', 'takeRoll', 'admitAll', 'remove'],
     answers: ['submitForStudent', 'clearForStudent'],
-    rewards: ['giveAsTeacher', 'giveAsPeer'],
+    rewards: ['giveAsTeacher', 'takeAsTeacher', 'giveAsPeer'],
     retention: ['setYearEnd', 'removeClasses'],
   },
 } as const satisfies Record<CallEffect, Tagged>;

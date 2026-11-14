@@ -1,9 +1,17 @@
+import { hasHeartToTake } from '../../domain/rewards';
 import { t } from '../../i18n';
 
 const HEART = '\u2764';
 
-/** Shows the heart count of `owner`; when `onGive` is passed it is also the button that gives one. */
-export function HeartButton({ owner, count, onGive }: { owner: string; count: number; onGive?: () => void }) {
+interface Props {
+  owner: string;
+  count: number;
+  onGive?: () => void;
+  onTake?: () => void;
+}
+
+/** Shows the heart count of `owner`; when `onGive` is passed it is also the button that gives one, and when `onTake` is passed and there is a heart to take, a second button takes one away. */
+export function HeartButton({ owner, count, onGive, onTake }: Props) {
   const label = t.common.heartsOf(owner, count);
   if (!onGive) {
     return (
@@ -12,9 +20,17 @@ export function HeartButton({ owner, count, onGive }: { owner: string; count: nu
       </span>
     );
   }
+  const takeLabel = t.common.takeHeartFrom(owner);
   return (
-    <button type="button" className="btn btn--small btn--heart" aria-label={label} onClick={onGive}>
-      {HEART} {count}
-    </button>
+    <>
+      <button type="button" className="btn btn--small btn--heart" aria-label={label} onClick={onGive}>
+        {HEART} {count}
+      </button>
+      {onTake && hasHeartToTake(count) && (
+        <button type="button" className="btn btn--small btn--take-heart" aria-label={takeLabel} title={takeLabel} onClick={onTake}>
+          {'\u2212'}
+        </button>
+      )}
+    </>
   );
 }

@@ -55,6 +55,10 @@ export const common = {
     individual: 'فردي: كل طالبة تجيب',
     group: 'جماعي: إجابة واحدة للمجموعة',
   },
+  /** The teacher's button that takes one heart away; `owner` is a student's or a group's name. */
+  takeHeartFrom: (owner: string) => `سحب قلب من ${isolate(owner)}`,
+  /** The chip beside the per-source ones: how many hearts the teacher took back. */
+  heartsTaken: 'سُحبت',
   rewardSource: {
     teacher: 'المعلّمة',
     peer: 'الزميلات',

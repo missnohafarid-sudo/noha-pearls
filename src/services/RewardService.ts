@@ -1,6 +1,7 @@
+import { netHeartCount, RewardIndex } from '../domain/analytics';
 import { newId } from '../domain/ids';
-import type { Id, Reward, RewardSource, SubjectRef } from '../domain/models';
-import { canGiveAnotherPeerHeart, canGivePeerHeart, canGiveTeacherHeart } from '../domain/rewards';
+import type { Id, Reward, RewardEffect, RewardSource, SubjectRef } from '../domain/models';
+import { canGiveAnotherPeerHeart, canGivePeerHeart, canGiveTeacherHeart, canTakeTeacherHeart, teacherHeartEffect } from '../domain/rewards';
 import { studentById } from '../domain/roster';
 import { PEER_HEARTS_PER_GIVER } from '../ports/limits';
 import type { DocumentStore, Unsubscribe } from '../ports/store';
@@ -28,15 +29,25 @@ export class RewardService {
 
   /** How many hearts the class this code opens has been given, and nothing about whom. */
   watchHeartCount(code: string, listener: (count: number) => void): Unsubscribe {
-    return watchByCode<number>(this.codes, code, (session) => (emit) => this.store.watch('rewards', { sessionId: session.id }, (rewards) => emit(rewards.length)), 0, listener);
+    return watchByCode<number>(this.codes, code, (session) => (emit) => this.store.watch('rewards', { sessionId: session.id }, (rewards) => emit(netHeartCount(rewards))), 0, listener);
   }
 
-  /** Admin only: a heart in the teacher's name, for a student or a group of the session's roster. Returns false when the target is not on it. Accepted after the class has ended too. */
+  /** Admin only: a heart in the teacher's name, for a student or a group of the session's roster; it gives back a heart she took from that target first. Returns false when the target is not on it. Accepted after the class has ended too. */
   async giveAsTeacher(sessionId: Id, target: SubjectRef): Promise<boolean> {
     requireAdmin(this.caller);
-    const [session, roster] = await Promise.all([this.store.get('sessions', sessionId), this.rosters.rosterOf(sessionId)]);
+    const [session, roster, rewards] = await Promise.all([this.store.get('sessions', sessionId), this.rosters.rosterOf(sessionId), this.store.list('rewards', { sessionId })]);
     if (!canGiveTeacherHeart(session, roster, target)) return false;
-    await this.add(sessionId, target, 'teacher');
+    await this.add(sessionId, target, 'teacher', undefined, teacherHeartEffect(new RewardIndex(rewards).of(target).taken));
+    return true;
+  }
+
+  /** Admin only: takes a heart away from a student or group, recorded as one more reward counting minus one. Returns false when the target is not on the roster or has none to take. Accepted after the class has ended too. */
+  async takeAsTeacher(sessionId: Id, target: SubjectRef): Promise<boolean> {
+    requireAdmin(this.caller);
+    const [session, roster, rewards] = await Promise.all([this.store.get('sessions', sessionId), this.rosters.rosterOf(sessionId), this.store.list('rewards', { sessionId })]);
+    const shown = new RewardIndex(rewards).shownFor(target, roster.students);
+    if (!canTakeTeacherHeart(session, roster, target, shown)) return false;
+    await this.add(sessionId, target, 'teacher', undefined, 'taken');
     return true;
   }
 
@@ -52,7 +63,7 @@ export class RewardService {
     return true;
   }
 
-  private add(sessionId: Id, target: SubjectRef, source: RewardSource, giverId?: Id): Promise<void> {
-    return this.store.put('rewards', { id: `${sessionId}:${newId()}`, sessionId, target, source, at: Date.now(), ...(giverId && { giverId }) });
+  private add(sessionId: Id, target: SubjectRef, source: RewardSource, giverId?: Id, effect?: RewardEffect): Promise<void> {
+    return this.store.put('rewards', { id: `${sessionId}:${newId()}`, sessionId, target, source, at: Date.now(), ...(giverId && { giverId }), ...(effect && { effect }) });
   }
 }

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { seatAnswerer } from '../domain/admission';
 import { effectiveAnswer } from '../domain/answering';
+import { RewardIndex } from '../domain/analytics';
 import { newId } from '../domain/ids';
 import { dateOf, inPeriod, periodAt, SCHOOL_UTC_OFFSET_MS } from '../domain/periods';
 import type { Answer, ChoiceSlide, Id, Lesson, Reward, Student, TextSlide } from '../domain/models';
@@ -325,6 +326,7 @@ describe('a live class', () => {
     await expect(sessions.reveal(session.id, 'q1')).rejects.toBeInstanceOf(NotAuthorizedError);
     await expect(sessions.goTo(session.id, 0)).rejects.toBeInstanceOf(NotAuthorizedError);
     await expect(rewards.giveAsTeacher(session.id, { kind: 'student', id: 's1' })).rejects.toBeInstanceOf(NotAuthorizedError);
+    await expect(rewards.takeAsTeacher(session.id, { kind: 'student', id: 's1' })).rejects.toBeInstanceOf(NotAuthorizedError);
   });
 
   it('enters and withdraws answers only for a stored student, with the group she is stored in', async () => {
@@ -349,6 +351,50 @@ describe('a live class', () => {
     expect(await rewards.giveAsTeacher(session.id, { kind: 'student', id: 's1' })).toBe(true);
     expect(await rewards.giveAsTeacher(session.id, { kind: 'group', id: 'g2' })).toBe(true);
     expect((await store.list('rewards', { sessionId: session.id })).map((r) => r.target)).toEqual([{ kind: 'student', id: 's1' }, { kind: 'group', id: 'g2' }]);
+  });
+
+  it('takes a teacher heart away only while there is one to take, for a student and for a group', async () => {
+    const { rewards, store } = ctx;
+    const session = await begin();
+    await storeClassList();
+    const student = { kind: 'student', id: 's1' } as const;
+    const group = { kind: 'group', id: 'g1' } as const;
+    const counts: number[] = [];
+    ctx.rewards.watchHeartCount(session.code, (n) => counts.push(n));
+    expect(await rewards.takeAsTeacher(session.id, student)).toBe(false);
+    expect(await rewards.takeAsTeacher(session.id, { kind: 'student', id: 'nobody' })).toBe(false);
+    expect(await rewards.giveAsTeacher(session.id, student)).toBe(true);
+    expect(await rewards.takeAsTeacher(session.id, student)).toBe(true);
+    expect(await rewards.takeAsTeacher(session.id, student)).toBe(false);
+    expect(await rewards.giveAsTeacher(session.id, student)).toBe(true);
+    expect(await rewards.takeAsTeacher(session.id, group)).toBe(true);
+    expect(await rewards.takeAsTeacher(session.id, group)).toBe(false);
+    expect(await rewards.giveAsTeacher(session.id, { kind: 'group', id: 'g2' })).toBe(true);
+    const stored = await store.list('rewards', { sessionId: session.id });
+    expect(stored).toHaveLength(5);
+    expect(stored.filter((r) => r.effect === 'taken')).toHaveLength(2);
+    expect(stored.filter((r) => r.effect).every((r) => r.source === 'teacher')).toBe(true);
+    await vi.waitFor(() => expect(counts.at(-1)).toBe(1));
+  });
+
+  it('gives a taken heart back before adding a new one, and a peer heart does not undo a take', async () => {
+    const { rewards, store } = ctx;
+    const session = await begin();
+    await storeClassList();
+    const student = { kind: 'student', id: 's1' } as const;
+    const tallyOf = async () => new RewardIndex(await store.list('rewards', { sessionId: session.id })).of(student);
+    await rewards.giveAsTeacher(session.id, student);
+    await rewards.takeAsTeacher(session.id, student);
+    expect(await tallyOf()).toMatchObject({ total: 0, taken: 1 });
+    await rewards.giveAsTeacher(session.id, student);
+    expect(await tallyOf()).toMatchObject({ total: 1, taken: 0, bySource: { teacher: 1 } });
+    expect((await store.list('rewards', { sessionId: session.id })).map((r) => r.effect)).toEqual([undefined, 'taken', 'returned']);
+    await rewards.giveAsTeacher(session.id, student);
+    expect(await tallyOf()).toMatchObject({ total: 2, taken: 0, bySource: { teacher: 2 } });
+    await rewards.takeAsTeacher(session.id, student);
+    const classmate = await seated(session.id, 'g2', 's2');
+    expect(await classmate.rewards.giveAsPeer(session.id, 's1')).toBe(true);
+    expect(await tallyOf()).toMatchObject({ total: 2, taken: 1, bySource: { teacher: 2, peer: 1 } });
   });
 
   it('lets students give hearts to other groups only, judged on the stored classmate', async () => {

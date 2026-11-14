@@ -52,7 +52,8 @@
   border-radius: var(--radius);
 }
 
-.pearl-card .btn--heart {
+.pearl-card .btn--heart,
+.pearl-card .btn--take-heart {
   position: relative;
   z-index: 1;
 }

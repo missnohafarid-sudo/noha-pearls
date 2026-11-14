@@ -129,9 +129,11 @@ export interface Answer {
   changes?: number;
 }
 
+export type RewardEffect = 'taken' | 'returned';
+
 export type RewardSource = 'teacher' | 'peer' | 'guest' | 'supervisor';
 
-/** One heart. Append-only, so totals are counted, never overwritten. */
+/** One heart given, or taken back. Append-only, so totals are counted, never overwritten. */
 export interface Reward {
   id: Id;
   sessionId: Id;
@@ -140,6 +142,8 @@ export interface Reward {
   at: number;
   /** The seat that gave a peer heart; absent for the teacher's. */
   giverId?: Id;
+  /** Absent on a heart that was given. 'taken': the teacher took a heart away (minus one). 'returned': she gave back a heart she had taken (plus one, one fewer taken). */
+  effect?: RewardEffect;
 }
 
 /** A device that asked for a seat in a session. `studentId` is null for a shared group device. */

@@ -42,7 +42,7 @@ export const SURFACE_SHAPES = {
   answers: {
     watchAnswers: id, submitFromDevice: [isId, isId, isAnswerValue], submitForStudent: [isId, isId, isId, isAnswerValue, oneOf('card', 'manual')], clearForStudent: [isId, isId, isId],
   },
-  rewards: { watchRewards: id, watchHeartCount: [isClassCode], giveAsTeacher: [isId, isSubject], giveAsPeer: [isId, isId] },
+  rewards: { watchRewards: id, watchHeartCount: [isClassCode], giveAsTeacher: [isId, isSubject], takeAsTeacher: [isId, isSubject], giveAsPeer: [isId, isId] },
   records: {
     currentPeriod: [isPeriodKind], standingsOf: [isId, isPeriod], groupStandingsOf: [isClassCode, isPeriodKind], ownStandingIn: [isId, isPeriodKind], watchKeptCount: [isClassCode], watchClassKeptCount: id,
   },

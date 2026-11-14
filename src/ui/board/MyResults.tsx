@@ -38,6 +38,11 @@ export function MyResults({ student, group, report, hearts, onHide, children }: 
             {t.common.rewardSource[source]} {hearts.bySource[source]}
           </span>
         ))}
+        {hearts.taken > 0 && (
+          <span className="chip">
+            {t.common.heartsTaken} {hearts.taken}
+          </span>
+        )}
       </div>
       {children}
       <ul className="board__results list-reset">

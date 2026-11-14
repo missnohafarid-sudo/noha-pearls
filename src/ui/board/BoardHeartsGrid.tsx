@@ -44,6 +44,11 @@ export function BoardHeartsGrid({ sessionId, roster, heartsFor }: Props) {
                           {t.common.rewardSource[source]} {tally.bySource[source]}
                         </span>
                       ))}
+                      {tally.taken > 0 && (
+                        <span className="chip">
+                          {t.common.heartsTaken} {tally.taken}
+                        </span>
+                      )}
                     </div>
                   </div>
                 );

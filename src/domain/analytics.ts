@@ -152,13 +152,17 @@ export function studentReport(
 export const REWARD_SOURCES: readonly RewardSource[] = ['teacher', 'peer', 'guest', 'supervisor'];
 
 export interface RewardTally {
+  /** Hearts given minus hearts still taken. */
   total: number;
+  /** Plain given hearts, by who gave them. */
   bySource: Record<RewardSource, number>;
+  /** Hearts taken and not yet returned. */
+  taken: number;
 }
 
 function emptyTally(): RewardTally {
   const bySource = Object.fromEntries(REWARD_SOURCES.map((source) => [source, 0])) as Record<RewardSource, number>;
-  return { total: 0, bySource };
+  return { total: 0, bySource, taken: 0 };
 }
 
 export class RewardIndex {
@@ -168,8 +172,16 @@ export class RewardIndex {
     for (const reward of rewards) {
       const key = subjectKey(reward.target);
       const tally = this.tallies.get(key) ?? emptyTally();
-      tally.total += 1;
-      tally.bySource[reward.source] += 1;
+      if (reward.effect === 'taken') {
+        tally.total -= 1;
+        tally.taken += 1;
+      } else if (reward.effect === 'returned') {
+        tally.total += 1;
+        tally.taken -= 1;
+      } else {
+        tally.total += 1;
+        tally.bySource[reward.source] += 1;
+      }
       this.tallies.set(key, tally);
     }
   }
@@ -178,11 +190,22 @@ export class RewardIndex {
     return this.tallies.get(subjectKey(subject)) ?? emptyTally();
   }
 
-  /** A group's hearts: those given to the group itself plus those given to its members. */
+  /** A group's hearts: those given to the group itself plus those given to its members, never below zero. */
   groupTotal(group: Pick<Group, 'id'>, students: readonly Pick<Student, 'id' | 'groupId'>[]): number {
-    return membersOf(group.id, students).reduce(
-      (sum, s) => sum + this.of({ kind: 'student', id: s.id }).total,
+    const sum = membersOf(group.id, students).reduce(
+      (acc, s) => acc + this.of({ kind: 'student', id: s.id }).total,
       this.of({ kind: 'group', id: group.id }).total,
     );
+    return Math.max(0, sum);
   }
+
+  /** The count shown for a target: a student's own total, a group's `groupTotal`. */
+  shownFor(target: SubjectRef, students: readonly Pick<Student, 'id' | 'groupId'>[]): number {
+    return target.kind === 'group' ? this.groupTotal({ id: target.id }, students) : this.of(target).total;
+  }
+}
+
+/** How many hearts a class has, taken ones subtracted. */
+export function netHeartCount(rewards: readonly Pick<Reward, 'effect'>[]): number {
+  return rewards.reduce((sum, reward) => sum + (reward.effect === 'taken' ? -1 : 1), 0);
 }

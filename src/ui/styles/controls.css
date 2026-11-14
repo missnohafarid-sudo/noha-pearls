@@ -71,6 +71,16 @@
   background: var(--heart-soft);
 }
 
+.btn--take-heart {
+  background: var(--heart-soft);
+  color: var(--heart-ink);
+  padding-inline: 10px;
+}
+
+.btn--take-heart:hover:not(:disabled) {
+  background: var(--heart-soft);
+}
+
 .btn--small {
   min-block-size: 32px;
   padding: 2px 16px;

@@ -1,9 +1,9 @@
 import { seatGroupId } from './admission';
 import { isOnRoster } from './roster';
 import { acceptsChanges } from './sessions';
-import type { ClassRoster, Participant, Reward, Session, Student, SubjectRef } from './models';
+import type { ClassRoster, Participant, Reward, RewardEffect, Session, Student, SubjectRef } from './models';
 
-/** Rules for giving hearts. */
+/** Rules for giving and taking hearts. */
 
 /**
  * The teacher's heart goes to a student or a group on the session's roster, whether the class is running or has ended.
@@ -11,6 +11,21 @@ import type { ClassRoster, Participant, Reward, Session, Student, SubjectRef } f
  */
 export function canGiveTeacherHeart(session: Session | null, roster: ClassRoster, target: SubjectRef): boolean {
   return session !== null && isOnRoster(roster, target);
+}
+
+/** What the teacher's heart press does for a target, given its OWN tally's `taken`: gives back a taken heart first, else adds a plain one (undefined). */
+export function teacherHeartEffect(taken: number): RewardEffect | undefined {
+  return taken > 0 ? 'returned' : undefined;
+}
+
+/** A heart can be taken from a target only while the count shown for it is above zero. */
+export function hasHeartToTake(shownTotal: number): boolean {
+  return shownTotal > 0;
+}
+
+/** The teacher takes a heart from whom she could give one, and only while the count shown for the target has one. */
+export function canTakeTeacherHeart(session: Session | null, roster: ClassRoster, target: SubjectRef, shownTotal: number): boolean {
+  return canGiveTeacherHeart(session, roster, target) && hasHeartToTake(shownTotal);
 }
 
 /**

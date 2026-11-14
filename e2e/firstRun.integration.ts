@@ -190,6 +190,25 @@ describe('a first-time teacher on an empty school', () => {
     await expectNoFailure();
   });
 
+  it('gives a heart on the monitor, takes it back, then gives it again', async () => {
+    const owner = t.roster.defaultStudentName;
+    const has = (selector: string): Promise<boolean> => teacher.exists(selector);
+    const heartButton = (count: number): string => `tbody tr button.btn--heart[aria-label="${t.common.heartsOf(owner, count)}"]`;
+    const takeButton = `tbody tr button[aria-label="${t.common.takeHeartFrom(owner)}"]`;
+    await open('#/monitor');
+    await teacher.until('the student at no hearts', () => has(heartButton(0)));
+    expect(await has(takeButton)).toBe(false);
+    await teacher.page.click(heartButton(0));
+    await teacher.until('one heart', () => has(heartButton(1)));
+    await teacher.page.click(takeButton);
+    await teacher.until('no heart again', () => has(heartButton(0)));
+    await teacher.until('the take button gone', async () => !(await has(takeButton)));
+    await teacher.page.click(heartButton(0));
+    await teacher.until('the heart back', () => has(heartButton(1)));
+    await settle();
+    await expectNoFailure();
+  });
+
   it('publishes the selected lessons of a folder, and they stay published after a reload', async () => {
     await folderWithLessons('Select folder', 2);
     expect(await unpublishedChips()).toBe(2);

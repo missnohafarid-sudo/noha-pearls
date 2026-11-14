@@ -20,11 +20,11 @@ A teacher. She is not a programmer and cannot judge your code.
 | She says (examples) | What it is | Do |
 |---|---|---|
 | «غيّري كلمة الزر إلى ...»، «اكتبي "ابدأ" بدل "بدء"» | Interface wording | Skill `change-wording` |
-| «اجعلي اللون أخضر»، «غيّري ألوان الموقع كلها»، «الخط أكبر»، «المسافة بين الأزرار ضيقة»، «رتّبي الصفحة بشكل آخر»، «ضعي هذه الصورة أو هذا الشعار» | Look: one colour or the whole palette, fonts, sizes, spacing, how a page is arranged, a picture she gives you | Skill `change-look` |
-| «غيّري نص الصفحة الرئيسية»، «أضيفي سؤالاً للدرس»، «أضيفي فيديو أو صوتًا أو صورة أو ملف PDF أو محاكاة للدرس»، «صحّحي اسم طالبة»، «انقلي سلمى إلى مجموعة أخرى»، «عدّلي الدرس» | CONTENT, edited inside the website by the admin (media goes in a «شريحة وسائط» from a public link). NOT code | Skill `content-is-edited-in-the-site`. Change no code |
+| «اجعلي اللون أخضر»، «غيّري ألوان الموقع كلها»، «الخط أكبر»، «المسافة بين الأزرار ضيقة»، «رتّبي الصفحة بشكل آخر»، «ضعي هذه الصورة أو هذا الشعار»، «غيّري ألوان مظهر اللؤلؤة الوردية» | Look: one colour or the whole palette (of every look or of one pearl's look), fonts, sizes, spacing, how a page is arranged, a picture she gives you | Skill `change-look` |
+| «غيّري نص الصفحة الرئيسية»، «أضيفي سؤالاً للدرس»، «أضيفي فيديو أو صوتًا أو صورة أو ملف PDF أو محاكاة للدرس»، «صحّحي اسم طالبة»، «انقلي سلمى إلى مجموعة أخرى»، «عدّلي الدرس»، «أضيفي شارة ملوّنة للشريحة»، «أخفي هذا الجزء من الشريحة حتى أضغط زرًّا»، «أضيفي رمز الدرجة أو معادلة»، «غيّري مظهر الموقع إلى اللؤلؤة الذهبية»، «أريد وضعًا ليليًّا» | CONTENT, edited inside the website by the admin (media goes in a «شريحة وسائط» from a public link; a slide's badges, hidden parts, pictures and symbols are in its editor; the site's look is the pearl button in the top bar, and its black pearl is the night look). NOT code | Skill `content-is-edited-in-the-site`. Change no code |
 | «أريد نوعاً جديداً من الأسئلة»، «شريحة فيها ترتيب أو مطابقة» | New slide kind | Skill `add-slide-kind` |
 | «أريد خانة لرقم ولي الأمر في بيانات الطالبة» | New field on an existing form | Skill `add-form-field` |
-| «أضيفي زرًّا يغيّر مظهر الموقع»، «أريد وضعًا ليليًّا»، «أريد أن أختار المظهر لكل الطالبات»، «أضيفي زرًّا يُخفي الأسماء»، «أريد قسمًا أو رابطًا أو عدّادًا جديدًا في الصفحة» | A small new feature: on the page only, remembered on one device, or a setting the site keeps for everyone | Skill `add-small-feature` |
+| «أضيفي زرًّا يُخفي الأسماء»، «أريد أن تختار كل طالبة مظهر جهازها بنفسها»، «أريد قسمًا أو رابطًا أو عدّادًا جديدًا في الصفحة» | A small new feature: on the page only, remembered on one device, or a setting the site keeps for everyone | Skill `add-small-feature` |
 | «الموقع لا يعمل»، «ضغطتُ فلم يحدث شيء»، «ظهرت رسالة خطأ» | Bug | Skill `fix-a-bug` (test first) |
 | «تراجعي عن آخر تغيير»، «لا يعجبني ما حدث»، «أبقي اللون وأعيدي الخط كما كان» | Undo: a whole change, or part of one | Skill `undo` |
 | «انشري»، «أريد أن يراه الجميع» | Publish | Skill `ship` |
@@ -51,6 +51,10 @@ A teacher. She is not a programmer and cannot judge your code.
 | Data shapes | `domain/models.ts` (lessons, slides and folders: `domain/lessonModels.ts`) |
 | Slide kinds: template, file read/write, repairs | `domain/slideKinds.ts` |
 | Slide kinds: edit fields and drawing | `ui/slides/slideUi.tsx` |
+| The seven pearl shades: the colours of a slide's badges and the site's looks | `domain/pearlShades.ts`; names `t.common.pearlShade` |
+| A slide's coloured badges beside its tag: how many, reading and repair, which are drawn | `domain/badges.ts`; edited in `ui/slides/BadgesField.tsx`, look in `ui/slides/badges.css` |
+| What a slide's plain text is made of: lines, bullets, picture lines, parts hidden between `+++` lines; hiding the lines she selected | `domain/slideText.ts`, drawn by `ui/slides/TextBlocks.tsx` (inside `BodyText.tsx`) and `HiddenSection.tsx` |
+| The symbols offered while writing a slide, and the tools bar over the slide editor (symbols, hide the selection) | `domain/symbols.ts`, `ui/forms/TextTools.tsx` and `textTools.css`; words `t.slides.tools` |
 | Lesson file format and checks | `domain/lessonFormat.ts` |
 | Lesson edits (add, copy, move, remove slide) | `domain/lessonOps.ts` |
 | The lesson folder tree: nesting, moving, what a folder holds at any depth | `domain/folders.ts` |
@@ -97,13 +101,14 @@ A teacher. She is not a programmer and cannot judge your code.
 | The pearl and its panel over the slide's corner (groups, answered marks, hearts) | `ui/session/pearlPanel/`; how a teacher's heart is given or taken: `ui/hooks/useTeacherHearts.ts`, drawn by `ui/common/HeartButton.tsx` |
 | Settings (the page's storage name and the browser-only switch; the real admin password and key are Worker secrets, never in the page) | `app/config.ts` |
 | When students' data is cleared at the end of the school year (the setting) | `services/RetentionService.ts`, edited on the results page |
-| Colours, fonts, radii | `ui/styles/tokens.css` |
+| Colours, fonts, radii, and the colours of each look (one block per pearl; `ui/styles/tokens.test.ts` keeps every look's text readable) | `ui/styles/tokens.css` |
+| The site's look: which looks exist, the default, the look a site record shows | `domain/themes.ts`; put on the page by `ui/shell/useSiteTheme.ts`; chosen with the pearl button `ui/shell/ThemePicker.tsx` and `themePicker.css` (opening and closing a list under a button, shared with the menu: `ui/shell/useDisclosure.ts`) |
 | Shared controls | `ui/styles/base.css` |
 | Our own form widgets (drop-down, check box, file picker, number stepper, password field) and floating layers: component and look | `ui/forms/` (`Select`, `Checkbox`, `FilePicker`, `Stepper`, `PasswordField`), `ui/common/useAnchoredLayer.ts`, `ui/styles/widgets.css` (`PasswordField`'s look: `ui/forms/passwordField.css`) |
 | The top bar's tabs: the list, one tab, and the menu that replaces the row of tabs on narrow screens | `ui/shell/NavLink.tsx` (list and tab), `ui/shell/NavMenu.tsx` and `navMenu.css` (menu and the width where it takes over) |
 | Saying who answers a question (each student, or one answer for the group) | `ui/slides/ScopeBadge.tsx`; words `t.common.scope` |
 | Teachers' names (home page, class start) | the `teachers` list, edited in `ui/session/TeachersPanel.tsx`; words in `i18n/home.ts` |
-| AI instructions for lesson files | `i18n/lessonPrompt.ts` (generated from the slide-kind registry) |
+| AI instructions for lesson files | `i18n/lessonPrompt.ts` (the three stages are the teacher's own method in her words; the description of the file is generated from the slide-kind registry), its example lesson `i18n/lessonPromptExample.json` |
 
 ## 4. Rules you must never break
 

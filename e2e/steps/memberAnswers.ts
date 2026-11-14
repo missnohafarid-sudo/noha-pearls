@@ -4,7 +4,7 @@ import { SECOND_CLASS, admitWaitingDevice, openSignedInTeacher, sessionCodeIn, s
 import { DESKTOP, Device, PHONE } from '../device';
 import { SAMPLE, SLIDE, slideText } from '../sample';
 import type { World } from '../world';
-import { dragName, namesUnder, tapName } from './memberDrag';
+import { dragName, holdName, namesUnder, tapName } from './memberDrag';
 
 const CODE_FIELD = '.join-code input';
 const NAME = SECOND_CLASS.studentName;
@@ -81,6 +81,20 @@ export function memberAnswersSteps(world: World): void {
     await shared.page.keyboard.press('Escape');
     await shared.waitGone(t.join.choosingFor(NAME));
     await expectNameOnlyUnder(GIVEN.tap);
+  });
+
+  it('when the question is revealed while her name is held, the drag ends at once and a name can be moved again on the next question', async () => {
+    await holdName(shared, NAME, GIVEN.mouse);
+    await shared.until('the name floating over an option', async () => (await shared.exists('.name-chip--ghost')) && (await shared.exists('.slide-option-slot--over')));
+    await teacher.click(t.session.reveal);
+    await shared.until('no floating name and no option lit', async () => !(await shared.exists('.name-chip--ghost')) && !(await shared.exists('.slide-option-slot--over')));
+    await shared.page.mouse.up();
+    for (let slide = SLIDE.poll + 1; slide <= SLIDE.firstQuestion; slide += 1) {
+      await teacher.click(t.common.next);
+      await shared.waitFor(slideText(slide));
+    }
+    await dragName(shared, NAME, GIVEN.mouse, 'mouse');
+    await expectNameOnlyUnder(GIVEN.mouse);
   });
 
   it('when she opens a device of her own, her name is a disabled chip marked as being on her own device, and her pick leaves the grids', async () => {

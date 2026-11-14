@@ -24,8 +24,6 @@ export interface NameDrag {
   handlersOf: (id: Id) => {
     onPointerDown: (event: PointerEvent<HTMLElement>) => void;
     onPointerMove: (event: PointerEvent<HTMLElement>) => void;
-    onPointerUp: (event: PointerEvent<HTMLElement>) => void;
-    onPointerCancel: (event: PointerEvent<HTMLElement>) => void;
     onClick: (event: MouseEvent<HTMLElement>) => void;
   };
 }
@@ -42,6 +40,7 @@ function clearOver(): void {
  * Moving a name onto an option with a mouse, a finger or a pen alike (Pointer Events, not the HTML5 drag, which a tablet
  * starts only after a long press). The option under the pointer is found by its `data-option` and wears `slide-option-slot--over`.
  * A press that does not travel is a tap: `onTap` (also what Enter and Space on a button give, as a click).
+ * The press ends on the document, so it ends even when the name is removed or disabled while it is held.
  * The floating copy is placed through custom properties, as `useAnchoredLayer` places its layer.
  */
 export function useNameDrag(enabled: boolean, onDrop: (id: Id, option: number) => void, onTap: (id: Id) => void): NameDrag {
@@ -49,6 +48,9 @@ export function useNameDrag(enabled: boolean, onDrop: (id: Id, option: number) =
   const ghost = useRef<HTMLElement | null>(null);
   const press = useRef<Press | null>(null);
   const last = useRef({ x: 0, y: 0 });
+  const release = useRef<(() => void) | null>(null);
+  const onDropRef = useRef(onDrop);
+  onDropRef.current = onDrop;
   const dragEnded = useRef({ id: '', at: Number.NEGATIVE_INFINITY });
 
   const place = useCallback(() => {
@@ -65,21 +67,32 @@ export function useNameDrag(enabled: boolean, onDrop: (id: Id, option: number) =
     if (dragging !== null) place();
   }, [dragging, place]);
 
-  useEffect(() => clearOver, []);
-
-  const finish = (event: PointerEvent<HTMLElement>, drop: boolean) => {
-    const current = press.current;
-    if (!current || current.pointerId !== event.pointerId) return;
+  const reset = useCallback(() => {
+    release.current?.();
+    release.current = null;
     press.current = null;
-    const target = current.moved && drop ? optionUnder(event.clientX, event.clientY) : null;
     clearOver();
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
-    if (current.moved) {
-      dragEnded.current = { id: current.id, at: performance.now() };
-      setDragging(null);
-    }
-    if (target) onDrop(current.id, Number(target.dataset.option));
-  };
+    setDragging(null);
+  }, []);
+
+  useEffect(() => {
+    if (!enabled) reset();
+  }, [enabled, reset]);
+
+  useEffect(() => reset, [reset]);
+
+  const finish = useCallback(
+    (event: globalThis.PointerEvent, drop: boolean) => {
+      const current = press.current;
+      if (!current || current.pointerId !== event.pointerId) return;
+      const target = current.moved && drop ? optionUnder(event.clientX, event.clientY) : null;
+      const moved = current.moved;
+      reset();
+      if (moved) dragEnded.current = { id: current.id, at: performance.now() };
+      if (target) onDropRef.current(current.id, Number(target.dataset.option));
+    },
+    [reset],
+  );
 
   const handlersOf = (id: Id): ReturnType<NameDrag['handlersOf']> => ({
     onPointerDown: (event) => {
@@ -87,6 +100,14 @@ export function useNameDrag(enabled: boolean, onDrop: (id: Id, option: number) =
       press.current = { id, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, moved: false };
       last.current = { x: event.clientX, y: event.clientY };
       event.currentTarget.setPointerCapture(event.pointerId);
+      const up = (released: globalThis.PointerEvent) => finish(released, true);
+      const cancel = (released: globalThis.PointerEvent) => finish(released, false);
+      document.addEventListener('pointerup', up);
+      document.addEventListener('pointercancel', cancel);
+      release.current = () => {
+        document.removeEventListener('pointerup', up);
+        document.removeEventListener('pointercancel', cancel);
+      };
     },
     onPointerMove: (event) => {
       const current = press.current;
@@ -102,8 +123,6 @@ export function useNameDrag(enabled: boolean, onDrop: (id: Id, option: number) =
       clearOver();
       over?.classList.add(OVER_CLASS);
     },
-    onPointerUp: (event) => finish(event, true),
-    onPointerCancel: (event) => finish(event, false),
     onClick: (event) => {
       const releaseOfDrag = event.detail > 0 && dragEnded.current.id === id && performance.now() - dragEnded.current.at < CLICK_AFTER_DRAG_MS;
       if (enabled && !releaseOfDrag) onTap(id);

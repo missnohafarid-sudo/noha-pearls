@@ -34,7 +34,7 @@ export function MemberAnswers({ questionId, color, members, open, onGive, onGrou
     onGive(studentId, option);
   };
   const drag = useNameDrag(open, give, (id) => setChosen((now) => (now === id ? null : id)));
-  const dragged = members.find((member) => member.id === drag.dragging);
+  const dragged = members.find((member) => member.id === drag.dragging && member.helped);
 
   useEffect(() => {
     if (!chosen) return undefined;

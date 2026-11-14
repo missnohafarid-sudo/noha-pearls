@@ -33,20 +33,30 @@ async function showOption(device: Device, index: number): Promise<void> {
 
 export type Pointer = 'mouse' | 'touch';
 
-/** Moves a name from the row (or from under an option) onto an option with a mouse or a finger, in small steps. */
-export async function dragName(device: Device, name: string, option: number, pointer: Pointer, from = NAME_ROW): Promise<void> {
+async function route(device: Device, name: string, option: number, from: string): Promise<(step: number) => Point> {
   await showOption(device, option);
   const start = await centreOf(device, from, name);
   const end = await centreOf(device, `${optionSlot(option)} .slide-option`, null);
-  const at = (step: number): Point => ({ x: start.x + ((end.x - start.x) * step) / MOVES, y: start.y + ((end.y - start.y) * step) / MOVES });
+  return (step) => ({ x: start.x + ((end.x - start.x) * step) / MOVES, y: start.y + ((end.y - start.y) * step) / MOVES });
+}
+
+/** Presses the mouse on a name and carries it over an option without letting go. */
+export async function holdName(device: Device, name: string, option: number, from = NAME_ROW): Promise<void> {
+  const at = await route(device, name, option, from);
+  await device.page.mouse.move(at(0).x, at(0).y);
+  await device.page.mouse.down();
+  for (let step = 1; step <= MOVES; step += 1) await device.page.mouse.move(at(step).x, at(step).y);
+}
+
+/** Moves a name from the row (or from under an option) onto an option with a mouse or a finger, in small steps. */
+export async function dragName(device: Device, name: string, option: number, pointer: Pointer, from = NAME_ROW): Promise<void> {
   if (pointer === 'mouse') {
-    await device.page.mouse.move(start.x, start.y);
-    await device.page.mouse.down();
-    for (let step = 1; step <= MOVES; step += 1) await device.page.mouse.move(at(step).x, at(step).y);
+    await holdName(device, name, option, from);
     await device.page.mouse.up();
     return;
   }
-  const finger = await device.page.touchscreen.touchStart(start.x, start.y);
+  const at = await route(device, name, option, from);
+  const finger = await device.page.touchscreen.touchStart(at(0).x, at(0).y);
   for (let step = 1; step <= MOVES; step += 1) await finger.move(at(step).x, at(step).y);
   await finger.end();
 }

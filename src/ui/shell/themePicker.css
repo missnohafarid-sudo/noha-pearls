@@ -16,7 +16,12 @@
   transition: transform var(--motion);
 }
 
-.theme-picker__button:hover {
+.theme-picker__button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.theme-picker__button:hover:not(:disabled) {
   transform: var(--lift);
 }
 
@@ -49,6 +54,7 @@
 
 .theme-picker__notice {
   inline-size: max-content;
+  max-inline-size: min(20rem, calc(100vw - 32px));
   margin: 0;
 }
 

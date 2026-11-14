@@ -1,21 +1,15 @@
+import { slideTextBlocks } from '../../domain/slideText';
 import { DirectedText } from './DirectedText';
 
-/** The plain text of a slide: one paragraph per line, and a line starting with "- " is a bullet. */
+/** The plain text of a slide, drawn block by block in reading order. */
 export function BodyText({ text }: { text: string }) {
-  const lines = text.split('\n').filter((line) => line.trim() !== '');
   return (
     <div className="slide-content__text">
-      {lines.map((line, index) =>
-        line.trimStart().startsWith('- ') ? (
-          <p key={index} className="slide-content__bullet">
-            <DirectedText text={line.trimStart().slice(2)} />
-          </p>
-        ) : (
-          <p key={index}>
-            <DirectedText text={line} />
-          </p>
-        ),
-      )}
+      {slideTextBlocks(text).map((block, index) => (
+        <p key={index} className={block.bullet ? 'slide-content__bullet' : undefined}>
+          <DirectedText text={block.text} />
+        </p>
+      ))}
     </div>
   );
 }

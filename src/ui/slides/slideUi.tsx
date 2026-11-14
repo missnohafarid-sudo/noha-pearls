@@ -60,7 +60,11 @@ function ContentBody({ slide }: SlideBodyProps<ContentSlide>) {
     <div className="slide-content">
       <BodyText text={slide.body} />
       <Pictures links={slide.images} />
-      <HiddenSection text={slide.hidden} />
+      {slide.hidden.trim() !== '' && (
+        <HiddenSection>
+          <BodyText text={slide.hidden} />
+        </HiddenSection>
+      )}
     </div>
   );
 }

@@ -60,6 +60,8 @@ export const common = {
     /** What a screen reader says for one part of a date: whose date, then which part. */
     part: (group: string, part: string) => `${group}: ${part}`,
   },
+  /** What names a choice option that is a picture, where only words fit (the monitor, the results, the correct-answer list). */
+  pictureOption: 'صورة',
   fullscreen: 'ملء الشاشة',
   exitFullscreen: 'إنهاء ملء الشاشة',
   scope: {

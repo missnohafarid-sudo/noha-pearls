@@ -1,0 +1,18 @@
+/* When an option is a picture the options sit two across; a column narrower than a thumbnail falls to one. */
+.slide-options--pictures {
+  grid-template-columns: repeat(auto-fill, minmax(max(140px, calc((100% - 10px) / 2)), 1fr));
+}
+
+.slide-options--pictures .slide-option-slot {
+  min-inline-size: 0;
+}
+
+.slide-option__picture {
+  display: block;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  max-block-size: 24vh;
+  justify-self: center;
+  object-fit: contain;
+  border-radius: var(--radius-small);
+}

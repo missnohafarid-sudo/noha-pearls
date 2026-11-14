@@ -2,6 +2,7 @@ import type { ComponentType, ReactNode } from 'react';
 import { MAX_CHOICES, MIN_CHOICES, removeOption } from '../../domain/choices';
 import type { AnswerKey, ContentSlide, Slide, SlideKind } from '../../domain/models';
 import { choiceLetter, t } from '../../i18n';
+import { optionName } from '../common/optionName';
 import { MAX_POINTS, MIN_POINTS } from '../../domain/slideKinds';
 import { MAX_PICTURES, MEDIA_CHOICES } from '../../domain/media';
 import { hiddenPartCount } from '../../domain/slideText';
@@ -113,6 +114,7 @@ const SLIDE_UI: { [K in SlideKind]: SlideUi<Extract<Slide, { kind: K }>> } = {
         kind: 'list',
         key: 'options',
         label: f.options,
+        hint: f.optionsHint,
         min: MIN_CHOICES,
         max: MAX_CHOICES,
         removeItem: removeOption,
@@ -124,7 +126,7 @@ const SLIDE_UI: { [K in SlideKind]: SlideUi<Extract<Slide, { kind: K }>> } = {
         label: f.correct,
         options: (slide) => [
           { value: null, label: f.noCorrect },
-          ...slide.options.map((option, index) => ({ value: index, label: `${choiceLetter(index)} · ${option}` })),
+          ...slide.options.map((option, index) => ({ value: index, label: `${choiceLetter(index)} · ${optionName(option)}` })),
         ],
       },
       { kind: 'textarea', key: 'explanation', label: f.explanation },

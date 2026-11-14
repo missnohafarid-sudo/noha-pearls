@@ -1,8 +1,10 @@
 import type { ChoiceSlide } from '../../domain/models';
+import { hasPictureOption, optionView } from '../../domain/choices';
 import { optionMark, verdictOf } from '../../domain/scoring';
 import { choiceLetter, t } from '../../i18n';
 import { DirectedText } from './DirectedText';
 import { Pictures } from './Pictures';
+import './choicePictures.css';
 import type { SlideBodyProps } from './slideUi';
 
 /** A choice question: its prompt and options, for whoever looks at it (answering, read-only, or with the presenter's tallies). */
@@ -14,7 +16,7 @@ export function ChoiceBody({ slide, interaction }: SlideBodyProps<ChoiceSlide>) 
     <div className="slide-question">
       <p className="slide-question__prompt"><DirectedText text={slide.prompt} /></p>
       <Pictures links={slide.images} />
-      <div className="slide-options">
+      <div className={`slide-options${hasPictureOption(slide.options) ? ' slide-options--pictures' : ''}`}>
         {slide.options.map((option, index) => (
           <div key={index} className="slide-option-slot" data-option={index}>
             <button
@@ -24,7 +26,7 @@ export function ChoiceBody({ slide, interaction }: SlideBodyProps<ChoiceSlide>) 
               onClick={() => onAnswer?.(index)}
             >
               <span className="slide-option__letter">{choiceLetter(index)}</span>
-              <span className="slide-option__text"><DirectedText text={option} /></span>
+              <OptionContent option={option} />
               {tally && (
                 <span className="slide-option__tally">
                   <span className="bar">
@@ -46,4 +48,10 @@ export function ChoiceBody({ slide, interaction }: SlideBodyProps<ChoiceSlide>) 
       )}
     </div>
   );
+}
+
+function OptionContent({ option }: { option: string }) {
+  const view = optionView(option);
+  if (view.kind === 'picture') return <img className="slide-option__picture" src={view.src} alt="" referrerPolicy="no-referrer" />;
+  return <span className="slide-option__text"><DirectedText text={view.text} /></span>;
 }

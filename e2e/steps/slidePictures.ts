@@ -116,4 +116,85 @@ export function slidePicturesSteps(world: World): void {
       await deleteLessonOnPage(world, lessonId);
     });
   });
+
+  describe('pictures as the options of a choice question', () => {
+    const OPTIONS_TITLE = 'Lesson with picture options';
+    const PICTURES = ['one', 'two', 'three', 'four'].map((name) => `https://${PICTURE_HOST}/${name}.png`);
+    const FOUR_PICTURES = { kind: 'choice', title: 'Four pictures', prompt: 'Which one?', options: PICTURES };
+    const MIXED = { kind: 'choice', title: 'Mixed options', prompt: 'Mixed?', options: [PICTURES[0], 'Only words', PICTURES[1]] };
+    const WORDS = { kind: 'choice', title: 'Words only', prompt: 'Words?', options: ['First words', 'Second words', 'Third words'] };
+    const OPTION = '.slide .slide-option';
+    const OPTION_IMAGES = '.slide .slide-option__picture';
+    let lessonId = '';
+
+    const openSlide = async (number: number, prompt: string) => {
+      await world.admin.goto(`#/lesson/${encodeURIComponent(lessonId)}/${number}`);
+      await world.admin.waitFor(prompt);
+    };
+
+    beforeAll(async () => {
+      await world.admin.page.setRequestInterception(true);
+      world.admin.page.on('request', answerPictureRequest);
+      lessonId = await importLessonFile(world, lessonFileText([FOUR_PICTURES, MIXED, WORDS], OPTIONS_TITLE), OPTIONS_TITLE);
+    });
+
+    afterAll(async () => {
+      world.admin.page.off('request', answerPictureRequest);
+      await world.admin.page.setRequestInterception(false);
+    });
+
+    it('four picture options show four loaded pictures in two rows of two, each with its letter', async () => {
+      await openSlide(1, FOUR_PICTURES.prompt);
+      await world.admin.until('four loaded pictures', async () => {
+        const boxes = await boxesOf(world.admin, OPTION_IMAGES);
+        return boxes.length === 4 && boxes.every((box) => box.loaded);
+      });
+      const [a, b, c, d] = await boxesOf(world.admin, OPTION);
+      expect(Math.abs(a.top - b.top)).toBeLessThan(2);
+      expect(Math.abs(c.top - d.top)).toBeLessThan(2);
+      expect(a.bottom).toBeLessThanOrEqual(c.top);
+      expect(Math.abs(a.left - c.left)).toBeLessThan(2);
+      expect(await world.admin.count('.slide .slide-option__letter')).toBe(4);
+    });
+
+    it('two picture options and one text option all sit inside the grid', async () => {
+      await openSlide(2, MIXED.prompt);
+      await world.admin.until('two loaded pictures', async () => {
+        const boxes = await boxesOf(world.admin, OPTION_IMAGES);
+        return boxes.length === 2 && boxes.every((box) => box.loaded);
+      });
+      const [grid] = await boxesOf(world.admin, '.slide .slide-options');
+      const options = await boxesOf(world.admin, OPTION);
+      expect(options).toHaveLength(3);
+      for (const option of options) {
+        expect(option.left).toBeGreaterThanOrEqual(grid.left - 1);
+        expect(option.right).toBeLessThanOrEqual(grid.right + 1);
+      }
+      expect(Math.abs(options[0].top - options[1].top)).toBeLessThan(2);
+    });
+
+    it('a question with only text options keeps its full-width rows', async () => {
+      await openSlide(3, WORDS.prompt);
+      expect(await world.admin.count(OPTION_IMAGES)).toBe(0);
+      const [grid] = await boxesOf(world.admin, '.slide .slide-options');
+      const options = await boxesOf(world.admin, OPTION);
+      expect(options).toHaveLength(3);
+      for (const option of options) {
+        expect(Math.abs(option.left - grid.left)).toBeLessThan(2);
+        expect(Math.abs(option.right - grid.right)).toBeLessThan(2);
+      }
+    });
+
+    it('the exported file keeps the option links as written', async () => {
+      const file = await exportedFileOnPage(world, lessonId);
+      const slides = JSON.parse(exportLesson(await storedLessonById(world, lessonId))).slides as { options: string[] }[];
+      expect(slides.map((slide) => slide.options)).toEqual([FOUR_PICTURES.options, MIXED.options, WORDS.options]);
+      expect(file.startsWith('```json')).toBe(true);
+      expect(file).toContain(PICTURES[0]);
+    });
+
+    it('the walkthrough removes its lesson so that later steps meet the lessons they expect', async () => {
+      await deleteLessonOnPage(world, lessonId);
+    });
+  });
 }

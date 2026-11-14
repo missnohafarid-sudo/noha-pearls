@@ -21,7 +21,7 @@ A teacher. She is not a programmer and cannot judge your code.
 |---|---|---|
 | «غيّري كلمة الزر إلى ...»، «اكتبي "ابدأ" بدل "بدء"» | Interface wording | Skill `change-wording` |
 | «اجعلي اللون أخضر»، «غيّري ألوان الموقع كلها»، «الخط أكبر»، «المسافة بين الأزرار ضيقة»، «رتّبي الصفحة بشكل آخر»، «ضعي هذه الصورة أو هذا الشعار»، «غيّري ألوان مظهر اللؤلؤة الوردية» | Look: one colour or the whole palette (of every look or of one pearl's look), fonts, sizes, spacing, how a page is arranged, a picture she gives you | Skill `change-look` |
-| «غيّري نص الصفحة الرئيسية»، «أضيفي سؤالاً للدرس»، «أضيفي فيديو أو صوتًا أو صورة أو ملف PDF أو محاكاة للدرس»، «صحّحي اسم طالبة»، «انقلي سلمى إلى مجموعة أخرى»، «عدّلي الدرس»، «أضيفي شارة ملوّنة للشريحة»، «أخفي هذا الجزء من الشريحة حتى أضغط زرًّا»، «أضيفي رمز الدرجة أو معادلة»، «غيّري مظهر الموقع إلى اللؤلؤة الذهبية»، «أريد وضعًا ليليًّا» | CONTENT, edited inside the website by the admin (media goes in a «شريحة وسائط» from a public link; a slide's badges, hidden parts, pictures and symbols are in its editor; the site's look is the pearl button in the top bar, and its black pearl is the night look). NOT code | Skill `content-is-edited-in-the-site`. Change no code |
+| «غيّري نص الصفحة الرئيسية»، «أضيفي سؤالاً للدرس»، «أضيفي فيديو أو صوتًا أو صورة أو ملف PDF أو محاكاة للدرس»، «صحّحي اسم طالبة»، «انقلي سلمى إلى مجموعة أخرى»، «عدّلي الدرس»، «أضيفي شارة ملوّنة للشريحة»، «أخفي هذا الجزء من الشريحة حتى أضغط زرًّا»، «أضيفي رمز الدرجة أو معادلة أو كسرًا»، «أضيفي جدولًا للشريحة»، «اجعلي خيارات السؤال صورًا»، «غيّري مظهر الموقع إلى اللؤلؤة الذهبية»، «أريد وضعًا ليليًّا» | CONTENT, edited inside the website by the admin (media goes in a «شريحة وسائط» from a public link; a slide's badges, hidden parts, pictures, picture options, tables, fractions and symbols are in its editor; the site's look is the pearl button in the top bar, and its black pearl is the night look). NOT code | Skill `content-is-edited-in-the-site`. Change no code |
 | «أريد نوعاً جديداً من الأسئلة»، «شريحة فيها ترتيب أو مطابقة» | New slide kind | Skill `add-slide-kind` |
 | «أريد خانة لرقم ولي الأمر في بيانات الطالبة» | New field on an existing form | Skill `add-form-field` |
 | «أضيفي زرًّا يُخفي الأسماء»، «أريد أن تختار كل طالبة مظهر جهازها بنفسها»، «أريد قسمًا أو رابطًا أو عدّادًا جديدًا في الصفحة» | A small new feature: on the page only, remembered on one device, or a setting the site keeps for everyone | Skill `add-small-feature` |
@@ -53,8 +53,10 @@ A teacher. She is not a programmer and cannot judge your code.
 | Slide kinds: edit fields and drawing | `ui/slides/slideUi.tsx` |
 | The seven pearl shades: the colours of a slide's badges and the site's looks | `domain/pearlShades.ts`; names `t.common.pearlShade` |
 | A slide's coloured badges beside its tag: how many, reading and repair, which are drawn | `domain/badges.ts`; edited in `ui/slides/BadgesField.tsx`, look in `ui/slides/badges.css` |
-| What a slide's plain text is made of: lines, bullets, picture lines, parts hidden between `+++` lines; hiding the lines she selected | `domain/slideText.ts`, drawn by `ui/slides/TextBlocks.tsx` (inside `BodyText.tsx`) and `HiddenSection.tsx` |
-| The symbols offered while writing a slide, and the tools bar over the slide editor (symbols, hide the selection) | `domain/symbols.ts`, `ui/forms/TextTools.tsx` and `textTools.css`; words `t.slides.tools` |
+| What a slide's plain text is made of: lines, bullets, picture lines, tables, parts hidden between `+++` lines; how those parts are numbered and the closed ones cut out; hiding the lines she selected; putting a block on its own lines at the caret | `domain/slideText.ts` (a table's rows: `domain/slideTable.ts`), drawn by `ui/slides/TextBlocks.tsx` (inside `BodyText.tsx`), `SlideTable.tsx` and `HiddenSection.tsx` |
+| Who opens a slide's hidden parts (the teacher, for the whole class) and what a student or a visitor receives of them | `domain/sessions.ts` (`openedParts`, `withPartOpened`), `domain/visibility.ts` (a seat gets the opened parts of its class, a visitor none), each kind's `hiddenPartCount`/`withOpenedParts` in `domain/slideKinds.ts`; command `services/SessionService.ts` (`setHiddenOpen`); the three ways a part is drawn: `ui/slides/hiddenControl.ts`, `ui/hooks/useSharedHiddenParts.ts` |
+| A fraction written `{top/bottom}` | `domain/fractions.ts` (its placeholder character is declared with the direction rules), drawn by `ui/slides/DirectedText.tsx` and `fraction.css` |
+| The symbols offered while writing a slide, and the tools bar over the slide editor (symbols, hide the selection, a starter table, a fraction) | `domain/symbols.ts`, `ui/forms/TextTools.tsx` and `textTools.css`; words `t.slides.tools` |
 | Lesson file format and checks | `domain/lessonFormat.ts` |
 | Lesson edits (add, copy, move, remove slide) | `domain/lessonOps.ts` |
 | The lesson folder tree: nesting, moving, what a folder holds at any depth | `domain/folders.ts` |
@@ -72,9 +74,9 @@ A teacher. She is not a programmer and cannot judge your code.
 | Tallies, monitor table, heart totals (given minus taken) | `domain/analytics.ts` |
 | What a group's device shows | `domain/pacing.ts` |
 | Card encoding | `domain/cards.ts` |
-| Choice limits | `domain/choices.ts` |
+| Choice limits; whether an option is words or a picture | `domain/choices.ts` (`optionView`); named in a sentence by `ui/common/optionName.ts`; the picture grid `ui/slides/choicePictures.css` |
 | What a media link shows and how: its type, its address, its frame; which photos a slide shows | `domain/media.ts` |
-| Which part of a line of slide text reads left to right (an equation, an English word inside Arabic) | `domain/textDirection.ts`, drawn by `ui/slides/DirectedText.tsx` |
+| Which part of a line of slide text reads left to right (an equation, an English word inside Arabic), and the form of a text a writing box shows so those parts read in order | `domain/textDirection.ts`, drawn by `ui/slides/DirectedText.tsx`; the boxes: `ui/forms/DirectedBox.tsx` (what is saved never holds the two isolating characters) |
 | Keyboard moves through a list of options, typing to jump | `domain/listNavigation.ts` |
 | Roster rules, group colours | `domain/roster.ts` |
 | Class list format | `domain/rosterFormat.ts` |
@@ -102,7 +104,8 @@ A teacher. She is not a programmer and cannot judge your code.
 | Settings (the page's storage name and the browser-only switch; the real admin password and key are Worker secrets, never in the page) | `app/config.ts` |
 | When students' data is cleared at the end of the school year (the setting) | `services/RetentionService.ts`, edited on the results page |
 | Colours, fonts, radii, and the colours of each look (one block per pearl; `ui/styles/tokens.test.ts` keeps every look's text readable) | `ui/styles/tokens.css` |
-| The site's look: which looks exist, the default, the look a site record shows | `domain/themes.ts`; put on the page by `ui/shell/useSiteTheme.ts`; chosen with the pearl button `ui/shell/ThemePicker.tsx` and `themePicker.css` (opening and closing a list under a button, shared with the menu: `ui/shell/useDisclosure.ts`) |
+| How the site record is changed: by a patch of the changed fields, merged where it is stored, sent together after a short pause in typing | `services/ContentService.ts` (`updateSite`), `domain/entityChecks.ts` (`isSitePatch`), `domain/siteEdits.ts` (the pause), `ui/hooks/useSiteEdits.ts` (the one queue the home form and the look button share) |
+| The site's look: which looks exist, the default, the look to show (the site record's, or the one this device showed last while the record is on its way) | `domain/themes.ts`; remembered on the device by `ports/lookMemory.ts` and `infrastructure/StoredLook.ts`; put on the page by `main.tsx` at the start and `ui/shell/useSiteTheme.ts`; chosen with the pearl button `ui/shell/ThemePicker.tsx` and `themePicker.css` (opening and closing a list under a button, shared with the menu: `ui/shell/useDisclosure.ts`) |
 | Shared controls | `ui/styles/base.css` |
 | Our own form widgets (drop-down, check box, file picker, number stepper, password field) and floating layers: component and look | `ui/forms/` (`Select`, `Checkbox`, `FilePicker`, `Stepper`, `PasswordField`), `ui/common/useAnchoredLayer.ts`, `ui/styles/widgets.css` (`PasswordField`'s look: `ui/forms/passwordField.css`) |
 | The top bar's tabs: the list, one tab, and the menu that replaces the row of tabs on narrow screens | `ui/shell/NavLink.tsx` (list and tab), `ui/shell/NavMenu.tsx` and `navMenu.css` (menu and the width where it takes over) |

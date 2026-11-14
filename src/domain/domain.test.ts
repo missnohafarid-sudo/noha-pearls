@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { admittedDevices, awaitingAdmission, canClaimSeat, contestedRequestNumber, isAdmitted, isNameHeldElsewhere, isSeatOfGroupPage, joinLanding, namesHeldByOthers, returnGroupId, seatAnswerer, requestNumber, seatGroupId, seatLoss, seatsDisplacedBy, seatsForBulkAdmission, seatsForCards, seatsNeedingTap, studentsJoiningRoll } from './admission';
 import { addToRoll, countedGroups, isOnRoll, isPresent, joinRoll, markAbsent, presentGroups, presentStudents, rollTaken, sightingChangesAnything } from './attendance';
 import { buildMonitor, netHeartCount, RewardIndex, studentReport, tallyChoices } from './analytics';
-import { answersForWholeGroup, answerStatusByGroup, canAnswer, canScanCards, deviceAnswer, effectiveAnswer, nextManualChoice, nextManualChoiceFor, normalizeAnswerValue, subjectFor, tallyAnswerers } from './answering';
+import { answersForWholeGroup, answerStatusByGroup, canAnswer, takesAnswerPerStudent, deviceAnswer, effectiveAnswer, nextManualChoice, nextManualChoiceFor, normalizeAnswerValue, subjectFor, tallyAnswerers } from './answering';
 import { CardReadStabilizer, cardNumberLabel, choiceFromCorners, presenceReadings, type Point } from './cards';
 import { toAsciiDigits } from './digits';
 import { removeOption } from './choices';
@@ -633,10 +633,10 @@ describe('answering rules', () => {
     expect(subjectFor(choice, { groupId: 'g1', studentId: null })).toEqual({ kind: 'group', id: 'g1' });
   });
 
-  it('offers card scanning for individual choice questions only', () => {
-    expect(canScanCards(session, choice)).toBe(true);
-    expect(canScanCards(session, { ...choice, scope: 'group' })).toBe(false);
-    expect(canScanCards(session, groupText)).toBe(false);
+  it('takes an answer per student on individual choice questions only', () => {
+    expect(takesAnswerPerStudent(session, choice)).toBe(true);
+    expect(takesAnswerPerStudent(session, { ...choice, scope: 'group' })).toBe(false);
+    expect(takesAnswerPerStudent(session, groupText)).toBe(false);
   });
 
   it('steps a hand-entered answer through the options and back to none', () => {

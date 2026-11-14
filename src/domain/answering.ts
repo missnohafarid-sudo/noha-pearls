@@ -219,10 +219,10 @@ export function answerStatusByGroup(
 }
 
 /**
- * Cards answer for one student each, so they fit individual choice questions only:
- * on a group question every member's card would overwrite the group's single answer.
+ * Open questions that take an answer for one student at a time (a card, a hand entry, a name moved on a shared device):
+ * individual choice questions only, since on a group question each of them would overwrite the group's single answer.
  */
-export function canScanCards(session: Session, slide: Slide): slide is ChoiceSlide {
+export function takesAnswerPerStudent(session: Session, slide: Slide): slide is ChoiceSlide {
   return canAnswer(session, slide) && slide.kind === 'choice' && slide.scope === 'individual';
 }
 

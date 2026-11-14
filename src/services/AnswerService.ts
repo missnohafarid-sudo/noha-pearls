@@ -1,6 +1,6 @@
 import { seatAnswerer } from '../domain/admission';
 import { deviceAnswerStep } from '../domain/answerChanges';
-import { answerId, canAnswer, canScanCards, normalizeAnswerValue, subjectFor } from '../domain/answering';
+import { answerId, canAnswer, takesAnswerPerStudent, normalizeAnswerValue, subjectFor } from '../domain/answering';
 import type { Answer, AnswerSource, Id, QuestionSlide, Student } from '../domain/models';
 import { studentById } from '../domain/roster';
 import { ANSWER_CHANGES_PER_QUESTION } from '../ports/limits';
@@ -99,14 +99,14 @@ export class AnswerService {
 
   /**
    * The question as stored in the session's lesson, if the session as stored right now still accepts
-   * answers to it. With `byCard`, only questions that cards and manual entry may answer.
+   * answers to it. With `perStudent`, only questions that take an answer per student.
    */
-  private async openQuestion(sessionId: Id, slideId: Id, byCard = false): Promise<QuestionSlide | null> {
+  private async openQuestion(sessionId: Id, slideId: Id, perStudent = false): Promise<QuestionSlide | null> {
     const session = await this.store.get('sessions', sessionId);
     const lesson = session && (await this.store.get('lessons', session.lessonId));
     const slide = lesson?.slides.find((s) => s.id === slideId);
     if (!session || !slide) return null;
-    if (byCard) return canScanCards(session, slide) ? slide : null;
+    if (perStudent) return takesAnswerPerStudent(session, slide) ? slide : null;
     return canAnswer(session, slide) ? slide : null;
   }
 }

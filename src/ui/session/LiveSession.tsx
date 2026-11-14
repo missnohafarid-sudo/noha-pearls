@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { awaitingAdmission } from '../../domain/admission';
-import { canScanCards, isQuestion, isRevealed, tallyAnswerers } from '../../domain/answering';
+import { takesAnswerPerStudent, isQuestion, isRevealed, tallyAnswerers } from '../../domain/answering';
 import type { Session } from '../../domain/models';
 import { t } from '../../i18n';
 import { Loading } from '../common/PageState';
@@ -57,7 +57,7 @@ export function LiveSession({ session }: { session: Session }) {
     );
   }
 
-  const scannable = slide && canScanCards(session, slide) ? slide : null;
+  const scannable = slide && takesAnswerPerStudent(session, slide) ? slide : null;
   const scanning = scannable !== null && scanSlideId === scannable.id;
   const tally = slide && isQuestion(slide) ? tallyAnswerers(slide, roster, participants, answers) : null;
 

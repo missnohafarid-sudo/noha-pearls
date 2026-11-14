@@ -60,8 +60,8 @@ export interface SlideKindSpec<S extends Slide = Slide> {
   hasProblem?(slide: S): boolean;
   /** The copy a reader who may not know the answer gets: whatever a reveal publishes is removed. The identity for a kind with no key. */
   withoutKey(slide: S): S;
-  /** How many hidden parts the slide's text holds, counted in reading order. Omitted when a kind has no hidden parts. */
-  hiddenPartCount?(slide: S): number;
-  /** The copy with every hidden part cut out except those at the given positions (see `hiddenPartCount`). Omitted when a kind has no hidden parts. */
-  withOpenedParts?(slide: S, opened: readonly number[]): S;
+  /** The keys of the slide's hidden parts (see `partKey`), in reading order. Omitted when a kind has no hidden parts. */
+  hiddenPartKeys?(slide: S): string[];
+  /** The copy with every hidden part cut out except those whose key is given. Omitted when a kind has no hidden parts. */
+  withOpenedParts?(slide: S, opened: readonly string[]): S;
 }

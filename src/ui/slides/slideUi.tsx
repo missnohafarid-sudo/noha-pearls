@@ -5,7 +5,7 @@ import { choiceLetter, t } from '../../i18n';
 import { optionName } from '../common/optionName';
 import { MAX_POINTS, MIN_POINTS } from '../../domain/slideKinds';
 import { MAX_PICTURES, MEDIA_CHOICES } from '../../domain/media';
-import { hiddenPartCount } from '../../domain/slideText';
+import { endHiddenKey } from '../../domain/slideHiddenParts';
 import type { FieldSpec, SelectOption } from '../forms/SchemaForm';
 import { BadgesField } from './BadgesField';
 import { BodyText } from './BodyText';
@@ -58,12 +58,13 @@ const SCOPE_OPTIONS: SelectOption[] = [
 const MEDIA_OPTIONS: SelectOption[] = MEDIA_CHOICES.map((value) => ({ value, label: t.slides.mediaType[value] }));
 
 function ContentBody({ slide }: SlideBodyProps<ContentSlide>) {
+  const endKey = endHiddenKey(slide.hidden);
   return (
     <div className="slide-content">
       <BodyText text={slide.body} />
       <Pictures links={slide.images} />
-      {slide.hidden.trim() !== '' && (
-        <HiddenSection part={hiddenPartCount(slide.body)}>
+      {endKey !== null && (
+        <HiddenSection partKey={endKey}>
           <BodyText text={slide.hidden} />
         </HiddenSection>
       )}

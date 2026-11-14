@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { integer, isAnswerValue, isCard, isClassCode, isId, isPeriod, listOf, nullable, oneOf, optional, shape, text } from './argumentChecks';
+import { hiddenPartKey, integer, isAnswerValue, isCard, isClassCode, isId, isPeriod, listOf, nullable, oneOf, optional, shape, text } from './argumentChecks';
 import { isDateRange, isGroup, isLesson, isSitePatch, isStudent, isSubject, isYearEnd } from './entityChecks';
 import { addSlide, createLesson } from './lessonOps';
 import { periodAt } from './periods';
@@ -10,6 +10,10 @@ describe('the small checkers', () => {
   it('hold an id to a non-empty string of at most 64 characters', () => {
     expect([isId('a'), isId('x'.repeat(64))]).toEqual([true, true]);
     expect([isId(''), isId('x'.repeat(65)), isId(5), isId(null), isId({}), isId(undefined)]).toEqual([false, false, false, false, false, false]);
+  });
+
+  it('hold a hidden part key to 8 lower-case hex characters', () => {
+    expect([hiddenPartKey('0a1b2c3d'), hiddenPartKey('0A1B2C3D'), hiddenPartKey(''), hiddenPartKey('0a1b2c3d4e'), hiddenPartKey(3)]).toEqual([true, false, false, false, false]);
   });
 
   it('hold integers to their range and refuse fractions, NaN and strings', () => {

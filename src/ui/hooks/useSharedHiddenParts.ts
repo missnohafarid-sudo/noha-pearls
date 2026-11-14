@@ -7,7 +7,7 @@ import type { HiddenControl } from '../slides/hiddenControl';
 export function useSharedHiddenParts(session: Session): (slideId: Id) => HiddenControl {
   const { sessions } = useServices();
   return (slideId) => {
-    const isOpen = (part: number) => openedParts(session, slideId).includes(part);
-    return { isOpen, toggle: (part) => void sessions.setHiddenOpen(session.id, slideId, part, !isOpen(part)) };
+    const isOpen = (key: string) => openedParts(session, slideId).includes(key);
+    return { isOpen, toggle: (key) => void sessions.setHiddenOpen(session.id, slideId, key, !isOpen(key)) };
   };
 }

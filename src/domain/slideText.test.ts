@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { HIDDEN_FENCE, hiddenBlocksBefore, hiddenPartCount, hideSelection, insertStarterTable, keepOpenedParts, slideTextBlocks, type TextBlock } from './slideText';
+import { HIDDEN_FENCE, hiddenPartKeys, hideSelection, insertStarterTable, keepOpenedParts, partKey, slideTextBlocks, type TextBlock } from './slideText';
 
 const line = (text: string, bullet = false): TextBlock => ({ kind: 'line', text, bullet });
-const hidden = (...blocks: TextBlock[]): TextBlock => ({ kind: 'hidden', blocks });
+const hidden = (...blocks: TextBlock[]): TextBlock => ({ kind: 'hidden', key: expect.stringMatching(/^[0-9a-f]{8}$/) as unknown as string, blocks });
 const pictures = (...links: string[]): TextBlock => ({ kind: 'pictures', links });
 const table = (header: string[] | null, ...rows: string[][]): TextBlock => ({ kind: 'table', header, rows });
 const lines = (...rows: string[]) => rows.join('\n');
@@ -323,34 +323,65 @@ describe('hideSelection around text that is already hidden', () => {
   });
 });
 
-describe('hidden parts: counting, numbering and cutting', () => {
+describe('hidden parts: keys and cutting', () => {
   const text = lines('a', F, 's0', F, 'b', F, F, F, 's1', 'more', F, 'c');
+  const [k0, k1] = [partKey('s0'), partKey(lines('s1', 'more'))];
 
-  it('counts the parts that hold text, in reading order, and not an empty one', () => {
-    expect(hiddenPartCount('plain')).toBe(0);
-    expect(hiddenPartCount(text)).toBe(2);
-    expect(hiddenPartCount(lines('a', F, 'b', 'c'))).toBe(1);
+  it('lists the keys of the parts that hold something, in reading order, and none for an empty one', () => {
+    expect(hiddenPartKeys('plain')).toEqual([]);
+    expect(hiddenPartKeys(text)).toEqual([k0, k1]);
+    expect(hiddenPartKeys(lines('a', F, 'b', 'c'))).toEqual([partKey(lines('b', 'c'))]);
   });
 
-  it('numbers a block by the hidden blocks before it', () => {
+  it('names a part by its own trimmed lines, wherever it stands', () => {
+    expect(partKey('  one \n\n two')).toBe(partKey(lines('one', 'two')));
+    expect(partKey('one')).not.toBe(partKey('two'));
+    expect(partKey('one')).toMatch(/^[0-9a-f]{8}$/);
+    expect(hiddenPartKeys(lines(F, 'x', F, F, 'y', F, F, '  s0 ', F))[2]).toBe(k0);
+  });
+
+  it('carries the key on the hidden block', () => {
     const blocks = slideTextBlocks(text);
-    expect(blocks.map((_, index) => hiddenBlocksBefore(blocks, index))).toEqual([0, 0, 1, 1, 2]);
+    expect(blocks.flatMap((block) => (block.kind === 'hidden' ? [block.key] : []))).toEqual([k0, k1]);
+  });
+
+  it('gives two parts with the same words the same key', () => {
+    const twice = lines(F, 'same', F, F, 'other', F, F, 'same', F);
+    expect(hiddenPartKeys(twice)).toEqual([partKey('same'), partKey('other'), partKey('same')]);
+    expect(keepOpenedParts(twice, [partKey('same')])).toBe(lines(F, 'same', F, F, 'same', F));
   });
 
   it('cuts every part not opened, fences included, and leaves an opened one as it is', () => {
     expect(keepOpenedParts(text, [])).toBe(lines('a', 'b', 'c'));
-    expect(keepOpenedParts(text, [0])).toBe(lines('a', F, 's0', F, 'b', 'c'));
-    expect(keepOpenedParts(text, [1])).toBe(lines('a', 'b', F, 's1', 'more', F, 'c'));
-    expect(keepOpenedParts(text, [0, 1, 7])).toBe(lines('a', F, 's0', F, 'b', F, 's1', 'more', F, 'c'));
+    expect(keepOpenedParts(text, [k0])).toBe(lines('a', F, 's0', F, 'b', 'c'));
+    expect(keepOpenedParts(text, [k1])).toBe(lines('a', 'b', F, 's1', 'more', F, 'c'));
+    expect(keepOpenedParts(text, [k0, k1, 'ffffffff'])).toBe(lines('a', F, 's0', F, 'b', F, 's1', 'more', F, 'c'));
+  });
+
+  it('keeps an opened part open when a part is added or removed above it', () => {
+    const above = lines(F, 'new', F, text);
+    expect(keepOpenedParts(above, [k1])).toBe(lines('a', 'b', F, 's1', 'more', F, 'c'));
+    expect(keepOpenedParts(lines('a', 'b', F, 's1', 'more', F, 'c'), [k1])).toBe(lines('a', 'b', F, 's1', 'more', F, 'c'));
+  });
+
+  it('closes a part whose words were edited', () => {
+    expect(keepOpenedParts(lines(F, 's0 changed', F), [k0])).toBe('');
   });
 
   it('cuts a part that is never closed, and leaves a text without parts alone', () => {
     expect(keepOpenedParts(lines('a', F, 'b', 'c'), [])).toBe('a');
-    expect(keepOpenedParts('x\ny', [0])).toBe('x\ny');
+    expect(keepOpenedParts('x\ny', [k0])).toBe('x\ny');
+  });
+
+  it('knows no part in a stretch that draws nothing, and cuts it', () => {
+    const empty = lines('a', F, '', '  ', F, 'b', F, '|---|---|', F, 'c');
+    expect(hiddenPartKeys(empty)).toEqual([]);
+    expect(slideTextBlocks(empty)).toEqual([line('a'), line('b'), line('c')]);
+    expect(keepOpenedParts(empty, [partKey(''), partKey('|---|---|')])).toBe(lines('a', 'b', 'c'));
   });
 
   it('keeps the parts that remain readable as the same blocks', () => {
-    expect(slideTextBlocks(keepOpenedParts(text, [1]))).toEqual([line('a'), line('b'), hidden(line('s1'), line('more')), line('c')]);
+    expect(slideTextBlocks(keepOpenedParts(text, [k1]))).toEqual([line('a'), line('b'), hidden(line('s1'), line('more')), line('c')]);
   });
 });
 
@@ -393,7 +424,7 @@ describe('slideTextBlocks: tables', () => {
 
   it('keeps a table of an opened hidden part whole when other parts are cut', () => {
     const text = lines('|a|b|', F, 'x', F, F, '|c|d|', F, F, '|e|f|', '|---|---|', '|1|2|', F, '|g|h|');
-    expect(slideTextBlocks(keepOpenedParts(text, [2]))).toEqual([table(null, ['a', 'b']), hidden(table(['e', 'f'], ['1', '2'])), table(null, ['g', 'h'])]);
+    expect(slideTextBlocks(keepOpenedParts(text, [partKey(lines('|e|f|', '|---|---|', '|1|2|'))]))).toEqual([table(null, ['a', 'b']), hidden(table(['e', 'f'], ['1', '2'])), table(null, ['g', 'h'])]);
   });
 });
 

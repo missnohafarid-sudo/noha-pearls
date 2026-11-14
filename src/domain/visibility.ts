@@ -45,7 +45,7 @@ export function withoutKey(lesson: Lesson): Lesson {
 }
 
 /** What a student or visitor reads of a lesson: no key, and of the hidden parts only those `opened` names for a slide. */
-function lessonForStudents(lesson: Lesson, opened: (slideId: Id) => readonly number[]): Lesson {
+function lessonForStudents(lesson: Lesson, opened: (slideId: Id) => readonly string[]): Lesson {
   const bare = withoutKey(lesson);
   return { ...bare, slides: bare.slides.map((slide) => withOpenedParts(slide, opened(slide.id))) };
 }

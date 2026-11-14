@@ -7,7 +7,7 @@ import { messageFor } from './pacing';
 import { answerKey, optionMark, pointsFor, publishedKeys, verdictFor } from './scoring';
 import { liveSessions, openedParts, withPartOpened } from './sessions';
 import { SLIDE_KIND_NAMES, slideKindSpec } from './slideKinds';
-import { HIDDEN_FENCE } from './slideText';
+import { HIDDEN_FENCE, partKey } from './slideText';
 import { answers, ended, intro, lesson, live, reveal1, reveal2, roster, seatOf, students } from './visibility.fixtures';
 import {
   anyClassLive, catalogueFor, classLessonFor, foldersFor, lessonFor, lessonSummaries, lessonSummary, nameClaims, readerOf, seatRef, seenRoster, sessionFor, withoutKey,
@@ -127,7 +127,8 @@ describe('hidden parts a caller receives', () => {
   const parts: ContentSlide = { ...intro, id: 'p1', body: ['a', F, 'first', F, 'b', F, 'second', F].join('\n'), hidden: 'the end' };
   const deck: Lesson = { ...lesson, slides: [parts] };
   const textOf = (read: Lesson | null) => JSON.stringify(read?.slides[0]);
-  const opening = (positions: number[]): Session => ({ ...live, hiddenOpen: { p1: positions } });
+  const [FIRST, SECOND, END] = [partKey('first'), partKey('second'), partKey('the end')];
+  const opening = (keys: string[]): Session => ({ ...live, hiddenOpen: { p1: keys } });
 
   it('gives the admin every part, whatever is opened', () => {
     expect(lessonFor(true, deck)).toBe(deck);
@@ -144,22 +145,33 @@ describe('hidden parts a caller receives', () => {
 
   it('gives a let-in seat only the parts opened in her class, the end-of-slide one being the last', () => {
     expect(classLessonFor(named, deck, live)?.slides[0]).toMatchObject({ body: 'a\nb', hidden: '' });
-    expect(classLessonFor(named, deck, opening([1]))?.slides[0]).toMatchObject({ body: ['a', 'b', F, 'second', F].join('\n'), hidden: '' });
-    expect(classLessonFor(named, deck, opening([0, 2]))?.slides[0]).toMatchObject({ body: ['a', F, 'first', F, 'b'].join('\n'), hidden: 'the end' });
+    expect(classLessonFor(named, deck, opening([SECOND]))?.slides[0]).toMatchObject({ body: ['a', 'b', F, 'second', F].join('\n'), hidden: '' });
+    expect(classLessonFor(named, deck, opening([FIRST, END]))?.slides[0]).toMatchObject({ body: ['a', F, 'first', F, 'b'].join('\n'), hidden: 'the end' });
   });
 
   it('reads what a session opened for another slide as nothing', () => {
-    expect(textOf(classLessonFor(named, deck, { ...live, hiddenOpen: { other: [0, 1, 2] } }))).not.toContain('first');
+    expect(textOf(classLessonFor(named, deck, { ...live, hiddenOpen: { other: [FIRST, SECOND, END] } }))).not.toContain('first');
     expect(textOf(classLessonFor(named, deck, null))).not.toContain('first');
   });
 
+  it('reads an opened part by its words: deleting another, inserting one above, or editing it', () => {
+    const opened = opening([SECOND]);
+    const edit = (body: string): Lesson => ({ ...lesson, slides: [{ ...parts, body }] });
+    const deleted = edit(['a', 'b', F, 'second', F].join('\n'));
+    expect(classLessonFor(named, deleted, opened)?.slides[0]).toMatchObject({ body: ['a', 'b', F, 'second', F].join('\n') });
+    const inserted = edit(['a', F, 'new', F, 'b', F, 'first', F, F, 'second', F].join('\n'));
+    expect(classLessonFor(named, inserted, opened)?.slides[0]).toMatchObject({ body: ['a', 'b', F, 'second', F].join('\n') });
+    const reworded = edit(['a', F, 'first', F, 'b', F, 'second changed', F].join('\n'));
+    expect(classLessonFor(named, reworded, opened)?.slides[0]).toMatchObject({ body: 'a\nb' });
+  });
+
   it('keeps what is opened and closed again in order, once, and drops a slide with none', () => {
-    const opened = withPartOpened(withPartOpened(withPartOpened(live, 'p1', 2, true), 'p1', 0, true), 'p1', 2, true);
-    expect(openedParts(opened, 'p1')).toEqual([0, 2]);
+    const opened = withPartOpened(withPartOpened(withPartOpened(live, 'p1', SECOND, true), 'p1', FIRST, true), 'p1', SECOND, true);
+    expect(openedParts(opened, 'p1')).toEqual([FIRST, SECOND].sort());
     expect(openedParts(opened, 'p2')).toEqual([]);
-    expect(withPartOpened(opened, 'p1', 1, false)).toEqual(opened);
-    expect(openedParts(withPartOpened(opened, 'p1', 0, false), 'p1')).toEqual([2]);
-    expect(withPartOpened(withPartOpened(live, 'p1', 0, true), 'p1', 0, false).hiddenOpen).toEqual({});
+    expect(withPartOpened(opened, 'p1', END, false)).toEqual(opened);
+    expect(openedParts(withPartOpened(opened, 'p1', FIRST, false), 'p1')).toEqual([SECOND]);
+    expect(withPartOpened(withPartOpened(live, 'p1', FIRST, true), 'p1', FIRST, false).hiddenOpen).toEqual({});
   });
 });
 

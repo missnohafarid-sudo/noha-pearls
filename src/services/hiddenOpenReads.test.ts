@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ContentSlide, Lesson } from '../domain/models';
-import { HIDDEN_FENCE as F } from '../domain/slideText';
+import { HIDDEN_FENCE as F, partKey } from '../domain/slideText';
 import { intro, lesson, live, roster, seatOf } from '../domain/visibility.fixtures';
 import { LocalChangeBus, LocalDocumentStore } from '../infrastructure/LocalDocumentStore';
 import { MemoryStorage } from '../infrastructure/storage';
@@ -16,6 +16,8 @@ const services = () => createDataServices(store, caller);
 const parts: ContentSlide = { ...intro, id: 'p1', body: ['a', F, 'first', F, 'b'].join('\n'), hidden: 'the end' };
 const deck: Lesson = { ...lesson, slides: [parts, ...lesson.slides.slice(1)] };
 const SLIDE = 'p1';
+const [FIRST, END] = [partKey('first'), partKey('the end')];
+const inOrder = (...keys: string[]) => [...keys].sort();
 
 beforeEach(async () => {
   admin = false;
@@ -38,40 +40,41 @@ const first = (read: Lesson | null | undefined) => read?.slides[0] as ContentSli
 
 describe('opening a hidden part for the class', () => {
   it('is the admin\'s only', async () => {
-    await expect(services().sessions.setHiddenOpen('x', SLIDE, 0, true)).rejects.toBeInstanceOf(NotAuthorizedError);
+    await expect(services().sessions.setHiddenOpen('x', SLIDE, FIRST, true)).rejects.toBeInstanceOf(NotAuthorizedError);
     expect(await openedInStore()).toBeUndefined();
   });
 
   it('opens and closes a part, once however often it is asked', async () => {
     admin = true;
     const { sessions } = services();
-    await sessions.setHiddenOpen('x', SLIDE, 1, true);
-    await sessions.setHiddenOpen('x', SLIDE, 1, true);
-    await sessions.setHiddenOpen('x', SLIDE, 0, true);
-    expect(await openedInStore()).toEqual({ p1: [0, 1] });
-    await sessions.setHiddenOpen('x', SLIDE, 1, false);
-    await sessions.setHiddenOpen('x', SLIDE, 1, false);
-    expect(await openedInStore()).toEqual({ p1: [0] });
+    await sessions.setHiddenOpen('x', SLIDE, END, true);
+    await sessions.setHiddenOpen('x', SLIDE, END, true);
+    await sessions.setHiddenOpen('x', SLIDE, FIRST, true);
+    expect(await openedInStore()).toEqual({ p1: inOrder(FIRST, END) });
+    await sessions.setHiddenOpen('x', SLIDE, END, false);
+    await sessions.setHiddenOpen('x', SLIDE, END, false);
+    expect(await openedInStore()).toEqual({ p1: [FIRST] });
   });
 
-  it('ignores a slide that is not in the lesson, a position the slide does not have and a class that is not there', async () => {
+  it('ignores a slide that is not in the lesson, a part key the slide does not have and a class that is not there', async () => {
     admin = true;
     const { sessions } = services();
-    await sessions.setHiddenOpen('x', 'nobody', 0, true);
-    await sessions.setHiddenOpen('x', SLIDE, 2, true);
-    await sessions.setHiddenOpen('x', 'q1', 0, true);
-    await sessions.setHiddenOpen('nope', SLIDE, 0, true);
+    await sessions.setHiddenOpen('x', 'nobody', FIRST, true);
+    await sessions.setHiddenOpen('x', SLIDE, partKey('not there'), true);
+    await sessions.setHiddenOpen('x', SLIDE, 'not a key', true);
+    await sessions.setHiddenOpen('x', 'q1', FIRST, true);
+    await sessions.setHiddenOpen('nope', SLIDE, FIRST, true);
     expect(await openedInStore()).toBeUndefined();
   });
 
   it('changes nothing once the class has ended', async () => {
     admin = true;
     const { sessions } = services();
-    await sessions.setHiddenOpen('x', SLIDE, 0, true);
+    await sessions.setHiddenOpen('x', SLIDE, FIRST, true);
     await sessions.end('x');
-    await sessions.setHiddenOpen('x', SLIDE, 1, true);
-    await sessions.setHiddenOpen('x', SLIDE, 0, false);
-    expect(await openedInStore()).toEqual({ p1: [0] });
+    await sessions.setHiddenOpen('x', SLIDE, END, true);
+    await sessions.setHiddenOpen('x', SLIDE, FIRST, false);
+    expect(await openedInStore()).toEqual({ p1: [FIRST] });
   });
 });
 
@@ -88,18 +91,29 @@ describe('the hidden parts each reader receives', () => {
     const reading = watched<Lesson | null>((l) => services().seatView.watchLesson('x', l));
     await vi.waitFor(() => expect(first(reading.last())).toMatchObject({ body: 'a\nb', hidden: '' }));
     admin = true;
-    await services().sessions.setHiddenOpen('x', SLIDE, 0, true);
+    await services().sessions.setHiddenOpen('x', SLIDE, FIRST, true);
     await vi.waitFor(() => expect(first(reading.last())).toMatchObject({ body: parts.body, hidden: '' }));
-    await services().sessions.setHiddenOpen('x', SLIDE, 1, true);
+    await services().sessions.setHiddenOpen('x', SLIDE, END, true);
     await vi.waitFor(() => expect(first(reading.last())).toMatchObject({ body: parts.body, hidden: 'the end' }));
-    await services().sessions.setHiddenOpen('x', SLIDE, 0, false);
+    await services().sessions.setHiddenOpen('x', SLIDE, FIRST, false);
     await vi.waitFor(() => expect(first(reading.last())).toMatchObject({ body: 'a\nb', hidden: 'the end' }));
+    reading.stop();
+  });
+
+  it('keeps the other part closed for a seat when the teacher deletes the one she opened', async () => {
+    admin = true;
+    await services().sessions.setHiddenOpen('x', SLIDE, FIRST, true);
+    await store.put('lessons', { ...deck, slides: [{ ...parts, body: ['a', F, 'second', F, 'b'].join('\n') }, ...deck.slides.slice(1)] });
+    admin = false;
+    const reading = watched<Lesson | null>((l) => services().seatView.watchLesson('x', l));
+    await vi.waitFor(() => expect(first(reading.last())).toMatchObject({ body: 'a\nb', hidden: '' }));
+    expect(JSON.stringify(reading.last())).not.toContain('second');
     reading.stop();
   });
 
   it('gives a visitor of the published lesson no part, even one the class has opened', async () => {
     admin = true;
-    await services().sessions.setHiddenOpen('x', SLIDE, 0, true);
+    await services().sessions.setHiddenOpen('x', SLIDE, FIRST, true);
     admin = false;
     const reading = watched<Lesson | null>((l) => services().lessons.watchLesson('l1', l));
     await vi.waitFor(() => expect(first(reading.last())).toMatchObject({ body: 'a\nb', hidden: '' }));

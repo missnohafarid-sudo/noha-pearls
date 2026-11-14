@@ -1,24 +1,29 @@
 import type { ContentSlide, MediaSlide, Slide } from './models';
 import type { SlideKindSpec } from './slideFile';
-import { hiddenPartCount, keepOpenedParts } from './slideText';
+import { hiddenPartKeys, keepOpenedParts, partKey, slideTextBlocks } from './slideText';
 
 /** The members of a slide-kind entry that deal with hidden parts, for the kinds whose text can hold some. */
-type HiddenPartMembers<S extends Slide> = Pick<SlideKindSpec<S>, 'hiddenPartCount' | 'withOpenedParts'>;
+type HiddenPartMembers<S extends Slide> = Pick<SlideKindSpec<S>, 'hiddenPartKeys' | 'withOpenedParts'>;
 
-/** The end-of-slide hidden text, which older stored slides lack. */
-const endHidden = ({ hidden }: { hidden?: string }): string => hidden ?? '';
+/** The key of a content slide's end-of-slide part, or null when that text draws nothing and so is no part. Older stored slides lack the field. */
+export function endHiddenKey(hidden: string | undefined): string | null {
+  const text = hidden ?? '';
+  return slideTextBlocks(text).length > 0 ? partKey(text) : null;
+}
 
-/** A content slide's parts are those in its body, then its end-of-slide text when not blank, which comes last. */
+/** A content slide's parts are those in its body, then its end-of-slide text, which comes last. */
 export const contentHiddenParts: HiddenPartMembers<ContentSlide> = {
-  hiddenPartCount: (slide) => hiddenPartCount(slide.body) + (endHidden(slide).trim() === '' ? 0 : 1),
-  withOpenedParts: (slide, opened) => ({
-    ...slide,
-    body: keepOpenedParts(slide.body, opened),
-    hidden: opened.includes(hiddenPartCount(slide.body)) ? endHidden(slide) : '',
-  }),
+  hiddenPartKeys: ({ body, hidden }) => {
+    const end = endHiddenKey(hidden);
+    return [...hiddenPartKeys(body), ...(end === null ? [] : [end])];
+  },
+  withOpenedParts: (slide, opened) => {
+    const end = endHiddenKey(slide.hidden);
+    return { ...slide, body: keepOpenedParts(slide.body, opened), hidden: end !== null && opened.includes(end) ? (slide.hidden ?? '') : '' };
+  },
 };
 
 export const mediaHiddenParts: HiddenPartMembers<MediaSlide> = {
-  hiddenPartCount: ({ body }) => hiddenPartCount(body),
+  hiddenPartKeys: ({ body }) => hiddenPartKeys(body),
   withOpenedParts: (slide, opened) => ({ ...slide, body: keepOpenedParts(slide.body, opened) }),
 };

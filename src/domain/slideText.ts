@@ -1,3 +1,4 @@
+import { fingerprint } from './fingerprint';
 import { isPictureLink } from './media';
 import { addTableRow, isTableRow, starterTable, startTable, type SlideTable } from './slideTable';
 
@@ -6,7 +7,7 @@ export type TextBlock =
   | { kind: 'line'; text: string; bullet: boolean }
   | { kind: 'pictures'; links: string[] }
   | ({ kind: 'table' } & SlideTable)
-  | { kind: 'hidden'; blocks: TextBlock[] };
+  | { kind: 'hidden'; key: string; blocks: TextBlock[] };
 
 /** A line of only these, three or more, opens a hidden block and the next such line closes it. */
 export const HIDDEN_FENCE = '+++';
@@ -25,7 +26,7 @@ function lineBlock(line: string): TextBlock {
   return text.startsWith(BULLET_MARK) ? { kind: 'line', text: text.slice(BULLET_MARK.length), bullet: true } : { kind: 'line', text: line, bullet: false };
 }
 
-function add(blocks: TextBlock[], line: string): void {
+function addLine(blocks: TextBlock[], line: string): void {
   const last = blocks[blocks.length - 1];
   if (isPictureLine(line)) {
     if (last?.kind === 'pictures') last.links.push(line.trim());
@@ -38,6 +39,26 @@ function add(blocks: TextBlock[], line: string): void {
     const table = startTable(line);
     if (table) blocks.push({ kind: 'table', ...table });
   }
+}
+
+const isBlank = (line: string): boolean => line.trim() === '';
+
+/** The blocks of some lines; blank lines are skipped. */
+function blocksOf(lines: readonly string[]): TextBlock[] {
+  const blocks: TextBlock[] = [];
+  for (const line of lines) if (!isBlank(line)) addLine(blocks, line);
+  return blocks;
+}
+
+/** The name of a hidden part: a fingerprint of its own lines, trimmed, so the same words keep the same name wherever the part moves to. */
+export function partKey(text: string): string {
+  return fingerprint(
+    text
+      .split(LINE_BREAK)
+      .map((line) => line.trim())
+      .filter((line) => line !== '')
+      .join('\n'),
+  );
 }
 
 interface ScannedLine {
@@ -58,55 +79,63 @@ function scan(text: string): ScannedLine[] {
   });
 }
 
-const hasText = ({ line, fence }: ScannedLine): boolean => !fence && line.trim() !== '';
+interface Part {
+  key: string;
+  blocks: TextBlock[];
+}
 
-/** The fenced stretches that hold some text, in reading order: these are a slide text's hidden parts, numbered from 0. */
-function partStretches(lines: readonly ScannedLine[]): number[] {
-  const withText = new Set<number>();
-  for (const scanned of lines) if (scanned.stretch !== null && hasText(scanned)) withText.add(scanned.stretch);
-  return [...withText];
+/** The fenced stretches that draw something, by stretch number: these are a slide text's hidden parts. A stretch that draws nothing is no part. */
+function partsOf(lines: readonly ScannedLine[]): Map<number, Part> {
+  const inside = new Map<number, string[]>();
+  for (const { line, fence, stretch } of lines) {
+    if (stretch === null || fence) continue;
+    inside.set(stretch, [...(inside.get(stretch) ?? []), line]);
+  }
+  const parts = new Map<number, Part>();
+  for (const [stretch, rows] of inside) {
+    const blocks = blocksOf(rows);
+    if (blocks.length > 0) parts.set(stretch, { key: partKey(rows.join('\n')), blocks });
+  }
+  return parts;
 }
 
 /**
  * What the plain text of a slide is made of: one line per non-blank line (a line starting with "- " is a bullet),
  * a picture for each line that is only a picture address, a table for consecutive row lines between upright bars, and a hidden block for the lines between two fence lines.
- * A fence that is never closed hides everything after it; a hidden block with nothing in it is dropped.
+ * A fence that is never closed hides everything after it; a hidden block that draws nothing is dropped.
  */
 export function slideTextBlocks(text: string): TextBlock[] {
+  const scanned = scan(text);
+  const parts = partsOf(scanned);
   const blocks: TextBlock[] = [];
-  const hidden = new Map<number, TextBlock[]>();
-  for (const scanned of scan(text)) {
-    if (!hasText(scanned)) continue;
-    if (scanned.stretch === null) {
-      add(blocks, scanned.line);
-      continue;
+  const placed = new Set<number>();
+  let run: string[] = [];
+  const flush = () => {
+    blocks.push(...blocksOf(run));
+    run = [];
+  };
+  for (const { line, fence, stretch } of scanned) {
+    if (fence) continue;
+    if (stretch === null) run.push(line);
+    else if (parts.has(stretch) && !placed.has(stretch)) {
+      placed.add(stretch);
+      flush();
+      blocks.push({ kind: 'hidden', ...(parts.get(stretch) as Part) });
     }
-    let inside = hidden.get(scanned.stretch);
-    if (!inside) {
-      inside = [];
-      hidden.set(scanned.stretch, inside);
-      blocks.push({ kind: 'hidden', blocks: inside });
-    }
-    add(inside, scanned.line);
   }
+  flush();
   return blocks;
 }
 
-/** How many hidden parts a text holds. */
-export function hiddenPartCount(text: string): number {
-  return partStretches(scan(text)).length;
+/** The keys of the hidden parts a text holds, in reading order. */
+export function hiddenPartKeys(text: string): string[] {
+  return [...partsOf(scan(text)).values()].map(({ key }) => key);
 }
 
-/** How many hidden blocks come before the one at `index`: with the number of parts before the text, it is that block's position. */
-export function hiddenBlocksBefore(blocks: readonly TextBlock[], index: number): number {
-  return blocks.slice(0, index).filter((block) => block.kind === 'hidden').length;
-}
-
-/** The text with every hidden part whose position is not in `opened` cut out, fences and all; the opened ones stay as they are. */
-export function keepOpenedParts(text: string, opened: readonly number[]): string {
+/** The text with every hidden part whose key is not in `opened` cut out, fences and all; the opened ones stay as they are. A fenced stretch that draws nothing is cut too. */
+export function keepOpenedParts(text: string, opened: readonly string[]): string {
   const lines = scan(text);
-  const parts = partStretches(lines);
-  const kept = new Set(parts.filter((_, position) => opened.includes(position)));
+  const kept = new Set([...partsOf(lines)].filter(([, { key }]) => opened.includes(key)).map(([stretch]) => stretch));
   return lines
     .filter(({ stretch }) => stretch === null || kept.has(stretch))
     .map(({ line }) => line)

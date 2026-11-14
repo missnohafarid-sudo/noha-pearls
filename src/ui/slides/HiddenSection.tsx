@@ -4,19 +4,19 @@ import { HiddenControlProvider, SHOWN, useHiddenControl } from './hiddenControl'
 import './hiddenSection.css';
 
 /**
- * What is hidden in a bluish box, at position `part` of its slide. Without an outside control it keeps its own state and
+ * What is hidden in a bluish box, named `partKey` among its slide's parts. Without an outside control it keeps its own state and
  * button, and nothing is stored or sent; with one, the control says whether it is open and whether there is a button.
  */
-export function HiddenSection({ part, children }: { part: number; children: ReactNode }) {
+export function HiddenSection({ partKey, children }: { partKey: string; children: ReactNode }) {
   const control = useHiddenControl();
   const [ownOpen, setOwnOpen] = useState(false);
   const boxId = useId();
-  const open = control ? control.isOpen(part) : ownOpen;
-  const toggle: ((part: number) => void) | null = control ? control.toggle : () => setOwnOpen(!ownOpen);
+  const open = control ? control.isOpen(partKey) : ownOpen;
+  const toggle: ((key: string) => void) | null = control ? control.toggle : () => setOwnOpen(!ownOpen);
   return (
     <div className="slide-hidden">
       {toggle && (
-        <button type="button" className="btn" aria-expanded={open} aria-controls={boxId} onClick={() => toggle(part)}>
+        <button type="button" className="btn" aria-expanded={open} aria-controls={boxId} onClick={() => toggle(partKey)}>
           {open ? t.slides.view.hideHidden : t.slides.view.showHidden}
         </button>
       )}

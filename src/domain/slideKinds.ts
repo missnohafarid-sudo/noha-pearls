@@ -230,12 +230,12 @@ export function slideKindSpec(kind: SlideKind): SlideKindSpec {
   return SLIDE_KINDS[kind] as unknown as SlideKindSpec;
 }
 
-/** How many hidden parts a slide holds, 0 for a kind without any. */
-export function slideHiddenPartCount(slide: Slide): number {
-  return slideKindSpec(slide.kind).hiddenPartCount?.(slide) ?? 0;
+/** The keys of a slide's hidden parts, none for a kind without any. */
+export function slideHiddenPartKeys(slide: Slide): string[] {
+  return slideKindSpec(slide.kind).hiddenPartKeys?.(slide) ?? [];
 }
 
-/** The slide with only the hidden parts at `opened` left in; a kind without hidden parts is returned as it is. */
-export function withOpenedParts(slide: Slide, opened: readonly number[]): Slide {
+/** The slide with only the hidden parts whose key is in `opened` left in; a kind without hidden parts is returned as it is. */
+export function withOpenedParts(slide: Slide, opened: readonly string[]): Slide {
   return slideKindSpec(slide.kind).withOpenedParts?.(slide, opened) ?? slide;
 }

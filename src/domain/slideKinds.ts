@@ -1,6 +1,6 @@
 import { MAX_CHOICES, MIN_CHOICES } from './choices';
 import { isHttpsUrl, isMediaChoice, isMediaProblem, mediaView, picturesHaveProblem } from './media';
-import type { AnswerScope, ChoiceSlide, ContentSlide, MediaSlide, Slide, SlideKind, TextSlide } from './models';
+import type { AnswerScope, ChoiceSlide, ContentSlide, Id, MediaSlide, Slide, SlideKind, TextSlide } from './models';
 import type { FileField, IssueReporter, RawSlide, SlideKindSpec } from './slideFile';
 import { isAbsent, picturesOf, requiredText, storedPictures, text, trimmedLinks, type StoredPictures } from './slideFields';
 
@@ -37,6 +37,19 @@ function pointsOf(raw: RawSlide, report: IssueReporter): number {
   return DEFAULT_POINTS;
 }
 
+/** The fields every slide shares: blank, read from a file, and written to one (kind, then title, then tag). */
+function blankShared<K extends SlideKind>(id: Id, kind: K) {
+  return { id, kind, title: '', tag: '' };
+}
+
+function sharedFromFile<K extends SlideKind>(raw: RawSlide, id: Id, kind: K, report: IssueReporter) {
+  return { id, kind, title: requiredText(raw, 'title', report), tag: text(raw, 'tag') };
+}
+
+function sharedToFile({ kind, title, tag }: Slide): RawSlide {
+  return { kind, title, tag };
+}
+
 const COMMON_FIELDS: readonly FileField[] = [
   { name: 'kind', required: true },
   { name: 'title', required: true },
@@ -54,18 +67,15 @@ type StoredContent = Omit<ContentSlide, 'images' | 'hidden'> & StoredPictures & 
 
 const content: SlideKindSpec<ContentSlide> = {
   kind: 'content',
-  create: (id) => ({ id, kind: 'content', title: '', tag: '', body: '', images: [], hidden: '' }),
+  create: (id) => ({ ...blankShared(id, 'content'), body: '', images: [], hidden: '' }),
   fileFields: [...COMMON_FIELDS, { name: 'body', required: false }, { name: 'images', required: false }, { name: 'hidden', required: false }],
   fromFile: (raw, id, report) => ({
-    id,
-    kind: 'content',
-    title: requiredText(raw, 'title', report),
-    tag: text(raw, 'tag'),
+    ...sharedFromFile(raw, id, 'content', report),
     body: text(raw, 'body'),
     images: picturesOf(raw, report),
     hidden: text(raw, 'hidden'),
   }),
-  toFile: ({ kind, title, tag, body, images, hidden }) => ({ kind, title, tag, body, images: trimmedLinks(images), hidden }),
+  toFile: (slide) => ({ ...sharedToFile(slide), body: slide.body, images: trimmedLinks(slide.images), hidden: slide.hidden }),
   normalize: ({ imageUrl, ...slide }: StoredContent) => ({ ...slide, images: storedPictures({ images: slide.images, imageUrl }), hidden: slide.hidden ?? '' }),
   hasProblem: ({ images }) => picturesHaveProblem(images),
   withoutKey: (slide) => slide,
@@ -92,10 +102,7 @@ function optionsOf(raw: RawSlide, report: IssueReporter): string[] {
 const choice: SlideKindSpec<ChoiceSlide> = {
   kind: 'choice',
   create: (id) => ({
-    id,
-    kind: 'choice',
-    title: '',
-    tag: '',
+    ...blankShared(id, 'choice'),
     prompt: '',
     options: ['', ''],
     correctIndex: null,
@@ -113,10 +120,7 @@ const choice: SlideKindSpec<ChoiceSlide> = {
   fromFile: (raw, id, report) => {
     const options = optionsOf(raw, report);
     return {
-      id,
-      kind: 'choice',
-      title: requiredText(raw, 'title', report),
-      tag: text(raw, 'tag'),
+      ...sharedFromFile(raw, id, 'choice', report),
       prompt: requiredText(raw, 'prompt', report),
       options,
       correctIndex: correctIndexOf(raw, options.length, report),
@@ -125,16 +129,14 @@ const choice: SlideKindSpec<ChoiceSlide> = {
       points: pointsOf(raw, report),
     };
   },
-  toFile: ({ kind, title, tag, prompt, options, correctIndex, explanation, scope, points }) => ({
-    kind,
-    title,
-    tag,
-    prompt,
-    options,
-    correct: correctIndex === null ? null : correctIndex + 1,
-    explanation,
-    scope,
-    points,
+  toFile: (slide) => ({
+    ...sharedToFile(slide),
+    prompt: slide.prompt,
+    options: slide.options,
+    correct: slide.correctIndex === null ? null : slide.correctIndex + 1,
+    explanation: slide.explanation,
+    scope: slide.scope,
+    points: slide.points,
   }),
   // Removing an option must not leave the correct answer pointing past the end.
   normalize: (slide) => ({
@@ -147,20 +149,24 @@ const choice: SlideKindSpec<ChoiceSlide> = {
 
 const textKind: SlideKindSpec<TextSlide> = {
   kind: 'text',
-  create: (id) => ({ id, kind: 'text', title: '', tag: '', prompt: '', placeholder: '', images: [], scope: 'group', points: 1 }),
+  create: (id) => ({ ...blankShared(id, 'text'), prompt: '', placeholder: '', images: [], scope: 'group', points: 1 }),
   fileFields: [...COMMON_FIELDS, ...QUESTION_FIELDS, { name: 'placeholder', required: false }, { name: 'images', required: false }],
   fromFile: (raw, id, report) => ({
-    id,
-    kind: 'text',
-    title: requiredText(raw, 'title', report),
-    tag: text(raw, 'tag'),
+    ...sharedFromFile(raw, id, 'text', report),
     prompt: requiredText(raw, 'prompt', report),
     placeholder: text(raw, 'placeholder'),
     images: picturesOf(raw, report),
     scope: scopeOf(raw, 'group', report),
     points: pointsOf(raw, report),
   }),
-  toFile: ({ kind, title, tag, prompt, placeholder, images, scope, points }) => ({ kind, title, tag, prompt, placeholder, images: trimmedLinks(images), scope, points }),
+  toFile: (slide) => ({
+    ...sharedToFile(slide),
+    prompt: slide.prompt,
+    placeholder: slide.placeholder,
+    images: trimmedLinks(slide.images),
+    scope: slide.scope,
+    points: slide.points,
+  }),
   normalize: (slide) => ({ ...slide, images: storedPictures(slide), points: clampPoints(slide.points) }),
   hasProblem: ({ images }) => picturesHaveProblem(images),
   withoutKey: (slide) => slide,
@@ -182,18 +188,15 @@ function mediaOf(raw: RawSlide, report: IssueReporter): MediaSlide['media'] {
 
 const media: SlideKindSpec<MediaSlide> = {
   kind: 'media',
-  create: (id) => ({ id, kind: 'media', title: '', tag: '', url: '', media: 'auto', body: '' }),
+  create: (id) => ({ ...blankShared(id, 'media'), url: '', media: 'auto', body: '' }),
   fileFields: [...COMMON_FIELDS, { name: 'url', required: false }, { name: 'media', required: false }, { name: 'body', required: false }],
   fromFile: (raw, id, report) => ({
-    id,
-    kind: 'media',
-    title: requiredText(raw, 'title', report),
-    tag: text(raw, 'tag'),
+    ...sharedFromFile(raw, id, 'media', report),
     url: urlOf(raw, report),
     media: mediaOf(raw, report),
     body: text(raw, 'body'),
   }),
-  toFile: ({ kind, title, tag, url, media: type, body }) => ({ kind, title, tag, url, media: type, body }),
+  toFile: (slide) => ({ ...sharedToFile(slide), url: slide.url, media: slide.media, body: slide.body }),
   hasProblem: ({ url, media: type }) => isMediaProblem(mediaView(url, type)),
   withoutKey: (slide) => slide,
 };

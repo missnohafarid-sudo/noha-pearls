@@ -418,6 +418,8 @@ describe('what a media link shows', () => {
   it('tells the teacher a Tenor page is not an image address, whatever the declared type', () => {
     expect(src('https://tenor.com/view/wave-gif-1234567')).toBe('page-link');
     expect(src('https://tenor.com/view/wave-gif-1234567', 'image')).toBe('page-link');
+    expect(src('https://tenor.com/ar/view/wave-gif-1234567')).toBe('page-link');
+    expect(src('https://tenor.com/en-GB/view/wave-gif-1234567')).toBe('page-link');
     expect(picturesHaveProblem(['https://tenor.com/view/wave-gif-1234567'])).toBe(true);
     expect(pictureSources(['https://tenor.com/view/wave-gif-1234567'])).toEqual([]);
   });

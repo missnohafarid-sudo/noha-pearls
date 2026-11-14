@@ -115,8 +115,10 @@ const giphy: Provider = (address) => {
   return id ? { how: 'image', src: `https://i.giphy.com/${id}.gif` } : null;
 };
 
-/** A Tenor page refuses framing, and its number is not the image's name (measured: the image address is only inside the page), so only the image address itself can be shown. */
-const tenor: Provider = (address) => (address.hostname === 'tenor.com' && address.pathname.startsWith('/view/') ? 'page-link' : null);
+const TENOR_PAGE = /^\/(?:[A-Za-z-]+\/)?view\//;
+
+/** A Tenor page (also under a language, as in `/ar/view/`) refuses framing, and its number is not the image's name (measured: the image address is only inside the page), so only the image address itself can be shown. */
+const tenor: Provider = (address) => (address.hostname === 'tenor.com' && TENOR_PAGE.test(address.pathname) ? 'page-link' : null);
 
 const PROVIDERS: readonly Provider[] = [drive, phet, sharepointSlides, youtube, giphy, tenor];
 

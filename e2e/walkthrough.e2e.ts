@@ -13,6 +13,7 @@ import { hiddenSectionSteps } from './steps/hiddenSection';
 import { lessonEditingSteps } from './steps/lessonEditing';
 import { liveClassSteps } from './steps/liveClass';
 import { mediaSlidesSteps } from './steps/mediaSlides';
+import { memberAnswersSteps } from './steps/memberAnswers';
 import { passwordFieldSteps } from './steps/passwordField';
 import { pearlPanelSteps } from './steps/pearlPanel';
 import { presenceColumnSteps } from './steps/presenceColumn';
@@ -68,6 +69,7 @@ describe('walkthrough', () => {
   pearlPanelSteps(world);
   twoDevicesSteps(world);
   twoClassesSteps(world);
+  memberAnswersSteps(world);
   classCardsSteps(world);
   scoringSteps(world);
   groupAnswersSteps(world);

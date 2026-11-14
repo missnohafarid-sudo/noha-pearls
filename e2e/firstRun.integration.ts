@@ -6,9 +6,11 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { SLIDE_KIND_NAMES } from '../src/domain/slideKinds';
 import { t } from '../src/i18n';
 import { slideUi } from '../src/ui/slides/slideUi';
-import { DESKTOP, Device as Tab } from './device';
-import { SAMPLE } from './sample';
+import { admitWaitingDevice, sessionCodeIn } from './actions';
+import { DESKTOP, Device as Tab, PHONE } from './device';
+import { SAMPLE, SLIDE, slideText } from './sample';
 import { build, start, STARTUP_MS, stopEverything, type Server } from './serverProcess';
+import { dragName, namesUnder } from './steps/memberDrag';
 import { openSignIn, signInAsAdmin, launchBrowser } from './world';
 
 /**
@@ -21,6 +23,7 @@ const FOLDER = 'First folder';
 const TITLE = 'Typed slide title';
 const LESSON_TITLE = 'Typed lesson title';
 const SLIDE_ROWS = '.slide-row';
+const CODE_FIELD_WAIT_MS = 30_000;
 
 describe('a first-time teacher on an empty school', () => {
   let server: Server;
@@ -188,6 +191,34 @@ describe('a first-time teacher on an empty school', () => {
     await teacher.click(t.session.start);
     await teacher.waitFor(t.session.pacingTitle);
     await expectNoFailure();
+  });
+
+  it('a shared group device gives its student an answer by moving her name onto an option, and the hub accepts it and shows it back', async () => {
+    const deviceBrowser = await launchBrowser();
+    const phone = await Tab.open(deviceBrowser, 'shared device', server.origin, PHONE, errors);
+    await phone.until('the code field', () => phone.exists('.join-code input'), CODE_FIELD_WAIT_MS);
+    await phone.fill('.join-code input', sessionCodeIn(teacher));
+    await phone.page.keyboard.press('Enter');
+    await phone.click(t.roster.defaultGroupName);
+    await phone.click(t.join.sharedDevice);
+    await phone.waitFor(t.join.admissionTitle);
+    await teacher.until('the device in the waiting list', async () => (await teacher.has(t.session.admission.admit)));
+    await admitWaitingDevice(teacher);
+    await phone.waitFor(slideText(0));
+    for (let pressed = 0; pressed <= SLIDE.poll + 1 && !(await phone.has(slideText(SLIDE.poll))); pressed += 1) {
+      await teacher.click(t.common.next);
+      await settle();
+    }
+    await phone.waitFor(slideText(SLIDE.poll));
+    await phone.waitFor(t.join.answersPerStudentOnGroupDevice);
+    await phone.until('her name above the options', async () => (await phone.texts('.member-row .name-chip')).some((name) => name.includes(t.roster.defaultStudentName)));
+    expect(await namesUnder(phone, 1)).toEqual([]);
+    await dragName(phone, t.roster.defaultStudentName, 1, 'mouse');
+    await phone.until('her name under the option she was given', async () => (await namesUnder(phone, 1)).some((name) => name.includes(t.roster.defaultStudentName)));
+    await settle();
+    expect(await phone.has(t.common.crashed)).toBe(false);
+    await expectNoFailure();
+    await deviceBrowser.close();
   });
 
   it('gives a heart on the monitor, takes it back, then gives it again', async () => {

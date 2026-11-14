@@ -11,7 +11,7 @@ import { isMoveKey, listKeyEffect, movedIndex, movedTabIndex, typeaheadIndex } f
 import { exportLesson, importLesson, lessonFileText } from './lessonFormat';
 import { addSlide, createLesson, duplicateSlide, indexAfterRemoval, moveSlide, normalizeSlide, removeSlide, slideHasProblem, updateSlide } from './lessonOps';
 import { picturesOf, storedPictures } from './slideFields';
-import { isHttpsUrl, MEDIA_CHOICES, MEDIA_TYPES, mediaLink, mediaView, pictureSources, steppedZoom } from './media';
+import { isHttpsUrl, MEDIA_CHOICES, MEDIA_TYPES, mediaLink, mediaView, pictureSources, picturesHaveProblem, steppedZoom } from './media';
 import type { Answer, AttendedRoster, ClassRecord, ClassRoster, Reward, ChoiceSlide, Group, Lesson, MediaSlide, Participant, SchoolClass, Session, Student, SubjectRef, Teacher, TextSlide } from './models';
 import { resolveStudentView } from './pacing';
 import { addStudentToRoster, cardLabel, createGroup, createSchoolClass, groupById, isCardNumberFree, isOnRoster, moveStudent, nextCardNumber, renameGroupIn, rosterOf, schoolClassForPage, studentByCard, studentById } from './roster';
@@ -397,6 +397,29 @@ describe('what a media link shows', () => {
   it('does not take a Drive address without a file for a file', () => {
     expect(src('https://drive.google.com/drive/folders/FOLDER_ID_1')).toBe('unknown-type');
     expect(src('https://drive.google.com/open')).toBe('unknown-type');
+  });
+
+  it('draws a Giphy page, or its embed address, as the animated image named by its id', () => {
+    const view = { how: 'image', src: 'https://i.giphy.com/GifId123abc.gif' };
+    expect(src('https://giphy.com/gifs/cat-funny-cats-GifId123abc')).toEqual(view);
+    expect(src('https://giphy.com/gifs/GifId123abc')).toEqual(view);
+    expect(src('https://giphy.com/embed/GifId123abc?x=1')).toEqual(view);
+    expect(src('https://giphy.com/stickers/wave-GifId123abc', 'image')).toEqual(view);
+    expect(src('https://giphy.com/explore/cats')).toBe('unknown-type');
+    expect(pictureSources(['https://giphy.com/gifs/cat-GifId123abc'])).toEqual(['https://i.giphy.com/GifId123abc.gif']);
+  });
+
+  it('keeps a direct GIF address as a plain image, with or without a query', () => {
+    expect(src('https://media.giphy.com/media/GifId123abc/giphy.gif')).toEqual({ how: 'image', src: 'https://media.giphy.com/media/GifId123abc/giphy.gif' });
+    expect(src('https://media1.tenor.com/m/TenorId1/view.GIF?x=1')).toMatchObject({ how: 'image' });
+    expect(src('https://example.org/a.gif?width=200')).toMatchObject({ how: 'image' });
+  });
+
+  it('tells the teacher a Tenor page is not an image address, whatever the declared type', () => {
+    expect(src('https://tenor.com/view/wave-gif-1234567')).toBe('page-link');
+    expect(src('https://tenor.com/view/wave-gif-1234567', 'image')).toBe('page-link');
+    expect(picturesHaveProblem(['https://tenor.com/view/wave-gif-1234567'])).toBe(true);
+    expect(pictureSources(['https://tenor.com/view/wave-gif-1234567'])).toEqual([]);
   });
 
   it('draws a PhET simulation from its HTML5 file, in Arabic, with scripts only', () => {

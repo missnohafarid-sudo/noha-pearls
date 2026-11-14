@@ -24,7 +24,7 @@ export type MediaView =
   | { how: 'frame'; src: string; shape: MediaType; sandbox: string | null; referrerPolicy: FrameReferrer };
 
 /** What can be known about a link before anything is drawn. */
-type MediaProblem = 'no-link' | 'not-https' | 'unknown-type';
+type MediaProblem = 'no-link' | 'not-https' | 'unknown-type' | 'page-link';
 
 export function isMediaChoice(value: unknown): value is MediaChoice {
   return MEDIA_CHOICES.some((choice) => choice === value);
@@ -56,14 +56,14 @@ const frame = (src: string, shape: MediaType, sandbox: string | null, referrerPo
   referrerPolicy,
 });
 
-/** A provider turns an address it recognises into what to draw; `null` means "not mine". */
-type Provider = (address: URL, declared: MediaChoice) => MediaView | null;
+/** A provider turns an address it recognises into what to draw, or into what is wrong with it; `null` means "not mine". */
+type Provider = (address: URL, declared: MediaChoice) => MediaView | MediaProblem | null;
 
 const DRIVE_FILE = /^\/file\/d\/([\w-]+)/;
 const DRIVE_ID = /^[\w-]+$/;
 const DRIVE_SANDBOX = 'allow-scripts allow-same-origin';
 
-/** Drive's own viewer plays audio and video and shows photos and PDFs; plain elements fail on every Drive address. */
+/** Drive's own viewer plays audio and video and shows photos and PDFs; plain elements fail on every Drive address. A GIF animates in both the viewer and the thumbnail address, which serves the file itself, not a still (measured, files up to 8 MB). */
 const drive: Provider = (address, declared) => {
   if (address.hostname !== 'drive.google.com') return null;
   const id = DRIVE_FILE.exec(address.pathname)?.[1] ?? (address.pathname === '/open' ? address.searchParams.get('id') : null);
@@ -106,7 +106,19 @@ const youtube: Provider = (address) => {
   return frame(`https://www.youtube-nocookie.com/embed/${id}`, 'video', 'allow-scripts allow-same-origin', 'strict-origin-when-cross-origin');
 };
 
-const PROVIDERS: readonly Provider[] = [drive, phet, sharepointSlides, youtube];
+const GIPHY_PAGE = /^\/(?:gifs|stickers|embed)\/(?:[^/]*-)?([A-Za-z0-9]+)\/?$/;
+
+/** A Giphy page refuses framing and is not an image, but its id (the last part of the page name) names the image: `i.giphy.com/ID.gif` is a plain animated GIF (measured, it animates in an img). */
+const giphy: Provider = (address) => {
+  if (address.hostname !== 'giphy.com' && address.hostname !== 'www.giphy.com') return null;
+  const id = GIPHY_PAGE.exec(address.pathname)?.[1];
+  return id ? { how: 'image', src: `https://i.giphy.com/${id}.gif` } : null;
+};
+
+/** A Tenor page refuses framing, and its number is not the image's name (measured: the image address is only inside the page), so only the image address itself can be shown. */
+const tenor: Provider = (address) => (address.hostname === 'tenor.com' && address.pathname.startsWith('/view/') ? 'page-link' : null);
+
+const PROVIDERS: readonly Provider[] = [drive, phet, sharepointSlides, youtube, giphy, tenor];
 
 const EXTENSIONS = new Map<string, MediaType>(Object.entries<MediaType>({
   jpg: 'image',

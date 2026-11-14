@@ -33,6 +33,33 @@ function add(blocks: TextBlock[], line: string): void {
   else blocks.push({ kind: 'pictures', links: [line.trim()] });
 }
 
+interface ScannedLine {
+  line: string;
+  fence: boolean;
+  /** Which fenced stretch the line belongs to (fences included), counted from 0; null outside any. A fence never closed runs to the end. */
+  stretch: number | null;
+}
+
+function scan(text: string): ScannedLine[] {
+  let stretch: number | null = null;
+  let count = 0;
+  return text.split(LINE_BREAK).map((line) => {
+    if (!isFence(line)) return { line, fence: false, stretch };
+    const own = stretch ?? count++;
+    stretch = stretch === null ? own : null;
+    return { line, fence: true, stretch: own };
+  });
+}
+
+const hasText = ({ line, fence }: ScannedLine): boolean => !fence && line.trim() !== '';
+
+/** The fenced stretches that hold some text, in reading order: these are a slide text's hidden parts, numbered from 0. */
+function partStretches(lines: readonly ScannedLine[]): number[] {
+  const withText = new Set<number>();
+  for (const scanned of lines) if (scanned.stretch !== null && hasText(scanned)) withText.add(scanned.stretch);
+  return [...withText];
+}
+
 /**
  * What the plain text of a slide is made of: one line per non-blank line (a line starting with "- " is a bullet),
  * a picture for each line that is only a picture address, and a hidden block for the lines between two fence lines.
@@ -40,19 +67,43 @@ function add(blocks: TextBlock[], line: string): void {
  */
 export function slideTextBlocks(text: string): TextBlock[] {
   const blocks: TextBlock[] = [];
-  let hidden: TextBlock[] | null = null;
-  const close = () => {
-    if (hidden && hidden.length > 0) blocks.push({ kind: 'hidden', blocks: hidden });
-    hidden = null;
-  };
-  for (const line of text.split(LINE_BREAK)) {
-    if (line.trim() === '') continue;
-    if (!isFence(line)) add(hidden ?? blocks, line);
-    else if (hidden) close();
-    else hidden = [];
+  const hidden = new Map<number, TextBlock[]>();
+  for (const scanned of scan(text)) {
+    if (!hasText(scanned)) continue;
+    if (scanned.stretch === null) {
+      add(blocks, scanned.line);
+      continue;
+    }
+    let inside = hidden.get(scanned.stretch);
+    if (!inside) {
+      inside = [];
+      hidden.set(scanned.stretch, inside);
+      blocks.push({ kind: 'hidden', blocks: inside });
+    }
+    add(inside, scanned.line);
   }
-  close();
   return blocks;
+}
+
+/** How many hidden parts a text holds. */
+export function hiddenPartCount(text: string): number {
+  return partStretches(scan(text)).length;
+}
+
+/** How many hidden blocks come before the one at `index`: with the number of parts before the text, it is that block's position. */
+export function hiddenBlocksBefore(blocks: readonly TextBlock[], index: number): number {
+  return blocks.slice(0, index).filter((block) => block.kind === 'hidden').length;
+}
+
+/** The text with every hidden part whose position is not in `opened` cut out, fences and all; the opened ones stay as they are. */
+export function keepOpenedParts(text: string, opened: readonly number[]): string {
+  const lines = scan(text);
+  const parts = partStretches(lines);
+  const kept = new Set(parts.filter((_, position) => opened.includes(position)));
+  return lines
+    .filter(({ stretch }) => stretch === null || kept.has(stretch))
+    .map(({ line }) => line)
+    .join('\n');
 }
 
 /** A change to a text: replace `from` to `to` with `insert`, then select `selectFrom` to `selectTo` of the new text. */

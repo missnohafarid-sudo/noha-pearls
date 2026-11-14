@@ -3,6 +3,7 @@ import { MAX_CHOICES, MIN_CHOICES } from './choices';
 import { isHttpsUrl, isMediaChoice, isMediaProblem, mediaView, picturesHaveProblem } from './media';
 import type { AnswerScope, ChoiceSlide, ContentSlide, Id, MediaSlide, Slide, SlideKind, TextSlide } from './models';
 import type { FileField, IssueReporter, RawSlide, SlideKindSpec } from './slideFile';
+import { hiddenPartCount, keepOpenedParts } from './slideText';
 import { isAbsent, picturesOf, requiredText, storedPictures, text, trimmedLinks, type StoredPictures } from './slideFields';
 
 /**
@@ -67,6 +68,9 @@ const QUESTION_FIELDS: readonly FileField[] = [
 /** A content slide as older data holds it: before pictures were a list and before the hidden section. */
 type StoredContent = Omit<ContentSlide, 'images' | 'hidden'> & StoredPictures & { hidden?: string };
 
+/** The end-of-slide hidden text, which older stored slides lack. */
+const endHidden = ({ hidden }: { hidden?: string }): string => hidden ?? '';
+
 const content: SlideKindSpec<ContentSlide> = {
   kind: 'content',
   create: (id) => ({ ...blankShared(id, 'content'), body: '', images: [], hidden: '' }),
@@ -81,6 +85,12 @@ const content: SlideKindSpec<ContentSlide> = {
   normalize: ({ imageUrl, ...slide }: StoredContent) => ({ ...slide, images: storedPictures({ images: slide.images, imageUrl }), hidden: slide.hidden ?? '' }),
   hasProblem: ({ images }) => picturesHaveProblem(images),
   withoutKey: (slide) => slide,
+  hiddenPartCount: (slide) => hiddenPartCount(slide.body) + (endHidden(slide).trim() === '' ? 0 : 1),
+  withOpenedParts: (slide, opened) => ({
+    ...slide,
+    body: keepOpenedParts(slide.body, opened),
+    hidden: opened.includes(hiddenPartCount(slide.body)) ? endHidden(slide) : '',
+  }),
 };
 
 /** In files the correct option is 1-based (or null for a poll); in memory it is a 0-based index. */
@@ -207,6 +217,8 @@ const media: SlideKindSpec<MediaSlide> = {
   toFile: (slide) => ({ ...sharedToFile(slide), url: slide.url, media: slide.media, body: slide.body }),
   hasProblem: ({ url, media: type }) => isMediaProblem(mediaView(url, type)),
   withoutKey: (slide) => slide,
+  hiddenPartCount: ({ body }) => hiddenPartCount(body),
+  withOpenedParts: (slide, opened) => ({ ...slide, body: keepOpenedParts(slide.body, opened) }),
 };
 
 const SLIDE_KINDS: { [K in SlideKind]: SlideKindSpec<Extract<Slide, { kind: K }>> } = {
@@ -225,4 +237,14 @@ export function isSlideKind(value: unknown): value is SlideKind {
 /** The registry entry for a kind, for callers that hold a slide of unknown kind. */
 export function slideKindSpec(kind: SlideKind): SlideKindSpec {
   return SLIDE_KINDS[kind] as unknown as SlideKindSpec;
+}
+
+/** How many hidden parts a slide holds, 0 for a kind without any. */
+export function slideHiddenPartCount(slide: Slide): number {
+  return slideKindSpec(slide.kind).hiddenPartCount?.(slide) ?? 0;
+}
+
+/** The slide with only the hidden parts at `opened` left in; a kind without hidden parts is returned as it is. */
+export function withOpenedParts(slide: Slide, opened: readonly number[]): Slide {
+  return slideKindSpec(slide.kind).withOpenedParts?.(slide, opened) ?? slide;
 }

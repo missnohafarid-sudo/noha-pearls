@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { HIDDEN_FENCE, hideSelection, slideTextBlocks, type TextBlock } from './slideText';
+import { HIDDEN_FENCE, hiddenBlocksBefore, hiddenPartCount, hideSelection, keepOpenedParts, slideTextBlocks, type TextBlock } from './slideText';
 
 const line = (text: string, bullet = false): TextBlock => ({ kind: 'line', text, bullet });
 const hidden = (...blocks: TextBlock[]): TextBlock => ({ kind: 'hidden', blocks });
@@ -318,5 +318,36 @@ describe('hideSelection around text that is already hidden', () => {
         for (const row of ['b', 'c', 'e', 'f']) expect(hiddenRows(result)).toContain(row);
       }
     }
+  });
+});
+
+describe('hidden parts: counting, numbering and cutting', () => {
+  const text = lines('a', F, 's0', F, 'b', F, F, F, 's1', 'more', F, 'c');
+
+  it('counts the parts that hold text, in reading order, and not an empty one', () => {
+    expect(hiddenPartCount('plain')).toBe(0);
+    expect(hiddenPartCount(text)).toBe(2);
+    expect(hiddenPartCount(lines('a', F, 'b', 'c'))).toBe(1);
+  });
+
+  it('numbers a block by the hidden blocks before it', () => {
+    const blocks = slideTextBlocks(text);
+    expect(blocks.map((_, index) => hiddenBlocksBefore(blocks, index))).toEqual([0, 0, 1, 1, 2]);
+  });
+
+  it('cuts every part not opened, fences included, and leaves an opened one as it is', () => {
+    expect(keepOpenedParts(text, [])).toBe(lines('a', 'b', 'c'));
+    expect(keepOpenedParts(text, [0])).toBe(lines('a', F, 's0', F, 'b', 'c'));
+    expect(keepOpenedParts(text, [1])).toBe(lines('a', 'b', F, 's1', 'more', F, 'c'));
+    expect(keepOpenedParts(text, [0, 1, 7])).toBe(lines('a', F, 's0', F, 'b', F, 's1', 'more', F, 'c'));
+  });
+
+  it('cuts a part that is never closed, and leaves a text without parts alone', () => {
+    expect(keepOpenedParts(lines('a', F, 'b', 'c'), [])).toBe('a');
+    expect(keepOpenedParts('x\ny', [0])).toBe('x\ny');
+  });
+
+  it('keeps the parts that remain readable as the same blocks', () => {
+    expect(slideTextBlocks(keepOpenedParts(text, [1]))).toEqual([line('a'), line('b'), hidden(line('s1'), line('more')), line('c')]);
   });
 });

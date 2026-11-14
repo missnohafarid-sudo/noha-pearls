@@ -1,4 +1,4 @@
-import { isHttpsUrl } from './media';
+import { isPictureLink } from './media';
 
 /** One piece of a slide's plain text, in reading order. */
 export type TextBlock =
@@ -15,8 +15,8 @@ const LINE_BREAK = /\r?\n/;
 
 const isFence = (line: string): boolean => FENCE.test(line.trim());
 
-/** A line that is one https address and nothing else is a picture. */
-const isPictureLine = (line: string): boolean => /^\S+$/.test(line.trim()) && isHttpsUrl(line);
+/** A line that is one picture address (see `isPictureLink`) and nothing else is a picture. */
+const isPictureLine = (line: string): boolean => /^\S+$/.test(line.trim()) && isPictureLink(line);
 
 function lineBlock(line: string): TextBlock {
   const text = line.trimStart();
@@ -35,7 +35,7 @@ function add(blocks: TextBlock[], line: string): void {
 
 /**
  * What the plain text of a slide is made of: one line per non-blank line (a line starting with "- " is a bullet),
- * a picture for each line that is only an https address, and a hidden block for the lines between two fence lines.
+ * a picture for each line that is only a picture address, and a hidden block for the lines between two fence lines.
  * A fence that is never closed hides everything after it; a hidden block with nothing in it is dropped.
  */
 export function slideTextBlocks(text: string): TextBlock[] {
@@ -53,18 +53,6 @@ export function slideTextBlocks(text: string): TextBlock[] {
   }
   close();
   return blocks;
-}
-
-function linksOf(blocks: readonly TextBlock[]): string[] {
-  return blocks.flatMap((block) => {
-    if (block.kind === 'pictures') return block.links;
-    return block.kind === 'hidden' ? linksOf(block.blocks) : [];
-  });
-}
-
-/** Every picture link in a text, hidden blocks included. */
-export function textPictureLinks(text: string): string[] {
-  return linksOf(slideTextBlocks(text));
 }
 
 /** A change to a text: replace `from` to `to` with `insert`, then select `selectFrom` to `selectTo` of the new text. */

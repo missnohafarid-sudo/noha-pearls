@@ -1,6 +1,8 @@
 import type { MediaChoice } from '../domain/models';
 import { HIDDEN_FENCE } from '../domain/slideText';
 
+const HIDE_BUTTON = 'إخفاء المحدَّد';
+
 export const slides = {
   kind: {
     content: 'شريحة شرح',
@@ -16,7 +18,7 @@ export const slides = {
     badgeText: (number: number) => `نص الشارة ${number}`,
     badgeColor: (number: number) => `لون الشارة ${number}`,
     body: 'النص',
-    bodyHint: `ابدئي السطر بشرطة (-) ليظهر كنقطة. لإخفاء جزء من النص ظلّليه واضغطي «إخفاء المحدَّد»، أو ضعي قبله سطرًا فيه ${HIDDEN_FENCE} وبعده سطرًا فيه ${HIDDEN_FENCE}. والسطر الذي فيه رابط صورة فقط يظهر صورة.`,
+    bodyHint: `ابدئي السطر بشرطة (-) ليظهر كنقطة. لإخفاء جزء من النص ظلّليه واضغطي «${HIDE_BUTTON}»، أو ضعي قبله سطرًا فيه ${HIDDEN_FENCE} وبعده سطرًا فيه ${HIDDEN_FENCE}. والسطر الذي فيه رابط صورة فقط (ملف صورة مثل ‎.jpg أو ‎.png أو ‎.gif، أو صورة على Google Drive) يظهر صورة.`,
     images: 'روابط الصور (اختياري)',
     imagesHint: 'الصقي رابطًا عامًّا يبدأ بـ https لكل صورة. ملفات Google Drive يجب أن تكون متاحة لكل من لديه الرابط.',
     image: (number: number) => `رابط الصورة ${number}`,
@@ -46,7 +48,7 @@ export const slides = {
   } satisfies Record<MediaChoice, string>,
   tools: {
     symbols: 'رموز',
-    hide: 'إخفاء المحدَّد',
+    hide: HIDE_BUTTON,
     hint: 'ضعي المؤشر في الخانة ثم اختاري الرمز.',
     group: { math: 'رياضيات', powers: 'أسس وأدلة', science: 'علوم' },
   },

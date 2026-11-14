@@ -167,6 +167,15 @@ export function mediaView(url: string, declared: MediaChoice): MediaView | Media
   return type ? viewAs(type, address) : 'unknown-type';
 }
 
+/** Whether a pasted address is a picture by itself: an image file, a Giphy page or a Google Drive file. Any other link is not. */
+export function isPictureLink(text: string): boolean {
+  const address = parseHttps(text.trim());
+  if (!address) return false;
+  if (drive(address, 'image')) return true;
+  const view = mediaView(text, 'auto');
+  return !isMediaProblem(view) && view.how === 'image';
+}
+
 export function isMediaProblem(result: MediaView | MediaProblem): result is MediaProblem {
   return typeof result === 'string';
 }

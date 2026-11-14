@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { HIDDEN_FENCE, hideSelection, slideTextBlocks, textPictureLinks, type TextBlock } from './slideText';
+import { HIDDEN_FENCE, hideSelection, slideTextBlocks, type TextBlock } from './slideText';
 
 const line = (text: string, bullet = false): TextBlock => ({ kind: 'line', text, bullet });
 const hidden = (...blocks: TextBlock[]): TextBlock => ({ kind: 'hidden', blocks });
@@ -117,25 +117,20 @@ describe('slideTextBlocks: pictures', () => {
     expect(slideTextBlocks(lines(PHOTO, F, OTHER, F, PHOTO))).toEqual([pictures(PHOTO), hidden(pictures(OTHER)), pictures(PHOTO)]);
   });
 
+  it('draws an image file, a Giphy page and a Drive file as pictures', () => {
+    const giphy = 'https://giphy.com/gifs/cat-abc123';
+    const drive = 'https://drive.google.com/file/d/FILE_ID_1/view';
+    expect(slideTextBlocks(lines(giphy, drive))).toEqual([pictures(giphy, drive)]);
+  });
+
+  it('leaves a web page, a YouTube link and a Tenor page as ordinary text', () => {
+    for (const link of ['https://example.org/page', 'https://www.youtube.com/watch?v=abc', 'https://tenor.com/view/cat-123']) expect(slideTextBlocks(link)).toEqual([line(link)]);
+  });
+
   it('leaves an http address, and a link with words, as ordinary text', () => {
     expect(slideTextBlocks('http://example.org/a.png')).toEqual([line('http://example.org/a.png')]);
     expect(slideTextBlocks(`see ${PHOTO}`)).toEqual([line(`see ${PHOTO}`)]);
     expect(slideTextBlocks(`${PHOTO} here`)).toEqual([line(`${PHOTO} here`)]);
-  });
-});
-
-describe('textPictureLinks', () => {
-  it('finds links inside and outside hidden blocks, in order', () => {
-    expect(textPictureLinks(lines(PHOTO, 'x', F, OTHER, F, 'y'))).toEqual([PHOTO, OTHER]);
-  });
-
-  it('is empty for a text without a picture line', () => {
-    expect(textPictureLinks(lines('a', F, 'b', F))).toEqual([]);
-    expect(textPictureLinks('')).toEqual([]);
-  });
-
-  it('gives a link without the spaces around it', () => {
-    expect(textPictureLinks(`  ${PHOTO}  `)).toEqual([PHOTO]);
   });
 });
 
@@ -152,7 +147,7 @@ describe('slideTextBlocks: nothing is lost or duplicated', () => {
     lines(F, 'a', 'b'),
     lines('- a', PHOTO, F, '- b', OTHER, F, 'c', F, F, 'd', F, PHOTO),
     `x\r\n${F}\r\n\r\ny\r\n\r\n${F}\r\n${PHOTO}`,
-    lines('', '  ', 'one', '++', '+++ no', 'http://example.org/x.png', F, '  two  ', ' +++++ ', 'three'),
+    lines('', '  ', 'one', '++', '+++ no', 'http://example.org/x.png', 'https://example.org/page', F, '  two  ', ' +++++ ', 'three'),
     lines(F, F, F, 'a', F),
   ];
 

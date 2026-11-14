@@ -7,12 +7,14 @@ import type { World } from '../world';
 
 const TITLE = 'Lesson with hidden parts';
 const F = HIDDEN_FENCE;
-const PHOTO = `https://${PICTURE_HOST}/secret`;
-const MIDDLE_PHOTO = `https://${PICTURE_HOST}/middle`;
+const PHOTO = `https://${PICTURE_HOST}/secret.png`;
+const MIDDLE_PHOTO = `https://${PICTURE_HOST}/middle.png`;
 const BODY = ['visible one', F, '- secret A', PHOTO, F, 'visible two', F, 'secret B', F, 'visible three'].join('\n');
 const BOTTOM = 'bottom secret';
 const WITH_PARTS = { kind: 'content', title: 'Slide with hidden parts', body: BODY, hidden: BOTTOM };
 const WITH_PICTURE_LINE = { kind: 'content', title: 'Slide with a picture line', body: `before the picture\n${MIDDLE_PHOTO}\nafter the picture` };
+const PAGE_LINK = 'https://example.org/some-page';
+const WITH_PAGE_LINK = { kind: 'content', title: 'Slide with a page link', body: `before the link\n${PAGE_LINK}\nafter the link` };
 const PLAIN = { kind: 'content', title: 'Plain slide', body: 'plain text' };
 const TOOLS_TITLE = 'Slide for tools';
 const TOOLS_BODY = 'tool line one\ntool line two\ntool line three';
@@ -88,7 +90,7 @@ export function inlineHiddenSteps(world: World): void {
     beforeAll(async () => {
       await world.admin.page.setRequestInterception(true);
       world.admin.page.on('request', answerPictureRequest);
-      lessonId = await importLessonFile(world, lessonFileText([WITH_PARTS, WITH_PICTURE_LINE, PLAIN, FOR_TOOLS], TITLE), TITLE);
+      lessonId = await importLessonFile(world, lessonFileText([WITH_PARTS, WITH_PICTURE_LINE, PLAIN, FOR_TOOLS, WITH_PAGE_LINK], TITLE), TITLE);
     });
 
     afterAll(async () => {
@@ -143,6 +145,13 @@ export function inlineHiddenSteps(world: World): void {
       expect(tops).toEqual([...tops].sort((a, b) => a - b));
     });
 
+    it('a line holding a plain web-page link is drawn as that text, not as a picture', async () => {
+      await world.admin.goto(`#/lesson/${encodeURIComponent(lessonId)}/5`);
+      await world.admin.waitFor('after the link');
+      expect(await outlineWhats(world)).toEqual(['before the link', PAGE_LINK, 'after the link']);
+      expect(await world.admin.count('.slide .slide-pictures__image')).toBe(0);
+    });
+
     it('typing a body with one unclosed fence hides everything after it behind one button', async () => {
       await world.admin.goto(`#/lesson/${encodeURIComponent(lessonId)}/3`);
       await world.admin.waitFor(PLAIN.body);
@@ -156,7 +165,7 @@ export function inlineHiddenSteps(world: World): void {
     });
 
     it('exporting the lesson and importing the file again keeps the text exactly', async () => {
-      const expected = [BODY, WITH_PICTURE_LINE.body, UNCLOSED, TOOLS_BODY];
+      const expected = [BODY, WITH_PICTURE_LINE.body, UNCLOSED, TOOLS_BODY, WITH_PAGE_LINK.body];
       expect(bodies((await storedLessonById(world, lessonId)).slides)).toEqual(expected);
       const file = await exportedFileOnPage(world, lessonId);
       copyId = await importLessonFile(world, file, TITLE);

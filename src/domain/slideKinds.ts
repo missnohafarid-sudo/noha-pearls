@@ -2,7 +2,6 @@ import { badgesOf, keptBadges } from './badges';
 import { MAX_CHOICES, MIN_CHOICES } from './choices';
 import { isHttpsUrl, isMediaChoice, isMediaProblem, mediaView, picturesHaveProblem } from './media';
 import type { AnswerScope, ChoiceSlide, ContentSlide, Id, MediaSlide, Slide, SlideKind, TextSlide } from './models';
-import { textPictureLinks } from './slideText';
 import type { FileField, IssueReporter, RawSlide, SlideKindSpec } from './slideFile';
 import { isAbsent, picturesOf, requiredText, storedPictures, text, trimmedLinks, type StoredPictures } from './slideFields';
 
@@ -80,7 +79,7 @@ const content: SlideKindSpec<ContentSlide> = {
   }),
   toFile: (slide) => ({ ...sharedToFile(slide), body: slide.body, images: trimmedLinks(slide.images), hidden: slide.hidden }),
   normalize: ({ imageUrl, ...slide }: StoredContent) => ({ ...slide, images: storedPictures({ images: slide.images, imageUrl }), hidden: slide.hidden ?? '' }),
-  hasProblem: ({ images, body, hidden }) => picturesHaveProblem([...images, ...textPictureLinks(body), ...textPictureLinks(hidden)]),
+  hasProblem: ({ images }) => picturesHaveProblem(images),
   withoutKey: (slide) => slide,
 };
 
@@ -206,7 +205,7 @@ const media: SlideKindSpec<MediaSlide> = {
     body: text(raw, 'body'),
   }),
   toFile: (slide) => ({ ...sharedToFile(slide), url: slide.url, media: slide.media, body: slide.body }),
-  hasProblem: ({ url, media: type, body }) => isMediaProblem(mediaView(url, type)) || picturesHaveProblem(textPictureLinks(body)),
+  hasProblem: ({ url, media: type }) => isMediaProblem(mediaView(url, type)),
   withoutKey: (slide) => slide,
 };
 

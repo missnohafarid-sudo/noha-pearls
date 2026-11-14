@@ -11,7 +11,7 @@ import { isMoveKey, listKeyEffect, movedIndex, movedTabIndex, typeaheadIndex } f
 import { exportLesson, importLesson, lessonFileText } from './lessonFormat';
 import { addSlide, createLesson, duplicateSlide, indexAfterRemoval, moveSlide, normalizeSlide, removeSlide, slideHasProblem, updateSlide } from './lessonOps';
 import { picturesOf, storedPictures } from './slideFields';
-import { isHttpsUrl, MEDIA_CHOICES, MEDIA_TYPES, mediaLink, mediaView, pictureSources, picturesHaveProblem, steppedZoom } from './media';
+import { isHttpsUrl, isPictureLink, MEDIA_CHOICES, MEDIA_TYPES, mediaLink, mediaView, pictureSources, picturesHaveProblem, steppedZoom } from './media';
 import type { SlideBadge } from './lessonModels';
 import type { Answer, AttendedRoster, ClassRecord, ClassRoster, Reward, ChoiceSlide, Group, Lesson, MediaSlide, Participant, SchoolClass, Session, Student, SubjectRef, Teacher, TextSlide } from './models';
 import { resolveStudentView } from './pacing';
@@ -419,23 +419,15 @@ describe('which slides have a problem', () => {
     expect(slideHasProblem(media('https://example.org/a.png'))).toBe(false);
     expect(slideHasProblem(choice)).toBe(false);
   });
+});
 
-  it('flags a picture line in the text of a content slide, hidden parts included, when it cannot be a picture', () => {
-    const PICTURE = 'https://example.org/a.png';
-    const NOT_A_PICTURE = 'https://www.youtube.com/watch?v=abc';
-    const written = (body: string, hidden = ''): Lesson['slides'][number] => ({ id: 'c', kind: 'content', title: '', tag: '', badges: [], body, images: [], hidden });
-    expect(slideHasProblem(written(`text\n${PICTURE}`))).toBe(false);
-    expect(slideHasProblem(written(`text\n${NOT_A_PICTURE}`))).toBe(true);
-    expect(slideHasProblem(written(`+++\n${NOT_A_PICTURE}\n+++`))).toBe(true);
-    expect(slideHasProblem(written('text', NOT_A_PICTURE))).toBe(true);
-    expect(slideHasProblem(written('text', PICTURE))).toBe(false);
-    expect(slideHasProblem(written(`see ${NOT_A_PICTURE} here`))).toBe(false);
+describe('which links are pictures by themselves', () => {
+  it('takes an image file, a Giphy page and a Google Drive file', () => {
+    for (const link of ['https://example.org/a.png', 'https://example.org/a.JPG?x=1', 'https://giphy.com/gifs/cat-abc123', 'https://drive.google.com/file/d/FILE_ID_1/view', ' https://example.org/a.gif ']) expect(isPictureLink(link)).toBe(true);
   });
 
-  it('flags a picture line in the text of a media slide the same way', () => {
-    const PICTURE = 'https://example.org/a.png';
-    expect(slideHasProblem({ ...media('https://example.org/a.png'), body: 'https://www.youtube.com/watch?v=abc' })).toBe(true);
-    expect(slideHasProblem({ ...media('https://example.org/a.png'), body: PICTURE })).toBe(false);
+  it('leaves a web page, a video, a Tenor page, a PDF, an http address and a blank as text', () => {
+    for (const link of ['https://example.org/page', 'https://www.youtube.com/watch?v=abc', 'https://tenor.com/view/cat-123', 'https://example.org/a.pdf', 'http://example.org/a.png', '']) expect(isPictureLink(link)).toBe(false);
   });
 });
 

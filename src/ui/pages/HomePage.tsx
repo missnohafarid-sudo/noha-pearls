@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { FolderTree } from '../../domain/folders';
 import type { Id, SiteContent } from '../../domain/models';
 import { t } from '../../i18n';
@@ -7,6 +7,7 @@ import { Loading } from '../common/PageState';
 import type { FieldSpec } from '../forms/SchemaForm';
 import { SchemaForm } from '../forms/SchemaForm';
 import { useAdmin, useAnyLive, useLiveSessions, useSite, useTeachers } from '../hooks/data';
+import { useSiteEdits } from '../hooks/useSiteEdits';
 import { JoinByCode } from '../join/JoinByCode';
 import { LessonImportDialog } from '../lesson/LessonImportDialog';
 import { ClearingNotice } from '../retention/ClearingNotice';
@@ -71,10 +72,16 @@ function AdminLiveNotice() {
 }
 
 function HomeAdminPanels({ site, tree, openId }: { site: SiteContent; tree: FolderTree | undefined; openId: Id | null }) {
-  const { content, lessons } = useServices();
+  const { lessons } = useServices();
   const [importing, setImporting] = useState(false);
 
   const { error, attemptWith } = useAttempt();
+  const { edit, error: siteError } = useSiteEdits();
+  const shown = useRef(siteText(site));
+  const editSite = (next: SiteText) => {
+    edit(changedFields(shown.current, next));
+    shown.current = next;
+  };
 
   const create = async () => {
     const made = await attemptWith(() => lessons.create(th.panel.newLessonTitle, openId));
@@ -84,7 +91,8 @@ function HomeAdminPanels({ site, tree, openId }: { site: SiteContent; tree: Fold
   return (
     <>
       <AdminPanel title={th.panel.site}>
-        <SchemaForm fields={SITE_FIELDS} value={siteText(site)} resetKey="site" onChange={(next) => void content.updateSite(changedFields(siteText(site), next))} />
+        <SchemaForm fields={SITE_FIELDS} value={siteText(site)} resetKey="site" onChange={editSite} />
+        {siteError && <p className="notice notice--bad">{siteError}</p>}
       </AdminPanel>
       <TeachersPanel />
       <AdminPanel title={th.panel.lessons}>

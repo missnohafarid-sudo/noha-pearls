@@ -41,6 +41,18 @@ describe('a first-time teacher on an empty school', () => {
   const rows = (): Promise<number> => teacher.count(SLIDE_ROWS);
   const waitForRows = (wanted: number): Promise<void> => teacher.until(`${wanted} slide rows`, async () => (await rows()) === wanted);
 
+  const pearlButton = '.shell__bar .theme-picker__button';
+  const pearlList = '.shell__bar .theme-picker__list';
+  const look = (): Promise<string | undefined> => teacher.page.evaluate(() => document.documentElement.dataset.theme);
+  const choosePearl = async (name: string): Promise<void> => {
+    await teacher.until('the pearl button ready', () => teacher.exists(`${pearlButton}:not(:disabled)`));
+    await teacher.page.click(pearlButton);
+    await teacher.until('the list of looks', () => teacher.page.$eval(pearlList, (list) => !list.hasAttribute('hidden')));
+    await teacher.click(name, pearlList);
+    await settle();
+    await expectNoFailure();
+  };
+
   /** Empties the field with this label completely, then types the text into it. */
   async function retypeField(label: string, text: string): Promise<void> {
     await teacher.until(`the field "${label}"`, () =>
@@ -160,17 +172,6 @@ describe('a first-time teacher on an empty school', () => {
   });
 
   it('chooses a pearl for the look of the site, which the hub keeps through a reload, then puts the usual look back', async () => {
-    const pearlButton = '.shell__bar .theme-picker__button';
-    const pearlList = '.shell__bar .theme-picker__list';
-    const look = (): Promise<string | undefined> => teacher.page.evaluate(() => document.documentElement.dataset.theme);
-    const choosePearl = async (name: string): Promise<void> => {
-      await teacher.until('the pearl button ready', () => teacher.exists(`${pearlButton}:not(:disabled)`));
-      await teacher.page.click(pearlButton);
-      await teacher.until('the list of looks', () => teacher.page.$eval(pearlList, (list) => !list.hasAttribute('hidden')));
-      await teacher.click(name, pearlList);
-      await settle();
-      await expectNoFailure();
-    };
     await choosePearl(t.common.pearlShade.purple);
     await teacher.until('the purple look', async () => (await look()) === 'purple');
     await teacher.page.reload({ waitUntil: 'networkidle0' });
@@ -179,6 +180,39 @@ describe('a first-time teacher on an empty school', () => {
     await teacher.until('the usual look', async () => (await look()) === 'white');
     await teacher.page.reload({ waitUntil: 'networkidle0' });
     await teacher.until('the usual look after a reload', async () => (await look()) === 'white');
+  });
+
+  it('sends a tagline typed and a look picked straight after together, and both are there after a reload', async () => {
+    const taglineInput = (): Promise<string | undefined> =>
+      teacher.page.evaluate((wanted) => {
+        const label = [...document.querySelectorAll<HTMLLabelElement>('label.field')].find((l) => l.querySelector('.field__label')?.textContent === wanted);
+        return label?.querySelector('input')?.value;
+      }, t.home.siteField.tagline);
+    const NEW_TAGLINE = 'عبارة جديدة';
+    await open('#/');
+    await teacher.until('the tagline field', async () => (await taglineInput()) !== undefined);
+    const usualTagline = (await taglineInput()) ?? '';
+    await teacher.page.evaluate((wanted) => {
+      const label = [...document.querySelectorAll<HTMLLabelElement>('label.field')].find((l) => l.querySelector('.field__label')?.textContent === wanted);
+      const field = label?.querySelector('input');
+      field?.focus();
+      field?.select();
+    }, t.home.siteField.tagline);
+    await teacher.page.keyboard.press('Backspace');
+    await teacher.page.keyboard.type(NEW_TAGLINE);
+    await choosePearl(t.common.pearlShade.purple);
+    await teacher.until('the purple look', async () => (await look()) === 'purple');
+    await teacher.page.reload({ waitUntil: 'networkidle0' });
+    await teacher.until('the new tagline after a reload', async () => (await taglineInput()) === NEW_TAGLINE);
+    await teacher.until('the purple look after a reload', async () => (await look()) === 'purple');
+    await expectNoFailure();
+    await retypeField(t.home.siteField.tagline, usualTagline);
+    await choosePearl(t.common.pearlShade.white);
+    await teacher.until('the usual look', async () => (await look()) === 'white');
+    await teacher.page.reload({ waitUntil: 'networkidle0' });
+    await teacher.until('the usual tagline after a reload', async () => (await taglineInput()) === usualTagline);
+    await teacher.until('the usual look after a reload', async () => (await look()) === 'white');
+    await expectNoFailure();
   });
 
   it('adds a slide to the sample lesson, and it stays after a reload', async () => {

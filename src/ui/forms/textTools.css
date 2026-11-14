@@ -1,0 +1,41 @@
+.text-tools {
+  display: grid;
+  gap: 16px;
+}
+
+.text-tools__tools {
+  display: grid;
+  gap: 10px;
+}
+
+.text-tools__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.text-tools__palette {
+  display: grid;
+  gap: 8px;
+}
+
+.text-tools__palette[hidden] {
+  display: none;
+}
+
+.text-tools__group {
+  display: grid;
+  gap: 4px;
+}
+
+.text-tools__symbols {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.text-tools__symbols > .btn {
+  min-inline-size: 2.2rem;
+  padding-inline: 8px;
+}

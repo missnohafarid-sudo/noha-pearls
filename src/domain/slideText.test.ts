@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { HIDDEN_FENCE, slideTextBlocks, textPictureLinks, type TextBlock } from './slideText';
+import { HIDDEN_FENCE, hideSelection, slideTextBlocks, textPictureLinks, type TextBlock } from './slideText';
 
 const line = (text: string, bullet = false): TextBlock => ({ kind: 'line', text, bullet });
 const hidden = (...blocks: TextBlock[]): TextBlock => ({ kind: 'hidden', blocks });
@@ -162,5 +162,98 @@ describe('slideTextBlocks: nothing is lost or duplicated', () => {
       .map((row) => row.trim())
       .filter((row) => row !== '' && !/^\+{3,}$/.test(row));
     expect(flatten(slideTextBlocks(text))).toEqual(expected);
+  });
+});
+
+describe('hideSelection', () => {
+  const apply = (text: string, start: number, end: number) => {
+    const edit = hideSelection(text, start, end);
+    const result = text.slice(0, edit.from) + edit.insert + text.slice(edit.to);
+    return { edit, result, selected: result.slice(edit.selectFrom, edit.selectTo) };
+  };
+  const hiddenLines = (text: string) => slideTextBlocks(text).flatMap((block) => (block.kind === 'hidden' ? [flatten(block.blocks)] : []));
+
+  it('widens a selection in the middle of a line to the whole line', () => {
+    const { result, selected } = apply('one\ntwo words\nthree', 6, 9);
+    expect(result).toBe(`one\n${F}\ntwo words\n${F}\nthree`);
+    expect(selected).toBe('two words');
+    expect(slideTextBlocks(result)).toEqual([line('one'), hidden(line('two words')), line('three')]);
+  });
+
+  it('hides several lines at once', () => {
+    const { result, selected } = apply('a\nb\nc\nd', 3, 5);
+    expect(result).toBe(`a\n${F}\nb\nc\n${F}\nd`);
+    expect(selected).toBe('b\nc');
+    expect(hiddenLines(result)).toEqual([['b', 'c']]);
+  });
+
+  it('hides the first line', () => {
+    const { result, selected } = apply('a\nb', 0, 1);
+    expect(result).toBe(`${F}\na\n${F}\nb`);
+    expect(selected).toBe('a');
+    expect(hiddenLines(result)).toEqual([['a']]);
+  });
+
+  it('hides the last line when the text has no trailing newline', () => {
+    const { result, selected } = apply('a\nb', 2, 3);
+    expect(result).toBe(`a\n${F}\nb\n${F}`);
+    expect(selected).toBe('b');
+    expect(hiddenLines(result)).toEqual([['b']]);
+  });
+
+  it('hides the whole text', () => {
+    const text = 'a\nb\nc';
+    const { result } = apply(text, 0, text.length);
+    expect(result).toBe(`${F}\na\nb\nc\n${F}`);
+    expect(hiddenLines(result)).toEqual([['a', 'b', 'c']]);
+  });
+
+  it('does not take the next line when the selection ends right after a line break', () => {
+    const { result, selected } = apply('a\nb\nc', 0, 2);
+    expect(result).toBe(`${F}\na\n${F}\nb\nc`);
+    expect(selected).toBe('a');
+  });
+
+  it('keeps the other text untouched, with the selection given backwards too', () => {
+    const forward = apply('x\ny\nz', 2, 3);
+    const backward = apply('x\ny\nz', 3, 2);
+    expect(backward.result).toBe(forward.result);
+  });
+
+  it('opens an empty block in empty text and puts the caret between the fences', () => {
+    const { edit, result } = apply('', 0, 0);
+    expect(result).toBe(`${F}\n\n${F}`);
+    expect(edit.selectFrom).toBe(edit.selectTo);
+    expect(result.slice(0, edit.selectFrom)).toBe(`${F}\n`);
+  });
+
+  it('opens an empty block after the caret line when nothing is selected in the middle', () => {
+    const { edit, result } = apply('one\ntwo\nthree', 5, 5);
+    expect(result).toBe(`one\ntwo\n${F}\n\n${F}\nthree`);
+    expect(result.slice(0, edit.selectFrom)).toBe(`one\ntwo\n${F}\n`);
+    expect(result[edit.selectFrom]).toBe('\n');
+  });
+
+  it('opens an empty block at the end of the text', () => {
+    const { edit, result } = apply('one\ntwo', 7, 7);
+    expect(result).toBe(`one\ntwo\n${F}\n\n${F}`);
+    expect(result.slice(0, edit.selectFrom)).toBe(`one\ntwo\n${F}\n`);
+  });
+
+  it('uses a blank caret line instead of adding another break', () => {
+    const { result } = apply('a\n\nb', 2, 2);
+    expect(result).toBe(`a\n${F}\n\n${F}\nb`);
+    expect(apply('a\n', 2, 2).result).toBe(`a\n${F}\n\n${F}`);
+  });
+
+  it('never leaves a fence sharing its line with text', () => {
+    for (const [text, start, end] of [['abc', 1, 2], ['abc\n', 0, 0], ['\nabc', 0, 0], ['a\nb\n', 2, 4], ['a\n\n\nb', 3, 3]] as const) {
+      const { result } = apply(text, start, end);
+      expect(result.split('\n').filter((row) => row.includes(F)).every((row) => row === F)).toBe(true);
+    }
+  });
+
+  it('clamps a selection past the end of the text', () => {
+    expect(apply('a', 5, 9).result).toBe(`a\n${F}\n\n${F}`);
   });
 });

@@ -6,6 +6,7 @@ import { t } from '../../i18n';
 import { ConfirmButton } from '../common/ConfirmButton';
 import { useAttempt } from '../common/useAttempt';
 import { SchemaForm, type FieldSpec } from '../forms/SchemaForm';
+import { TextTools } from '../forms/TextTools';
 import { useLiveSessions } from '../hooks/data';
 import { homeRoute, navigate } from '../routing/routes';
 import { useServices } from '../ServicesContext';
@@ -136,13 +137,15 @@ function SlidesPanel({ lesson, index, save }: { lesson: Lesson; index: number; s
 function SlideEditPanel({ lesson, slide, save }: { lesson: Lesson; slide: Slide; save: SaveLesson }) {
   return (
     <AdminPanel title={tl.panel.editSlide}>
-      <SchemaForm
-        fields={slideUi(slide.kind).fields}
-        value={normalizeSlide(slide)}
-        resetKey={slide.id}
-        normalize={normalizeSlide}
-        onChange={(next) => void save(updateSlide(lesson, next))}
-      />
+      <TextTools key={slide.id}>
+        <SchemaForm
+          fields={slideUi(slide.kind).fields}
+          value={normalizeSlide(slide)}
+          resetKey={slide.id}
+          normalize={normalizeSlide}
+          onChange={(next) => void save(updateSlide(lesson, next))}
+        />
+      </TextTools>
     </AdminPanel>
   );
 }

@@ -5,6 +5,9 @@ import { Select } from './Select';
 import { Stepper } from './Stepper';
 import './forms.css';
 
+/** The mark a slide-text box carries, for the tools bar that works on the box she was last in. */
+export const SLIDE_TEXT_ATTRIBUTE = 'data-slide-text';
+
 export interface SelectOption {
   value: string | number | boolean | null;
   label: string;
@@ -18,7 +21,9 @@ interface FieldBase<T> {
 
 /** Describes one editable field of a `T`. A page's whole editing form is a list of these. */
 export type FieldSpec<T> =
-  | (FieldBase<T> & { kind: 'textarea' | 'boolean' })
+  | (FieldBase<T> & { kind: 'boolean' })
+  /** `slideText` marks the text of a slide, where the editor's hide button works. */
+  | (FieldBase<T> & { kind: 'textarea'; slideText?: true })
   /** `ltr` writes an address or a code left to right, even in a right-to-left form. */
   | (FieldBase<T> & { kind: 'text'; ltr?: true })
   | (FieldBase<T> & { kind: 'number'; min?: number; max?: number })
@@ -101,7 +106,7 @@ function Field<T extends object>({ field, record, onChange, onReplace }: FieldPr
       return (
         <label className="field">
           <span className="field__label">{field.label}</span>
-          <textarea className="input" rows={5} value={String(value ?? '')} onChange={(e) => onChange(e.target.value)} />
+          <textarea className="input" rows={5} {...(field.slideText ? { [SLIDE_TEXT_ATTRIBUTE]: '' } : {})} value={String(value ?? '')} onChange={(e) => onChange(e.target.value)} />
           {hint}
         </label>
       );

@@ -44,6 +44,12 @@ export const slides = {
     pdf: 'ملف PDF',
     embed: 'محاكاة أو صفحة',
   } satisfies Record<MediaChoice, string>,
+  tools: {
+    symbols: 'رموز',
+    hide: 'إخفاء المحدَّد',
+    hint: 'ضعي المؤشر في الخانة ثم اختاري الرمز.',
+    group: { math: 'رياضيات', powers: 'أسس وأدلة', science: 'علوم' },
+  },
   view: {
     send: 'إرسال الإجابة',
     update: 'تحديث الإجابة',

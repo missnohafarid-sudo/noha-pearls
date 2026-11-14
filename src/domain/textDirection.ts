@@ -7,7 +7,7 @@ export interface DirectedRun {
 const ARABIC_CONTEXT = new RegExp('[\\u0590-\\u08FF\\uFB1D-\\uFDFF\\uFE70-\\uFEFC]', 'u');
 const LETTER = '\\p{Script=Latin}\\p{Script=Greek}';
 const DIGITS = '0-9\\u00B2\\u00B3\\u00B9\\u2070-\\u209F';
-const SIGNS = "+\\-\\u2212\\u00D7\\u00F7*/=<>\\u2264\\u2265\\u2260\\u2248\\u00B1^_%\\u00B0\\u221A\\u221E\\u2192\\u2190\\u21CC\\u00B7'\\u2032\\u2033|";
+const SIGNS = "+\\-\\u2212\\u00D7\\u00F7*/=<>\\u2264\\u2265\\u2260\\u2248\\u00B1^_%\\u00B0\\u221A\\u221E\\u2191\\u2192\\u2193\\u2190\\u21CC\\u00B7'\\u2032\\u2033|";
 const BRACKETS = '()\\[\\]{}';
 const INNER_SEPARATORS = ' .,:';
 /** What holds an email or a web address together; without them it would be cut into pieces that swap places. */

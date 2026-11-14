@@ -1,5 +1,6 @@
 import { useId, useState, type FocusEvent, type PointerEvent, type ReactNode } from 'react';
 import { hideSelection } from '../../domain/slideText';
+import { isolatedText, plainPosition, plainText, shownPosition } from '../../domain/textDirection';
 import { SYMBOL_GROUPS } from '../../domain/symbols';
 import { t } from '../../i18n';
 import { SLIDE_TEXT_ATTRIBUTE } from './SchemaForm';
@@ -24,12 +25,15 @@ function insertSymbol(control: Control, symbol: string): void {
 }
 
 function hideSelected(control: Control): void {
-  const edit = hideSelection(control.value, control.selectionStart ?? 0, control.selectionEnd ?? 0);
+  const shown = control.value;
+  const text = plainText(shown);
+  const edit = hideSelection(text, plainPosition(shown, control.selectionStart ?? 0), plainPosition(shown, control.selectionEnd ?? 0));
   if (!edit) return;
+  const next = text.slice(0, edit.from) + edit.insert + text.slice(edit.to);
   control.focus();
-  control.setRangeText(edit.insert, edit.from, edit.to, 'preserve');
+  control.setRangeText(isolatedText(next), 0, shown.length, 'preserve');
+  control.setSelectionRange(shownPosition(next, edit.selectFrom), shownPosition(next, edit.selectTo));
   announce(control);
-  control.setSelectionRange(edit.selectFrom, edit.selectTo);
 }
 
 /** A tools bar above an editing form: symbols to put at the caret of the box she was last in, and a button that hides the lines she selected in a slide-text box. */

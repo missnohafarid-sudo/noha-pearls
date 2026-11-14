@@ -57,7 +57,7 @@ const press = (world: World, index: number) => world.admin.page.evaluate((at, se
 const expandedStates = (world: World) => world.admin.page.$$eval(BUTTONS, (buttons) => buttons.map((button) => button.getAttribute('aria-expanded')));
 
 /** Puts the caret at the end of the side-panel box with this label (or selects `from` to `to` of it) the way clicking into it does. */
-const focusField = (world: World, label: string, tag: 'input' | 'textarea', range?: [number, number]) =>
+export const focusField = (world: World, label: string, tag: 'input' | 'textarea', range?: [number, number]) =>
   world.admin.until(`the box "${label}" in the side panel`, () =>
     world.admin.page.evaluate(
       (wanted, selector, panel, chosen) => {

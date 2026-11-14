@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 import { Device, DESKTOP } from './device';
 import { SAMPLE } from './sample';
 import { attendanceSteps } from './steps/attendance';
+import { boxDirectionSteps } from './steps/boxDirection';
 import { classCardsSteps } from './steps/classCards';
 import { classesSteps } from './steps/classes';
 import { dialogsSteps } from './steps/dialogs';
@@ -67,6 +68,7 @@ describe('walkthrough', () => {
   hiddenSectionSteps(world);
   slideBadgesSteps(world);
   inlineHiddenSteps(world);
+  boxDirectionSteps(world);
   foldersSteps(world);
   mediaSlidesSteps(world);
   liveClassSteps(world);

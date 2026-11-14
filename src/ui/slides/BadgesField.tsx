@@ -2,6 +2,7 @@ import { blankBadge, MAX_BADGES } from '../../domain/badges';
 import type { SlideBadge } from '../../domain/lessonModels';
 import { isPearlShade, PEARL_SHADES } from '../../domain/pearlShades';
 import { t } from '../../i18n';
+import { DirectedBox } from '../forms/DirectedBox';
 import { Select } from '../forms/Select';
 
 const SHADE_OPTIONS = PEARL_SHADES.map((shade) => ({ value: shade, label: t.common.pearlShade[shade] }));
@@ -20,12 +21,12 @@ export function BadgesField({ badges, onChange }: BadgesFieldProps) {
       <legend className="field__label">{f.badges}</legend>
       {badges.map((badge, index) => (
         <div className="field__list-row" key={index}>
-          <input
+          <DirectedBox
             className="input"
             aria-label={f.badgeText(index + 1)}
             placeholder={f.badgeText(index + 1)}
             value={badge.text}
-            onChange={(e) => edit(index, { text: e.target.value })}
+            onChange={(text) => edit(index, { text })}
           />
           <Select
             aria-label={f.badgeColor(index + 1)}

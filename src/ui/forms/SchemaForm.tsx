@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { t } from '../../i18n';
 import { Checkbox } from './Checkbox';
+import { DirectedBox } from './DirectedBox';
 import { Select } from './Select';
 import { Stepper } from './Stepper';
 import './forms.css';
@@ -99,7 +100,7 @@ function Field<T extends object>({ field, record, onChange, onReplace }: FieldPr
       return (
         <label className="field">
           <span className="field__label">{field.label}</span>
-          <input className="input" dir={field.ltr ? 'ltr' : undefined} value={String(value ?? '')} onChange={(e) => onChange(e.target.value)} />
+          <DirectedBox className="input" ltr={field.ltr} value={String(value ?? '')} onChange={onChange} />
           {hint}
         </label>
       );
@@ -107,7 +108,7 @@ function Field<T extends object>({ field, record, onChange, onReplace }: FieldPr
       return (
         <label className="field">
           <span className="field__label">{field.label}</span>
-          <textarea className="input" rows={5} {...(field.slideText ? { [SLIDE_TEXT_ATTRIBUTE]: '' } : {})} value={String(value ?? '')} onChange={(e) => onChange(e.target.value)} />
+          <DirectedBox multiline className="input" rows={5} {...(field.slideText ? { [SLIDE_TEXT_ATTRIBUTE]: '' } : {})} value={String(value ?? '')} onChange={onChange} />
           {hint}
         </label>
       );
@@ -163,13 +164,13 @@ function Field<T extends object>({ field, record, onChange, onReplace }: FieldPr
           <legend className="field__label">{field.label}</legend>
           {items.map((item, index) => (
             <div className="field__list-row" key={index}>
-              <input
+              <DirectedBox
                 className="input"
-                dir={field.ltr ? 'ltr' : undefined}
+                ltr={field.ltr}
                 aria-label={field.itemLabel(index)}
                 placeholder={field.itemLabel(index)}
                 value={item}
-                onChange={(e) => onChange(items.map((old, i) => (i === index ? e.target.value : old)))}
+                onChange={(text) => onChange(items.map((old, i) => (i === index ? text : old)))}
               />
               <button
                 type="button"

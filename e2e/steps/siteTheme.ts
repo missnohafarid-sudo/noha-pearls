@@ -42,6 +42,7 @@ export function siteThemeSteps(world: World): void {
   });
 
   it('the signed-in teacher sees it at the far end of the bar, named, with the list closed', async () => {
+    await admin().page.bringToFront();
     await admin().goto('#/');
     await admin().until('the pearl button', () => admin().exists(PICKER_BUTTON));
     expect(await admin().page.$eval(PICKER_BUTTON, (button) => button.getAttribute('aria-label'))).toBe(t.shell.theme.button);
@@ -58,7 +59,10 @@ export function siteThemeSteps(world: World): void {
     const names = await admin().page.$$eval(`${PICKER_LIST} button`, (buttons) => buttons.map((button) => (button as HTMLElement).innerText.trim()));
     expect(names).toEqual(PEARL_SHADES.map((shade) => t.common.pearlShade[shade]));
     expect(await admin().page.$eval(`${PICKER_LIST} [aria-current]`, (button) => (button as HTMLElement).innerText.trim())).toBe(t.common.pearlShade.white);
-    const box = await admin().page.$eval(PICKER_LIST, (list) => list.getBoundingClientRect());
+    const box = await admin().page.$eval(PICKER_LIST, (list) => {
+      const { left, right } = list.getBoundingClientRect();
+      return { left, right };
+    });
     expect(box.left).toBeGreaterThanOrEqual(0);
     expect(box.right).toBeLessThanOrEqual(DESKTOP.width);
   });

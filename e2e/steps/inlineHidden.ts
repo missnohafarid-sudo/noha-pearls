@@ -20,6 +20,7 @@ const FOR_TOOLS = { kind: 'content', title: TOOLS_TITLE, body: TOOLS_BODY };
 const UNCLOSED = ['intro line', F, 'late one', 'late two'].join('\n');
 const BUTTONS = '.slide .slide-hidden > button';
 const OPEN_IMAGES = '.slide .slide-hidden__box .slide-pictures__image';
+const OPEN_BOXES = '.slide .slide-hidden__box';
 
 interface Piece {
   what: string;
@@ -44,6 +45,8 @@ const outline = (world: World): Promise<Piece[]> =>
     return pieces;
   });
 
+const shownPictures = (world: World) =>
+  world.admin.page.evaluate((selector) => [...document.querySelectorAll<HTMLElement>(selector)].filter((image) => image.getClientRects().length > 0).length, OPEN_IMAGES);
 const outlineWhats = async (world: World) => (await outline(world)).map((piece) => piece.what);
 const slideText = (world: World) => world.admin.texts('.slide').then((texts) => texts.join('\n'));
 const press = (world: World, index: number) => world.admin.page.evaluate((at, selector) => document.querySelectorAll<HTMLButtonElement>(selector)[at]?.click(), index, BUTTONS);
@@ -101,7 +104,7 @@ export function inlineHiddenSteps(world: World): void {
       expect(tops).toEqual([...tops].sort((a, b) => a - b));
       const text = await slideText(world);
       for (const secret of ['secret A', 'secret B', BOTTOM]) expect(text).not.toContain(secret);
-      expect(await world.admin.count(OPEN_IMAGES)).toBe(0);
+      expect(await shownPictures(world)).toBe(0);
     });
 
     it('pressing the first button shows secret A and its picture, and not secret B', async () => {
@@ -149,7 +152,7 @@ export function inlineHiddenSteps(world: World): void {
       expect(await slideText(world)).not.toContain('late one');
       await press(world, 0);
       await world.admin.waitFor('late two');
-      expect(await world.admin.texts('.slide .slide-hidden__box')).toEqual(['late one\nlate two']);
+      expect(await world.admin.texts(`${OPEN_BOXES} p`)).toEqual(['late one', 'late two']);
     });
 
     it('exporting the lesson and importing the file again keeps the text exactly', async () => {

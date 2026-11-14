@@ -22,7 +22,7 @@ const WARNING_MARK = `.slide-row [role=img][aria-label="${t.lesson.slides.proble
 
 const ONE_PIXEL_PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
 
-const MEDIA_FILE_SLIDE = { kind: 'media', title: 'Clip', tag: 'Show', url: 'https://media.test/clip.mp4', media: 'video', body: '- one\ntwo' };
+const MEDIA_FILE_SLIDE = { kind: 'media', title: 'Clip', tag: 'Show', badges: [], url: 'https://media.test/clip.mp4', media: 'video', body: '- one\ntwo' };
 
 /** The walkthrough has no network: the made-up media host answers with a picture, a dead link answers 404, and the Drive address with an empty page. */
 function answerMediaRequest(request: HTTPRequest): void {

@@ -164,6 +164,7 @@ describe('a first-time teacher on an empty school', () => {
     const pearlList = '.shell__bar .theme-picker__list';
     const look = (): Promise<string | undefined> => teacher.page.evaluate(() => document.documentElement.dataset.theme);
     const choosePearl = async (name: string): Promise<void> => {
+      await teacher.until('the pearl button', () => teacher.exists(pearlButton));
       await teacher.page.click(pearlButton);
       await teacher.until('the list of looks', () => teacher.page.$eval(pearlList, (list) => !list.hasAttribute('hidden')));
       await teacher.click(name, pearlList);

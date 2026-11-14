@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { integer, isAnswerValue, isCard, isClassCode, isId, isPeriod, listOf, nullable, oneOf, optional, shape, text } from './argumentChecks';
-import { isDateRange, isGroup, isLesson, isSiteContent, isStudent, isSubject, isYearEnd } from './entityChecks';
+import { isDateRange, isGroup, isLesson, isSitePatch, isStudent, isSubject, isYearEnd } from './entityChecks';
 import { addSlide, createLesson } from './lessonOps';
 import { periodAt } from './periods';
 import { SLIDE_KIND_NAMES } from './slideKinds';
@@ -48,18 +48,28 @@ describe('the small checkers', () => {
   });
 });
 
+describe('the shape of a site patch', () => {
+  it('accepts no field, or any of the five, and refuses an unknown field or a wrong type', () => {
+    expect(isSitePatch({})).toBe(true);
+    for (const patch of [{ schoolName: 'a' }, { title: 'b' }, { tagline: 'c' }, { intro: 'd' }, { theme: 'purple' }]) expect(isSitePatch(patch)).toBe(true);
+    expect(isSitePatch({ schoolName: 'a', title: 'b', tagline: 'c', intro: 'd', theme: 'purple' })).toBe(true);
+    expect(isSitePatch({ id: 'site', tagline: 'c' })).toBe(false);
+    expect(isSitePatch({ colour: 'red' })).toBe(false);
+    expect(isSitePatch({ tagline: 3 })).toBe(false);
+    expect(isSitePatch({ theme: 3 })).toBe(false);
+    expect(isSitePatch({ intro: 'a'.repeat(3000) })).toBe(false);
+    expect(isSitePatch('tagline')).toBe(false);
+  });
+});
+
 describe('the shapes of whole objects', () => {
-  it('accept a stored group, student, subject, site, year end and range, and refuse a changed field', () => {
+  it('accept a stored group, student, subject, year end and range, and refuse a changed field', () => {
     expect(isGroup({ id: 'g', classId: 'c', name: 'n', color: '#fff', order: 1 })).toBe(true);
     expect(isGroup({ id: 'g', classId: 'c', name: 'n', color: '#fff', order: 'x' })).toBe(false);
     expect(isStudent({ id: 's', cardNumber: 3, name: 'n', groupId: 'g' })).toBe(true);
     expect(isStudent({ id: 's', cardNumber: 3000, name: 'n', groupId: 'g' })).toBe(false);
     expect(isSubject({ kind: 'student', id: 's' })).toBe(true);
     expect(isSubject({ kind: 'teacher', id: 's' })).toBe(false);
-    expect(isSiteContent({ id: 'site', schoolName: 'a', title: 'b', tagline: 'c', intro: 'd' })).toBe(true);
-    expect(isSiteContent({ id: 'site', schoolName: 'a'.repeat(3000), title: 'b', tagline: 'c', intro: 'd' })).toBe(false);
-    expect(isSiteContent({ id: 'site', schoolName: 'a', title: 'b', tagline: 'c', intro: 'd', theme: 'purple' })).toBe(true);
-    expect(isSiteContent({ id: 'site', schoolName: 'a', title: 'b', tagline: 'c', intro: 'd', theme: 3 })).toBe(false);
     expect([isYearEnd(null), isYearEnd({ month: 6, day: 30 }), isYearEnd({ month: 13, day: 1 })]).toEqual([true, true, false]);
     const day = { year: 2026, month: 1, day: 2 };
     expect([isDateRange({ from: day, to: day }), isDateRange({ from: day })]).toEqual([true, false]);

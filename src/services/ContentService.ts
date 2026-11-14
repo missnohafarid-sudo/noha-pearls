@@ -1,4 +1,4 @@
-import type { SiteContent } from '../domain/models';
+import type { SiteContent, SitePatch } from '../domain/models';
 import type { DocumentStore, Unsubscribe } from '../ports/store';
 import type { Caller } from '../ports/caller';
 import { requireAdmin } from './AuthService';
@@ -14,8 +14,9 @@ export class ContentService {
     return this.store.watch('site', {}, (docs) => listener(docs[0] ?? null));
   }
 
-  async updateSite(site: SiteContent): Promise<void> {
+  /** Changes only the fields in `patch`, merged into the stored record in one step, so patches on different fields never undo each other. */
+  async updateSite(patch: SitePatch): Promise<void> {
     requireAdmin(this.caller);
-    await this.store.put('site', site);
+    await this.store.update('site', 'site', (current) => ({ ...current, ...patch }));
   }
 }

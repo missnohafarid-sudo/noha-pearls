@@ -12,6 +12,9 @@ export interface SiteContent {
   theme?: string;
 }
 
+/** Some of the site record's fields, as sent to change them: the fields that are not in it stay as stored. */
+export type SitePatch = Partial<Omit<SiteContent, 'id'>>;
+
 /** A school class such as "11-3": the people who sit in one room. Its groups hold its students. */
 export interface SchoolClass {
   id: Id;

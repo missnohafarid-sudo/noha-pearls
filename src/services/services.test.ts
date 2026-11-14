@@ -15,6 +15,7 @@ import { MemoryStorage } from '../infrastructure/storage';
 import { AdmissionService } from './AdmissionService';
 import { AnswerService } from './AnswerService';
 import { AuthService, NotAuthorizedError } from './AuthService';
+import { ContentService } from './ContentService';
 import { FolderService } from './FolderService';
 import { FolderError } from './requireFolder';
 import { LessonError, LessonService } from './LessonService';
@@ -70,6 +71,7 @@ async function setup() {
     clock,
     retention: new RetentionService(store, caller, () => clock.now),
     auth,
+    content: new ContentService(store, caller),
     admission: new AdmissionService(store, caller, sessionRoster, sessionRoster),
     sessions: new SessionService(store, caller, roster, sessionRoster, records),
     records,
@@ -145,6 +147,49 @@ describe('admin access', () => {
       new PrototypeAuthGateway({ passwordSha256: undefined, totpSecret: undefined }, new MemoryStorage(), 'admin'),
     );
     expect(await nothing.signIn({ password: '', code: '' })).toBe('wrong');
+  });
+});
+
+describe('the site record', () => {
+  const site = { id: 'site' as const, schoolName: 'م', title: 'ع', tagline: 'ش', intro: 'ن' };
+
+  async function signedIn() {
+    const kit = await setup();
+    await kit.store.put('site', site);
+    await kit.auth.signIn({ password: 'secret', code: await validCode() });
+    return kit;
+  }
+
+  it('changes only the fields in the patch', async () => {
+    const { content, store } = await signedIn();
+    await content.updateSite({ tagline: 'جديد' });
+    expect(await store.get('site', 'site')).toEqual({ ...site, tagline: 'جديد' });
+    await content.updateSite({});
+    expect(await store.get('site', 'site')).toEqual({ ...site, tagline: 'جديد' });
+  });
+
+  it('leaves the same record when the same patch is sent twice', async () => {
+    const { content, store } = await signedIn();
+    await content.updateSite({ theme: 'purple', intro: 'س' });
+    const once = await store.get('site', 'site');
+    await content.updateSite({ theme: 'purple', intro: 'س' });
+    expect(await store.get('site', 'site')).toEqual(once);
+  });
+
+  it('keeps both of two patches on different fields, in either order', async () => {
+    for (const order of [['text', 'look'], ['look', 'text']]) {
+      const { content, store } = await signedIn();
+      const patches = { text: { tagline: 'جديد' }, look: { theme: 'purple' } };
+      for (const name of order) await content.updateSite(patches[name as keyof typeof patches]);
+      expect(await store.get('site', 'site')).toEqual({ ...site, tagline: 'جديد', theme: 'purple' });
+    }
+  });
+
+  it('refuses a visitor and changes nothing', async () => {
+    const { content, store } = await setup();
+    await store.put('site', site);
+    await expect(content.updateSite({ tagline: 'x' })).rejects.toBeInstanceOf(NotAuthorizedError);
+    expect(await store.get('site', 'site')).toEqual(site);
   });
 });
 

@@ -162,7 +162,7 @@ describe('the page talking to the hub', () => {
     await expect(visitor.services.teachers.add('x')).rejects.toBeInstanceOf(NotAuthorizedError);
     visitor.harness.sql.reset();
     visitor.harness.sql.failOnStatement = 1;
-    const failure = await visitor.services.content.updateSite({ id: 'site', schoolName: 'a', title: 'b', tagline: 'c', intro: 'd' }).catch((error: unknown) => error);
+    const failure = await visitor.services.content.updateSite({ tagline: 'c' }).catch((error: unknown) => error);
     expect(failure).toBeInstanceOf(NotAuthorizedError);
     const admin2 = await page({ admin: true });
     admin2.harness.sql.reset();

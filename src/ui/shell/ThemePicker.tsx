@@ -20,7 +20,7 @@ export function ThemePicker() {
 
   const choose = async (shade: Theme) => {
     close();
-    if (site) await attempt(() => content.updateSite({ ...site, theme: shade }));
+    if (site) await attempt(() => content.updateSite({ theme: shade }));
   };
 
   return (

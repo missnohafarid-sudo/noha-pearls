@@ -1,7 +1,7 @@
 import {
   isAnswerValue, isBoolean, isCard, isClassCode, isId, isName, isPacingMode, isPeriod, isPeriodKind, listOf, MAX_COLUMN_HEADER_LENGTH, MAX_MIN_INTERACTIONS, MAX_RAW_MESSAGE_LENGTH, MAX_TITLE_LENGTH, nonEmptyText, nullable, number, oneOf, slideIndex, text, type Check,
 } from '../domain/argumentChecks';
-import { isDateRange, isGroup, isImportMode, isLesson, isSiteContent, isStudent, isSubject, isYearEnd } from '../domain/entityChecks';
+import { isDateRange, isGroup, isImportMode, isLesson, isSitePatch, isStudent, isSubject, isYearEnd } from '../domain/entityChecks';
 import { MAX_ADMIN_MESSAGE_LENGTH } from '../ports/limits';
 import { UI_SURFACE } from './Services';
 
@@ -18,7 +18,7 @@ type Shapes = { [S in keyof typeof UI_SURFACE]: { readonly [M in (typeof UI_SURF
  */
 export const SURFACE_SHAPES = {
   allowance: { watchLevel: none },
-  content: { watchSite: none, updateSite: [isSiteContent] },
+  content: { watchSite: none, updateSite: [isSitePatch] },
   roster: {
     watchClasses: none, watchRoster: id, addClass: [isName], renameClass: [isId, isName], removeClass: id, addGroup: [isId, isName], saveGroup: [isGroup], removeGroup: id,
     addStudent: [isName, isId], saveStudent: [isStudent], removeStudent: id, importFromText: [isId, longText, isImportMode], exportToText: [isId, text(MAX_COLUMN_HEADER_LENGTH)],

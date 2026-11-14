@@ -42,7 +42,7 @@ const listener = () => undefined;
 const group = { id: 'g1', classId: 'c1', name: 'x', color: '#000', order: 1 };
 const range = { from: { year: 2026, month: 1, day: 1 }, to: { year: 2026, month: 1, day: 2 } };
 const ADMIN_ONLY: Record<string, unknown[]> = {
-  'content.updateSite': [{ id: 'site', schoolName: 'x', title: 'x', tagline: 'x', intro: 'x' }],
+  'content.updateSite': [{ tagline: 'x' }],
   'roster.watchClasses': [listener],
   'roster.watchRoster': ['c1', listener],
   'roster.addClass': ['New'],

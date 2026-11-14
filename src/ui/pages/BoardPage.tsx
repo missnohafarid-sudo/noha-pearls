@@ -55,7 +55,7 @@ function BoardView({ session }: { session: Session }) {
 
   if (!totals) return <Loading />;
 
-  const giveTo = (target: SubjectRef) => (roster ? heartFor(roster, target) : undefined);
+  const heartsFor = (target: SubjectRef) => (roster ? heartFor(roster, target) : {});
   const ranked = rankScores(totals);
 
   return (
@@ -79,7 +79,7 @@ function BoardView({ session }: { session: Session }) {
                   <PearlString earned={pearlsEarned(total)} />
                 </div>
                 <span className="muted">{t.common.scoreOf(score, max)}</span>
-                <HeartButton owner={group.name} count={hearts} onGive={giveTo({ kind: 'group', id: group.id })} />
+                <HeartButton owner={group.name} count={hearts} {...heartsFor({ kind: 'group', id: group.id })} />
               </li>
             );
           })}
@@ -89,7 +89,7 @@ function BoardView({ session }: { session: Session }) {
       <GroupStandingsOfClass session={session} />
 
       {admin ? (
-        roster && <BoardHeartsGrid sessionId={session.id} roster={roster} giveTo={giveTo} />
+        roster && <BoardHeartsGrid sessionId={session.id} roster={roster} heartsFor={heartsFor} />
       ) : (
         <section className="stack">
           {results ? (

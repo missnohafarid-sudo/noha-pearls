@@ -1,5 +1,6 @@
 import type { GroupAnswerStatus } from '../../../domain/answering';
 import type { Id, SubjectRef } from '../../../domain/models';
+import type { TeacherHeartActions } from '../../hooks/useTeacherHearts';
 
 /** What the panel shows of one group, ready for the overview card and the group's tab alike. */
 export interface PearlGroupProps {
@@ -9,6 +10,6 @@ export interface PearlGroupProps {
   /** The group's total hearts, as the board shows them. */
   groupHearts: number;
   studentHearts: (studentId: Id) => number;
-  /** How a heart is given to her or the group; undefined when it may not be. */
-  giveTo: (target: SubjectRef) => (() => void) | undefined;
+  /** What the teacher can do about hearts for her or the group. */
+  heartsFor: (target: SubjectRef) => TeacherHeartActions;
 }

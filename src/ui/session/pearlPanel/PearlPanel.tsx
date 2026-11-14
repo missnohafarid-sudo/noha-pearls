@@ -37,7 +37,7 @@ export function PearlPanel({ session, lesson, slide, roster, participants, answe
     pearls: pearls.get(entry.group.id) ?? 0,
     groupHearts: index.groupTotal(entry.group, roster.students),
     studentHearts: (studentId: Id) => index.of({ kind: 'student', id: studentId }).total,
-    giveTo: (target: SubjectRef) => heartFor(roster, target),
+    heartsFor: (target: SubjectRef) => heartFor(roster, target),
   }));
   const shown = groups.find(({ entry }) => entry.group.id === tab);
   const panelRef = useRef<HTMLElement>(null);

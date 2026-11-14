@@ -16,7 +16,7 @@ interface Props {
 export function PearlOverview({ groups, onOpenGroup }: Props) {
   return (
     <div className="pearl-overview">
-      {groups.map(({ entry, pearls, groupHearts, giveTo }) => {
+      {groups.map(({ entry, pearls, groupHearts, heartsFor }) => {
         const { group, mark } = entry;
         const progress = studentProgress(entry);
         return (
@@ -27,7 +27,7 @@ export function PearlOverview({ groups, onOpenGroup }: Props) {
                   {group.name}
                 </button>
               </h3>
-              <HeartButton owner={group.name} count={groupHearts} onGive={giveTo({ kind: 'group', id: group.id })} />
+              <HeartButton owner={group.name} count={groupHearts} {...heartsFor({ kind: 'group', id: group.id })} />
             </header>
             <div className="pearl-card__pearls">
               <PearlString earned={pearls} />

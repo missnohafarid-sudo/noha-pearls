@@ -1,6 +1,7 @@
 import type { MonitorGroup } from "../../domain/analytics";
 import type { RewardIndex } from "../../domain/analytics";
 import type { Id } from "../../domain/models";
+import type { TeacherHeartActions } from "../hooks/useTeacherHearts";
 import { pearlsEarned } from "../../domain/scoring";
 import { t } from "../../i18n";
 import { shownAnswer } from "../../domain/resultRows";
@@ -16,13 +17,13 @@ interface Props {
   rewards: RewardIndex;
   /** How many individual questions count in this class. */
   possible: number;
-  onGive: (studentId: Id) => void;
+  heartsOf: (studentId: Id) => TeacherHeartActions;
   /** Absent when the class takes no more changes: the roll is then only shown. */
   onSetPresent?: (studentId: Id, present: boolean) => void;
 }
 
 /** One group: its score, the per-student answer table and the group's shared answers. */
-export function MonitorGroupCard({ entry, rewards, possible, onGive, onSetPresent }: Props) {
+export function MonitorGroupCard({ entry, rewards, possible, heartsOf, onSetPresent }: Props) {
   const { group, rows, groupCells } = entry;
   const columns = rows[0]?.cells ?? [];
   const joined = rows.filter((r) => r.joined).length;
@@ -89,7 +90,7 @@ export function MonitorGroupCard({ entry, rewards, possible, onGive, onSetPresen
                         rewards.of({ kind: "student", id: row.student.id })
                           .total
                       }
-                      onGive={() => onGive(row.student.id)}
+                      {...heartsOf(row.student.id)}
                     />
                   </td>
                 </tr>

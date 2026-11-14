@@ -7,15 +7,16 @@ import { HeartButton } from '../common/HeartButton';
 import { Loading } from '../common/PageState';
 import { toneStyle } from '../common/tone';
 import { useRewards } from '../hooks/data';
+import type { TeacherHeartActions } from '../hooks/useTeacherHearts';
 
 interface Props {
   sessionId: Id;
   roster: ClassRoster;
-  giveTo: (target: SubjectRef) => (() => void) | undefined;
+  heartsFor: (target: SubjectRef) => TeacherHeartActions;
 }
 
 /** The teacher's view of the board: every student's hearts by source, with a button to give one. */
-export function BoardHeartsGrid({ sessionId, roster, giveTo }: Props) {
+export function BoardHeartsGrid({ sessionId, roster, heartsFor }: Props) {
   const rewards = useRewards(sessionId);
   const index = useMemo(() => new RewardIndex(rewards ?? []), [rewards]);
   if (!rewards) return <Loading />;
@@ -35,7 +36,7 @@ export function BoardHeartsGrid({ sessionId, roster, giveTo }: Props) {
                   <div key={student.id} className="stack stack--tight">
                     <div className="row row--between">
                       <span>{student.name}</span>
-                      <HeartButton owner={student.name} count={tally.total} onGive={giveTo({ kind: 'student', id: student.id })} />
+                      <HeartButton owner={student.name} count={tally.total} {...heartsFor({ kind: 'student', id: student.id })} />
                     </div>
                     <div className="row">
                       {REWARD_SOURCES.filter((source) => tally.bySource[source] > 0).map((source) => (

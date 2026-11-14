@@ -7,6 +7,7 @@ import type { Id, Session } from '../../domain/models';
 import { t } from '../../i18n';
 import { Loading } from '../common/PageState';
 import { useAnswers, useLesson, useParticipants, useRewards, useSessionRoster } from '../hooks/data';
+import { useTeacherHearts } from '../hooks/useTeacherHearts';
 import { RouteLink } from '../routing/useRoute';
 import { SessionChooser } from '../session/SessionLists';
 import { useShownSession } from '../session/useShownSession';
@@ -43,7 +44,8 @@ export function MonitorPage({ code }: { code: string | undefined }) {
 }
 
 function MonitorView({ session }: { session: Session }) {
-  const { rewards, sessions, sessionRoster } = useServices();
+  const { sessions, sessionRoster } = useServices();
+  const heartFor = useTeacherHearts(session);
   const lesson = useLesson(session.lessonId);
   const roster = useSessionRoster(session);
   const answers = useAnswers(session.id);
@@ -60,7 +62,7 @@ function MonitorView({ session }: { session: Session }) {
   if (lesson === null) return <p className="page notice notice--bad">{t.monitor.lessonDeleted}</p>;
   if (!monitor || !roster || !answers) return <Loading />;
 
-  const give = (studentId: Id) => void rewards.giveAsTeacher(session.id, { kind: 'student', id: studentId });
+  const heartsOf = (studentId: Id) => heartFor(roster, { kind: 'student', id: studentId });
   const setPresent = (studentId: Id, present: boolean) =>
     void (present ? sessionRoster.markPresent(session.id, studentId) : sessionRoster.markAbsent(session.id, studentId));
   const canChange = acceptsChanges(session);
@@ -87,7 +89,7 @@ function MonitorView({ session }: { session: Session }) {
           entry={entry}
           rewards={index}
           possible={possible}
-          onGive={give}
+          heartsOf={heartsOf}
           onSetPresent={canChange ? setPresent : undefined}
         />
       ))}

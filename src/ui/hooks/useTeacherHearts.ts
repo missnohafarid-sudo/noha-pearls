@@ -3,9 +3,17 @@ import { canGiveTeacherHeart } from '../../domain/rewards';
 import { useServices } from '../ServicesContext';
 import { useAdmin } from './data';
 
-/** How the teacher gives a heart in this class: for a student or group of the roster, a function that gives it, or undefined when she may not. */
-export function useTeacherHearts(session: Session): (roster: ClassRoster, target: SubjectRef) => (() => void) | undefined {
+/** What the teacher can do about the hearts of one target: each action is present only when she may do it. */
+export interface TeacherHeartActions {
+  onGive?: () => void;
+}
+
+/** What the teacher can do about hearts in this class, for a student or group of the roster; spread into `HeartButton`. */
+export function useTeacherHearts(session: Session): (roster: ClassRoster, target: SubjectRef) => TeacherHeartActions {
   const { rewards } = useServices();
   const admin = useAdmin();
-  return (roster, target) => (admin && canGiveTeacherHeart(session, roster, target) ? () => void rewards.giveAsTeacher(session.id, target) : undefined);
+  return (roster, target) =>
+    admin && canGiveTeacherHeart(session, roster, target)
+      ? { onGive: () => void rewards.giveAsTeacher(session.id, target) }
+      : {};
 }

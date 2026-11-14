@@ -21,6 +21,14 @@ const TOOLS_TITLE = 'Slide for tools';
 const TOOLS_BODY = 'tool line one\ntool line two\ntool line three';
 const FOR_TOOLS = { kind: 'content', title: TOOLS_TITLE, body: TOOLS_BODY };
 const UNCLOSED = ['intro line', F, 'late one', 'late two'].join('\n');
+const TABLES_TITLE = 'Lesson with tables and fractions';
+const TABLE_BODY = ['| name | score |', '|---|---|', '| Salma | 5 |', '| Huda | 7 |', F, '| secret | cell |', '| one | two |', F].join('\n');
+const WITH_TABLE = { kind: 'content', title: 'Slide with a table', body: TABLE_BODY };
+const FRACTION_BODY = 'السرعة v = {d/t} تقريباً';
+const WITH_FRACTION = { kind: 'content', title: 'Slide with a fraction', body: FRACTION_BODY };
+const FRACTION_TITLE = 'Part 3/4 title';
+const STARTER_LINE = 'starter line';
+const FOR_TABLE_AND_FRACTION_TOOLS = { kind: 'content', title: FRACTION_TITLE, body: STARTER_LINE };
 const VISITOR_SCREEN = { width: 1100, height: 700 };
 const BUTTONS = '.slide .slide-hidden > button';
 const OPEN_IMAGES = '.slide .slide-hidden__box .slide-pictures__image';
@@ -81,6 +89,10 @@ const toolButtonDisabled = (world: World, label: string) =>
     label,
     PANEL,
   );
+const cellTexts = (world: World, selector: string) =>
+  world.admin.page.evaluate((rows) => [...document.querySelectorAll(rows)].map((row) => [...row.children].map((cell) => (cell as HTMLElement).innerText.trim())), selector);
+const visibleTables = (world: World) =>
+  world.admin.page.evaluate(() => [...document.querySelectorAll<HTMLElement>('.slide .slide-table')].filter((table) => table.getClientRects().length > 0).length);
 const bodies = (slides: unknown) => (slides as ContentSlide[]).map((slide) => slide.body);
 
 /** Hidden parts written inside a slide's text: each has its own button where it sits, may hold a picture, and is kept by the lesson file. */
@@ -222,6 +234,86 @@ export function inlineHiddenSteps(world: World): void {
       } finally {
         await visitor.page.close();
       }
+    });
+
+    describe('tables and fractions written in the text', () => {
+      let tablesId = '';
+
+      beforeAll(async () => {
+        tablesId = await importLessonFile(world, lessonFileText([WITH_TABLE, WITH_FRACTION, FOR_TABLE_AND_FRACTION_TOOLS], TABLES_TITLE), TABLES_TITLE);
+      });
+
+      afterAll(async () => {
+        await deleteLessonOnPage(world, tablesId);
+      });
+
+      it('rows between bars with a row of dashes after the first draw a table with that header and the rows after it, first column rightmost', async () => {
+        await world.admin.waitFor('Salma');
+        expect(await cellTexts(world, '.slide .slide-content > .slide-content__text > .slide-table thead tr')).toEqual([['name', 'score']]);
+        expect(await cellTexts(world, '.slide .slide-content > .slide-content__text > .slide-table tbody tr')).toEqual([
+          ['Salma', '5'],
+          ['Huda', '7'],
+        ]);
+        const lefts = await world.admin.page.evaluate(() => [...document.querySelectorAll('.slide .slide-content > .slide-content__text > .slide-table thead th')].map((cell) => cell.getBoundingClientRect().left));
+        expect(lefts).toHaveLength(2);
+        expect(lefts[0]).toBeGreaterThan(lefts[1]);
+        expect(await slideText(world)).not.toContain('---');
+      });
+
+      it('a table inside a hidden part appears when that part is opened', async () => {
+        expect(await visibleTables(world)).toBe(1);
+        expect(await slideText(world)).not.toContain('secret');
+        await press(world, 0);
+        await world.admin.waitFor('secret');
+        expect(await visibleTables(world)).toBe(2);
+        expect(await cellTexts(world, '.slide .slide-hidden__box .slide-table tbody tr')).toEqual([
+          ['secret', 'cell'],
+          ['one', 'two'],
+        ]);
+      });
+
+      it('{d/t} in a line draws one fraction with d over t, and the words before it stay to its left', async () => {
+        await world.admin.goto(`#/lesson/${encodeURIComponent(tablesId)}/2`);
+        await world.admin.until('the fraction', async () => (await world.admin.count('.slide .fraction')) === 1);
+        const drawn = await world.admin.page.evaluate(() => {
+          const fraction = document.querySelector<HTMLElement>('.slide .fraction');
+          const before = fraction?.previousSibling;
+          if (!fraction || !before) return null;
+          const range = document.createRange();
+          range.selectNodeContents(before);
+          return {
+            top: fraction.querySelector('.fraction__top')?.textContent,
+            bottom: fraction.querySelector('.fraction__bottom')?.textContent,
+            before: before.textContent?.trim(),
+            beforeRight: range.getBoundingClientRect().right,
+            fractionLeft: fraction.getBoundingClientRect().left,
+          };
+        });
+        expect(drawn).toMatchObject({ top: 'd', bottom: 't', before: 'v =' });
+        expect(drawn?.beforeRight).toBeLessThanOrEqual((drawn?.fractionLeft ?? 0) + 1);
+        expect(await slideText(world)).not.toContain('{');
+      });
+
+      it('the table button puts a starter table after the caret line of the body', async () => {
+        await world.admin.goto(`#/lesson/${encodeURIComponent(tablesId)}/3`);
+        await world.admin.waitFor(STARTER_LINE);
+        await focusField(world, t.slides.field.body, 'textarea');
+        await world.admin.click(t.slides.tools.table, PANEL);
+        const [first, second] = t.slides.tools.tableHeaders;
+        const expected = [STARTER_LINE, `| ${first} | ${second} |`, '| --- | --- |', '|  |  |'].join('\n');
+        await world.admin.until('the starter table stored', async () => bodies((await storedLessonById(world, tablesId)).slides)[2] === expected);
+        await world.admin.until('the table drawn', async () => (await cellTexts(world, '.slide .slide-table thead tr'))[0]?.join('|') === `${first}|${second}`);
+      });
+
+      it('the fraction button wraps the selected 3/4 of the title in braces and the slide title draws it', async () => {
+        const at = FRACTION_TITLE.indexOf('3/4');
+        await focusField(world, t.slides.field.title, 'input', [at, at + 3]);
+        await world.admin.click(t.slides.tools.fraction, PANEL);
+        await world.admin.until('the fraction stored', async () => (await storedLessonById(world, tablesId)).slides[2].title === 'Part {3/4} title');
+        await world.admin.until('the title fraction', async () => (await world.admin.count('.slide__title .fraction')) === 1);
+        expect(await world.admin.texts('.slide__title .fraction__top')).toEqual(['3']);
+        expect(await world.admin.texts('.slide__title .fraction__bottom')).toEqual(['4']);
+      });
     });
 
     it('the walkthrough removes its two lessons so that later steps meet the lessons they expect', async () => {

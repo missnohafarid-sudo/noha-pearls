@@ -24,7 +24,7 @@ export function createServices(): Promise<Services> {
 }
 
 /** The look this device showed last. Made at load, so the page can show it before the services are ready. */
-export const lookMemory = new StoredLook(browserStorage(localStorage), LOOK_STORAGE_KEY);
+export const lookMemory = new StoredLook(browserStorage(() => localStorage), LOOK_STORAGE_KEY);
 
 /** What every mode gives the page that has nothing to do with data. */
 function pageParts(): Pick<Services, 'qr' | 'loadCardCodec' | 'lookMemory'> {
@@ -48,14 +48,14 @@ const ALWAYS_UP: ConnectionStatus = { isUp: () => true, turnedAway: () => null, 
 
 async function createBrowserOnlyServices(): Promise<Services> {
   const store = new LocalDocumentStore(
-    browserStorage(localStorage),
+    browserStorage(() => localStorage),
     new StorageEventChangeBus(STORAGE_NAMESPACE, window),
     STORAGE_NAMESPACE,
   );
   await seedIfEmpty(store, true);
 
   // Per-tab memory, so each browser tab behaves as a separate classroom device.
-  const tabMemory = browserStorage(sessionStorage);
+  const tabMemory = browserStorage(() => sessionStorage);
   const gateway = new PrototypeAuthGateway(
     { passwordSha256: ADMIN_PASSWORD_SHA256, totpSecret: ADMIN_TOTP_SECRET },
     tabMemory,

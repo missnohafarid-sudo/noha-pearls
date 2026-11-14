@@ -1,6 +1,6 @@
 import { fingerprint } from './fingerprint';
 import { isPictureLink } from './media';
-import { addTableRow, isTableRow, starterTable, startTable, type SlideTable } from './slideTable';
+import { isTableRow, MIN_TABLE_ROWS, starterTable, tableOf, type SlideTable } from './slideTable';
 
 /** One piece of a slide's plain text, in reading order. */
 export type TextBlock =
@@ -28,25 +28,32 @@ function lineBlock(line: string): TextBlock {
 
 function addLine(blocks: TextBlock[], line: string): void {
   const last = blocks[blocks.length - 1];
-  if (isPictureLine(line)) {
-    if (last?.kind === 'pictures') last.links.push(line.trim());
-    else blocks.push({ kind: 'pictures', links: [line.trim()] });
-  } else if (!isTableRow(line)) {
-    blocks.push(lineBlock(line));
-  } else if (last?.kind === 'table') {
-    addTableRow(last, line);
-  } else {
-    const table = startTable(line);
-    if (table) blocks.push({ kind: 'table', ...table });
-  }
+  if (!isPictureLine(line)) blocks.push(lineBlock(line));
+  else if (last?.kind === 'pictures') last.links.push(line.trim());
+  else blocks.push({ kind: 'pictures', links: [line.trim()] });
 }
 
 const isBlank = (line: string): boolean => line.trim() === '';
 
-/** The blocks of some lines; blank lines are skipped. */
+/** The blocks of some lines; blank lines are skipped. Row lines in a row make a table when there are enough of them (see `tableOf`), else they are ordinary lines. */
 function blocksOf(lines: readonly string[]): TextBlock[] {
   const blocks: TextBlock[] = [];
-  for (const line of lines) if (!isBlank(line)) addLine(blocks, line);
+  let rows: string[] = [];
+  const endRows = () => {
+    const table = tableOf(rows);
+    if (table) blocks.push({ kind: 'table', ...table });
+    else if (rows.length < MIN_TABLE_ROWS) for (const row of rows) addLine(blocks, row);
+    rows = [];
+  };
+  for (const line of lines) {
+    if (isBlank(line)) continue;
+    if (!isPictureLine(line) && isTableRow(line)) rows.push(line);
+    else {
+      endRows();
+      addLine(blocks, line);
+    }
+  }
+  endRows();
   return blocks;
 }
 

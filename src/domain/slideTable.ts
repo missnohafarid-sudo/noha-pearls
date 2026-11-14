@@ -23,15 +23,19 @@ const cellsOf = (line: string): string[] =>
 /** A row of dashes (with an optional colon at an end of a cell), as chat assistants write under a header: never drawn. */
 const isDashRow = (cells: readonly string[]): boolean => cells.every((cell) => DASH_CELL.test(cell));
 
-/** A table that starts with this row line, or nothing when the line is a row of dashes. */
-export function startTable(line: string): SlideTable | null {
+/** A table needs this many row lines in a row (a row of dashes counts as one); a single line between bars, like an absolute value `|x|`, is ordinary text. */
+export const MIN_TABLE_ROWS = 2;
+
+/** The table the row lines make, or nothing when they are too few or draw nothing (only rows of dashes). */
+export function tableOf(lines: readonly string[]): SlideTable | null {
+  if (lines.length < MIN_TABLE_ROWS) return null;
   const table: SlideTable = { header: null, rows: [] };
-  addTableRow(table, line);
-  return table.rows.length > 0 ? table : null;
+  for (const line of lines) addTableRow(table, line);
+  return table.header !== null || table.rows.length > 0 ? table : null;
 }
 
 /** Adds a row line to the table: a row of dashes right after the first row makes that row the header, and anywhere else it is dropped. */
-export function addTableRow(table: SlideTable, line: string): void {
+function addTableRow(table: SlideTable, line: string): void {
   const cells = cellsOf(line);
   if (isDashRow(cells)) {
     if (table.header === null && table.rows.length === 1) table.header = table.rows.shift() ?? null;

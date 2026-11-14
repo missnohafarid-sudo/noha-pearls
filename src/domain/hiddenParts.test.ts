@@ -37,7 +37,8 @@ describe('a slide kind and its hidden parts', () => {
     expect(endHiddenKey('  end ')).toBe(END);
     expect(endHiddenKey('')).toBeNull();
     expect(endHiddenKey('  \n ')).toBeNull();
-    expect(endHiddenKey('|---|---|')).toBeNull();
+    expect(endHiddenKey('|---|\n|---|')).toBeNull();
+    expect(endHiddenKey('|---|')).toBe(partKey('|---|'));
     expect(endHiddenKey(undefined)).toBeNull();
   });
 

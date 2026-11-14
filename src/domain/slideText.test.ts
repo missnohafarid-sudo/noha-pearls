@@ -374,10 +374,10 @@ describe('hidden parts: keys and cutting', () => {
   });
 
   it('knows no part in a stretch that draws nothing, and cuts it', () => {
-    const empty = lines('a', F, '', '  ', F, 'b', F, '|---|---|', F, 'c');
+    const empty = lines('a', F, '', '  ', F, 'b', F, '|---|', '|:-:|', F, 'c');
     expect(hiddenPartKeys(empty)).toEqual([]);
     expect(slideTextBlocks(empty)).toEqual([line('a'), line('b'), line('c')]);
-    expect(keepOpenedParts(empty, [partKey(''), partKey('|---|---|')])).toBe(lines('a', 'b', 'c'));
+    expect(keepOpenedParts(empty, [partKey(''), partKey(lines('|---|', '|:-:|'))])).toBe(lines('a', 'b', 'c'));
   });
 
   it('keeps the parts that remain readable as the same blocks', () => {
@@ -397,7 +397,7 @@ describe('slideTextBlocks: tables', () => {
 
   it('drops a row of dashes anywhere else, and a table of nothing else', () => {
     expect(slideTextBlocks('|a|b|\n|1|2|\n|---|---|\n|3|4|')).toEqual([table(null, ['a', 'b'], ['1', '2'], ['3', '4'])]);
-    expect(slideTextBlocks('|---|---|')).toEqual([]);
+    expect(slideTextBlocks('|---|---|\n|:-:|---|')).toEqual([]);
     expect(slideTextBlocks('|a|\n|---|\n|---|\n|1|')).toEqual([table(['a'], ['1'])]);
   });
 
@@ -410,7 +410,20 @@ describe('slideTextBlocks: tables', () => {
     expect(slideTextBlocks('|')).toEqual([line('|')]);
     expect(slideTextBlocks('a | b')).toEqual([line('a | b')]);
     expect(slideTextBlocks('|a')).toEqual([line('|a')]);
-    expect(slideTextBlocks('||')).toEqual([table(null, [''])]);
+    expect(slideTextBlocks('||')).toEqual([line('||')]);
+    expect(slideTextBlocks('||\n||')).toEqual([table(null, [''], [''])]);
+  });
+
+  it('leaves one line between bars as an ordinary line: an absolute value is not a table', () => {
+    expect(slideTextBlocks('|x|')).toEqual([line('|x|')]);
+    expect(slideTextBlocks('|-3| = |3|')).toEqual([line('|-3| = |3|')]);
+    expect(slideTextBlocks('|---|')).toEqual([line('|---|')]);
+    expect(slideTextBlocks(lines('|x|', 'text', '|y|'))).toEqual([line('|x|'), line('text'), line('|y|')]);
+  });
+
+  it('makes a table of two rows, and of a header with its row of dashes', () => {
+    expect(slideTextBlocks('|a|b|\n|1|2|')).toEqual([table(null, ['a', 'b'], ['1', '2'])]);
+    expect(slideTextBlocks('|a|b|\n|---|---|')).toEqual([table(['a', 'b'])]);
   });
 
   it('leaves a bullet that contains bars as a bullet', () => {
@@ -418,13 +431,17 @@ describe('slideTextBlocks: tables', () => {
   });
 
   it('splits tables around other lines, and keeps a table inside a hidden part', () => {
-    expect(slideTextBlocks(lines('|a|', 'text', '|b|'))).toEqual([table(null, ['a']), line('text'), table(null, ['b'])]);
-    expect(slideTextBlocks(lines('|a|b|', F, '|s|t|', '|u|v|', F, 'end'))).toEqual([table(null, ['a', 'b']), hidden(table(null, ['s', 't'], ['u', 'v'])), line('end')]);
+    expect(slideTextBlocks(lines('|a|', '|b|', 'text', '|c|', '|d|'))).toEqual([table(null, ['a'], ['b']), line('text'), table(null, ['c'], ['d'])]);
+    expect(slideTextBlocks(lines('|a|b|', '|c|d|', F, '|s|t|', '|u|v|', F, 'end'))).toEqual([table(null, ['a', 'b'], ['c', 'd']), hidden(table(null, ['s', 't'], ['u', 'v'])), line('end')]);
   });
 
   it('keeps a table of an opened hidden part whole when other parts are cut', () => {
-    const text = lines('|a|b|', F, 'x', F, F, '|c|d|', F, F, '|e|f|', '|---|---|', '|1|2|', F, '|g|h|');
-    expect(slideTextBlocks(keepOpenedParts(text, [partKey(lines('|e|f|', '|---|---|', '|1|2|'))]))).toEqual([table(null, ['a', 'b']), hidden(table(['e', 'f'], ['1', '2'])), table(null, ['g', 'h'])]);
+    const text = lines('|a|b|', '|a2|b2|', F, 'x', F, F, '|c|d|', '|c2|d2|', F, F, '|e|f|', '|---|---|', '|1|2|', F, '|g|h|', '|g2|h2|');
+    expect(slideTextBlocks(keepOpenedParts(text, [partKey(lines('|e|f|', '|---|---|', '|1|2|'))]))).toEqual([
+      table(null, ['a', 'b'], ['a2', 'b2']),
+      hidden(table(['e', 'f'], ['1', '2'])),
+      table(null, ['g', 'h'], ['g2', 'h2']),
+    ]);
   });
 });
 

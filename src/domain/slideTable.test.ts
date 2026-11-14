@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addTableRow, isTableRow, starterTable, startTable } from './slideTable';
+import { isTableRow, starterTable, tableOf } from './slideTable';
 
 describe('isTableRow', () => {
   it('needs a bar at both ends of the trimmed line and more than one character', () => {
@@ -10,28 +10,29 @@ describe('isTableRow', () => {
   });
 });
 
-describe('startTable and addTableRow', () => {
-  it('starts a table from a row, and from a row of dashes starts nothing', () => {
-    expect(startTable('| a | b |')).toEqual({ header: null, rows: [['a', 'b']] });
-    expect(startTable('|:--|--:|')).toBeNull();
+describe('tableOf', () => {
+  it('needs at least two row lines, and one line alone makes nothing', () => {
+    expect(tableOf(['| a | b |'])).toBeNull();
+    expect(tableOf(['|x|'])).toBeNull();
+    expect(tableOf([])).toBeNull();
+    expect(tableOf(['| a | b |', '|1|2|'])).toEqual({ header: null, rows: [['a', 'b'], ['1', '2']] });
+  });
+
+  it('counts a row of dashes as one of the two rows: a header and its dash row are a table', () => {
+    expect(tableOf(['|a|b|', '|---|---|'])).toEqual({ header: ['a', 'b'], rows: [] });
+  });
+
+  it('makes nothing of rows that draw nothing', () => {
+    expect(tableOf(['|:--|--:|', '|---|---|'])).toBeNull();
   });
 
   it('turns the first row into the header only for a row of dashes right after it', () => {
-    const table = startTable('|a|b|');
-    if (!table) throw new Error('no table');
-    addTableRow(table, '|:-:|---|');
-    addTableRow(table, '|1|2|');
-    addTableRow(table, '|---|---|');
-    expect(table).toEqual({ header: ['a', 'b'], rows: [['1', '2']] });
+    expect(tableOf(['|a|b|', '|:-:|---|', '|1|2|', '|---|---|'])).toEqual({ header: ['a', 'b'], rows: [['1', '2']] });
+    expect(tableOf(['|a|b|', '|1|2|', '|---|---|', '|3|4|'])).toEqual({ header: null, rows: [['a', 'b'], ['1', '2'], ['3', '4']] });
   });
 
   it('pads every row, header included, to the widest', () => {
-    const table = startTable('|a|');
-    if (!table) throw new Error('no table');
-    addTableRow(table, '|---|');
-    addTableRow(table, '|1|2|3|');
-    addTableRow(table, '|4|');
-    expect(table).toEqual({ header: ['a', '', ''], rows: [['1', '2', '3'], ['4', '', '']] });
+    expect(tableOf(['|a|', '|---|', '|1|2|3|', '|4|'])).toEqual({ header: ['a', '', ''], rows: [['1', '2', '3'], ['4', '', '']] });
   });
 });
 

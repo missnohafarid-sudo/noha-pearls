@@ -58,6 +58,8 @@ describe('the shapes of whole objects', () => {
     expect(isSubject({ kind: 'teacher', id: 's' })).toBe(false);
     expect(isSiteContent({ id: 'site', schoolName: 'a', title: 'b', tagline: 'c', intro: 'd' })).toBe(true);
     expect(isSiteContent({ id: 'site', schoolName: 'a'.repeat(3000), title: 'b', tagline: 'c', intro: 'd' })).toBe(false);
+    expect(isSiteContent({ id: 'site', schoolName: 'a', title: 'b', tagline: 'c', intro: 'd', theme: 'purple' })).toBe(true);
+    expect(isSiteContent({ id: 'site', schoolName: 'a', title: 'b', tagline: 'c', intro: 'd', theme: 3 })).toBe(false);
     expect([isYearEnd(null), isYearEnd({ month: 6, day: 30 }), isYearEnd({ month: 13, day: 1 })]).toEqual([true, true, false]);
     const day = { year: 2026, month: 1, day: 2 };
     expect([isDateRange({ from: day, to: day }), isDateRange({ from: day })]).toEqual([true, false]);

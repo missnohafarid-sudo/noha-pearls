@@ -45,7 +45,7 @@
   --pearl-4: #d9b565;
   --pearl-5: #9d82b8;
   --pearl-6: #6e4631;
-  --pearl-7: #2f5a5c;
+  --pearl-7: #1a2d31;
   /* Text on a light pearl; a dark pearl takes --pearl-shine. Neither follows the page's look. */
   --pearl-ink: #3a1626;
 
@@ -96,4 +96,110 @@
   --font: 'IBM Plex Sans Arabic', 'SF Arabic', 'Segoe UI', 'Noto Sans Arabic', 'Geeza Pro', Tahoma, sans-serif;
   --font-script: 'Sansita Swashed';
   color-scheme: light;
+}
+
+/* The looks, one per pearl of the brand's row (the first is the block above). A look gives new values only to the tokens that differ;
+   the pearls, printing and the camera never change. Every text colour keeps 4.5:1 on what it sits on (tokens.test.ts). */
+:root[data-theme='cream'] {
+  --bg: #f8f0e0;
+  --bg-wash: #f2e6cf;
+  --surface: #fffaf0;
+  --ink: #3b2a14;
+  --muted: #6b5638;
+  --line: #e6d5b5;
+  --accent: #7d5518;
+  --accent-soft: #f1e2c0;
+  --shadow-tint: 59, 42, 20;
+}
+
+:root[data-theme='pink'] {
+  --bg: #fdf0ee;
+  --bg-wash: #f9e1de;
+  --surface: #fffafa;
+  --ink: #4a1c1c;
+  --muted: #7a4e4e;
+  --line: #f0d0cc;
+  --accent: #b03a28;
+  --accent-soft: #fbdcd6;
+  --shadow-tint: 74, 28, 28;
+}
+
+:root[data-theme='gold'] {
+  --bg: #fdf6dc;
+  --bg-wash: #f8ecbd;
+  --surface: #fffcf0;
+  --ink: #3a2c08;
+  --muted: #6a5620;
+  --line: #ecdca0;
+  --accent: #8c5600;
+  --accent-soft: #f8e6ae;
+  --shadow-tint: 58, 44, 8;
+}
+
+:root[data-theme='purple'] {
+  --bg: #f5f0fa;
+  --bg-wash: #ebe2f5;
+  --surface: #fcfaff;
+  --ink: #2a1a40;
+  --muted: #5c4a78;
+  --line: #dccfec;
+  --accent: #5b2a99;
+  --accent-soft: #e6daf5;
+  --shadow-tint: 42, 26, 64;
+}
+
+:root[data-theme='brown'] {
+  --bg: #f6efe6;
+  --bg-wash: #eadfd0;
+  --surface: #fffcf8;
+  --ink: #33200f;
+  --muted: #68523e;
+  --line: #dccbb5;
+  --accent: #7a4a1e;
+  --accent-soft: #ecdcc6;
+  --shadow-tint: 51, 32, 15;
+}
+
+/* Near-black with a faint peacock cast; the accent is light, so the text on it is dark. */
+:root[data-theme='black'] {
+  --bg: #0e1615;
+  --bg-wash: #142120;
+  --surface: #172221;
+  --ink: #e6f0ee;
+  --muted: #9db5b1;
+  --line: #2b3d3b;
+  --accent: #6fd3c9;
+  --accent-soft: #1b3a38;
+  --on-accent: #09130f;
+  --gold: #c9a45c;
+  --gold-soft: #33290f;
+  --gold-ink: #e3c27a;
+  --ok: #5fd3a0;
+  --ok-soft: #14352a;
+  --bad: #ff8a65;
+  --bad-soft: #3d1f17;
+  --bad-ink: #ff9e80;
+  --info-soft: #14283a;
+  --info-ink: #9cc4ee;
+  --heart-soft: #3d1a2a;
+  --heart-ink: #ff8fb3;
+  --rose-gold-light: color-mix(in srgb, var(--accent) 55%, #ffffff);
+  --rose-gold: var(--accent);
+  --rose-gold-deep: color-mix(in srgb, var(--accent) 75%, var(--bg));
+  --shadow-tint: 0, 0, 0;
+  --shadow: 0 1px 2px rgba(var(--shadow-tint), 0.3), 0 12px 30px -16px rgba(var(--shadow-tint), 0.7);
+  --shadow-lift: 0 2px 4px rgba(var(--shadow-tint), 0.35), 0 18px 34px -16px rgba(var(--shadow-tint), 0.8);
+  --shadow-button: 0 1px 2px rgba(var(--shadow-tint), 0.35), 0 4px 10px -6px rgba(var(--shadow-tint), 0.7);
+  --scrim: rgba(var(--shadow-tint), 0.7);
+  color-scheme: dark;
+}
+
+/* What every look but the first draws from its own accent: the rose of the details and the rose-gold lettering. Zero specificity, so a look's own block may override it. */
+:where(:root[data-theme]:not([data-theme='white'])) {
+  --rose: color-mix(in srgb, var(--accent) 70%, var(--bg));
+  --rose-ink: var(--accent);
+  --rose-gold-light: color-mix(in srgb, var(--accent) 40%, var(--bg));
+  --rose-gold: color-mix(in srgb, var(--accent) 70%, var(--bg));
+  --rose-gold-deep: var(--accent);
+  --blush-deep: color-mix(in srgb, var(--accent-soft) 75%, var(--accent));
 }

@@ -8,6 +8,8 @@ export interface SiteContent {
   title: string;
   tagline: string;
   intro: string;
+  /** The look of the whole site, a name from `domain/themes.ts`; a record stored before looks existed has none. */
+  theme?: string;
 }
 
 /** A school class such as "11-3": the people who sit in one room. Its groups hold its students. */

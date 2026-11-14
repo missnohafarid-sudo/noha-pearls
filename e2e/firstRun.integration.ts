@@ -159,6 +159,27 @@ describe('a first-time teacher on an empty school', () => {
     await expectNoFailure();
   });
 
+  it('chooses a pearl for the look of the site, which the hub keeps through a reload, then puts the usual look back', async () => {
+    const pearlButton = '.shell__bar .theme-picker__button';
+    const pearlList = '.shell__bar .theme-picker__list';
+    const look = (): Promise<string | undefined> => teacher.page.evaluate(() => document.documentElement.dataset.theme);
+    const choosePearl = async (name: string): Promise<void> => {
+      await teacher.page.click(pearlButton);
+      await teacher.until('the list of looks', () => teacher.page.$eval(pearlList, (list) => !list.hasAttribute('hidden')));
+      await teacher.click(name, pearlList);
+      await settle();
+      await expectNoFailure();
+    };
+    await choosePearl(t.common.pearlShade.purple);
+    await teacher.until('the purple look', async () => (await look()) === 'purple');
+    await teacher.page.reload({ waitUntil: 'networkidle0' });
+    await teacher.until('the purple look after a reload', async () => (await look()) === 'purple');
+    await choosePearl(t.common.pearlShade.white);
+    await teacher.until('the usual look', async () => (await look()) === 'white');
+    await teacher.page.reload({ waitUntil: 'networkidle0' });
+    await teacher.until('the usual look after a reload', async () => (await look()) === 'white');
+  });
+
   it('adds a slide to the sample lesson, and it stays after a reload', async () => {
     await open('#/');
     await teacher.click(SAMPLE.title);

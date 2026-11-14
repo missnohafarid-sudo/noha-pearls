@@ -12,6 +12,7 @@ export const shell = {
     standings: 'النتائج التراكمية',
   },
   menu: 'القائمة',
+  theme: { button: 'مظهر الموقع', listLabel: 'اختاري لؤلؤة المظهر' },
   adminBadge: 'وضع الإدارة',
   signIn: 'دخول المعلّمة',
   signOut: 'خروج من الإدارة',

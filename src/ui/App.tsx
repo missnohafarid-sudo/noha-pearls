@@ -14,6 +14,7 @@ import { StandingsPage } from './pages/StandingsPage';
 import { ADMIN_ROUTES, BARE_ROUTES, type Route } from './routing/routes';
 import { useRoute } from './routing/useRoute';
 import { AppShell } from './shell/AppShell';
+import { useSiteTheme } from './shell/useSiteTheme';
 
 function pageFor(route: Route): ReactNode {
   switch (route.name) {
@@ -43,6 +44,7 @@ function pageFor(route: Route): ReactNode {
 export function App() {
   const route = useRoute();
   const admin = useAdmin();
+  useSiteTheme();
   // Admin pages do not exist for visitors: they get the same "not found" as any bad link.
   const page = ADMIN_ROUTES.has(route.name) && !admin ? <NotFound /> : pageFor(route);
 

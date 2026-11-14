@@ -1,9 +1,9 @@
-import { integer, isBoolean, isId, isName, isRecord, MAX_SLIDES_PER_LESSON, MAX_TITLE_LENGTH, number, shape, text, listOf, nullable, oneOf, type Check } from './argumentChecks';
+import { integer, isBoolean, isId, isName, isRecord, MAX_SLIDES_PER_LESSON, MAX_TITLE_LENGTH, number, shape, text, listOf, nullable, oneOf, optional, type Check } from './argumentChecks';
 import { isSlideKind } from './slideKinds';
 
 /** The shapes of the whole objects a method takes: the site's text, a group, a student, a lesson. */
 
-export const isSiteContent: Check = shape({ id: oneOf('site'), schoolName: text(MAX_TITLE_LENGTH), title: text(MAX_TITLE_LENGTH), tagline: text(MAX_TITLE_LENGTH), intro: text(MAX_TITLE_LENGTH) });
+export const isSiteContent: Check = shape({ id: oneOf('site'), schoolName: text(MAX_TITLE_LENGTH), title: text(MAX_TITLE_LENGTH), tagline: text(MAX_TITLE_LENGTH), intro: text(MAX_TITLE_LENGTH), theme: optional(text(40)) });
 export const isGroup: Check = shape({ id: isId, classId: isId, name: isName, color: text(20), order: number(-1e9, 1e9) });
 export const isStudent: Check = shape({ id: isId, cardNumber: integer(1, 999), name: isName, groupId: isId });
 export const isSubject: Check = shape({ kind: oneOf('student', 'group'), id: isId });

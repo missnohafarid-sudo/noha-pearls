@@ -27,6 +27,7 @@ import { scoringSteps } from './steps/scoring';
 import { scopeBadgeSteps } from './steps/scopeBadge';
 import { shellSteps } from './steps/shell';
 import { signInSteps } from './steps/signIn';
+import { siteThemeSteps } from './steps/siteTheme';
 import { slideBadgesSteps } from './steps/slideBadges';
 import { slideCopySteps } from './steps/slideCopy';
 import { slidePicturesSteps } from './steps/slidePictures';
@@ -56,6 +57,7 @@ describe('walkthrough', () => {
   passwordFieldSteps(world);
   signInSteps(world);
   shellSteps(world);
+  siteThemeSteps(world);
   classesSteps(world);
   lessonEditingSteps(world);
   dialogsSteps(world);

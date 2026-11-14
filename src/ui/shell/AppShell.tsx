@@ -10,6 +10,7 @@ import { AllowanceNotice } from './AllowanceNotice';
 import { ConnectionNotice } from './ConnectionNotice';
 import { NAV, NavLink } from './NavLink';
 import { NavMenu } from './NavMenu';
+import { ThemePicker } from './ThemePicker';
 import './shell.css';
 
 /** The frame around every page: title bar, navigation, and the admin's editing panel. */
@@ -39,6 +40,7 @@ export function AppShell({ route, children }: { route: Route; children: ReactNod
             <button type="button" className="btn btn--small" onClick={() => void auth.signOut()}>
               {t.shell.signOut}
             </button>
+            <ThemePicker />
           </div>
         ) : (
           <div className="shell__admin">

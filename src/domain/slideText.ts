@@ -159,6 +159,18 @@ function hiddenSpans(rows: readonly Row[]): Span[] {
 const rowAt = (rows: readonly Row[], point: number): number => rows.filter((row) => row.start <= point).length - 1;
 
 /**
+ * The edit that puts `block` (whole lines) on lines of its own after the line of row `at`, or on that line when it is blank,
+ * and puts the caret `caretInBlock` characters into the block.
+ */
+function putOnOwnLines(rows: readonly Row[], at: number, block: string, caretInBlock: number): TextEdit {
+  const onBlankLine = rows[at].start === rows[at].end;
+  const lead = onBlankLine ? '' : '\n';
+  const point = onBlankLine ? rows[at].start : rows[at].end;
+  const caret = point + lead.length + caretInBlock;
+  return { from: point, to: point, insert: `${lead}${block}`, selectFrom: caret, selectTo: caret };
+}
+
+/**
  * The edit that hides the lines a selection touches between two fence lines, which always stand alone on their lines.
  * The selection grows to whole lines and over every hidden part it touches, so text that was hidden stays hidden;
  * the fence lines inside are dropped and the whole range is wrapped once.
@@ -174,13 +186,7 @@ export function hideSelection(text: string, start: number, end: number): TextEdi
   let top = rowAt(rows, first);
   let bottom = rowAt(rows, reachedPoint);
   if (spans.some((span) => span.first <= top && span.last >= bottom)) return null;
-  if (last === first) {
-    const onBlankLine = rows[top].start === rows[top].end;
-    const lead = onBlankLine ? '' : '\n';
-    const at = onBlankLine ? rows[top].start : rows[top].end;
-    const caret = at + lead.length + FENCE_LINE.length;
-    return { from: at, to: at, insert: `${lead}${FENCE_LINE}\n${HIDDEN_FENCE}`, selectFrom: caret, selectTo: caret };
-  }
+  if (last === first) return putOnOwnLines(rows, top, `${FENCE_LINE}\n${HIDDEN_FENCE}`, FENCE_LINE.length);
   const [touchedTop, touchedBottom] = [top, bottom];
   for (const span of spans) {
     if (span.first > touchedBottom || span.last < touchedTop) continue;

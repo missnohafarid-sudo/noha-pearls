@@ -86,11 +86,7 @@ const content: SlideKindSpec<ContentSlide> = {
   hasProblem: ({ images }) => picturesHaveProblem(images),
   withoutKey: (slide) => slide,
   hiddenPartCount: (slide) => hiddenPartCount(slide.body) + (endHidden(slide).trim() === '' ? 0 : 1),
-  withOpenedParts: (slide, opened) => ({
-    ...slide,
-    body: keepOpenedParts(slide.body, opened),
-    hidden: opened.includes(hiddenPartCount(slide.body)) ? endHidden(slide) : '',
-  }),
+  withOpenedParts: (slide, opened) => ({ ...slide, body: keepOpenedParts(slide.body, opened), hidden: opened.includes(hiddenPartCount(slide.body)) ? endHidden(slide) : '' }),
 };
 
 /** In files the correct option is 1-based (or null for a poll); in memory it is a 0-based index. */

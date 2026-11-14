@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { directedRuns } from './textDirection';
+import { directedRuns, isolatedText, plainPosition, plainText, shownPosition } from './textDirection';
 
 const SPEED = 'سرعتها';
 const ABOUT = 'تقريبًا';
@@ -65,5 +65,74 @@ describe('directedRuns', () => {
 
   it.each(cases)('keeps every character: %s', (_name, line) => {
     expect(directedRuns(line).map((r) => r.text).join('')).toBe(line);
+  });
+});
+
+describe('the isolating form of a text', () => {
+  const OPEN = '⁦';
+  const CLOSE = '⁩';
+  const samples = [
+    '',
+    'This line is all English, with a full stop.',
+    `${SPEED} ${ABOUT}`,
+    `${SPEED} 25°C`,
+    `${SPEED} 20 m/s ${ABOUT}`,
+    `F = ma ${IN} ${WORD}`,
+    `${WORD} ${IN} F = ma`,
+    `${WORD} CO2 + H2O ${WORD}\n${SPEED} x`,
+    `${WORD}: v = d / t\r\nEnglish only\r\n${SPEED}`,
+    `${WORD}\n+++\n${SPEED} 25°C\n+++\n${ABOUT}`,
+    `${SPEED}\nhttps://example.com/pic.png\n${ABOUT} 3 + 4 = 7`,
+    `\n\n${SPEED} a\n`,
+  ];
+
+  it('fences each left-to-right piece inside Arabic', () => {
+    expect(isolatedText(`${SPEED} 25°C ${ABOUT}`)).toBe(`${SPEED} ${OPEN}25°C${CLOSE} ${ABOUT}`);
+    expect(isolatedText(`F = ma ${IN} ${WORD}`)).toBe(`${OPEN}F = ma${CLOSE} ${IN} ${WORD}`);
+    expect(isolatedText(`${WORD} m ${IN} a`)).toBe(`${WORD} ${OPEN}m${CLOSE} ${IN} ${OPEN}a${CLOSE}`);
+  });
+
+  it('keeps line breaks and works line by line', () => {
+    expect(isolatedText(`${SPEED} x\r\nplain English\n${SPEED} y`)).toBe(`${SPEED} ${OPEN}x${CLOSE}\r\nplain English\n${SPEED} ${OPEN}y${CLOSE}`);
+  });
+
+  it('leaves untouched what has no Arabic, no piece, or nothing', () => {
+    for (const text of ['', 'All English 1 + 1 = 2', `${SPEED} ${ABOUT}`, '12345']) expect(isolatedText(text)).toBe(text);
+  });
+
+  it('gives the text back once the marks are removed', () => {
+    for (const text of samples) {
+      expect(plainText(isolatedText(text))).toBe(text);
+      expect(isolatedText(plainText(isolatedText(text)))).toBe(isolatedText(text));
+    }
+  });
+
+  it('removes marks wherever they are', () => {
+    expect(plainText(`a${OPEN}b${CLOSE}${CLOSE}${OPEN}c`)).toBe('abc');
+  });
+
+  it('maps every position there and back', () => {
+    for (const text of samples) {
+      const shown = isolatedText(text);
+      for (let position = 0; position <= text.length; position += 1) {
+        expect(plainPosition(shown, shownPosition(text, position))).toBe(position);
+      }
+    }
+  });
+
+  it('puts a position at the start of a piece before its opening mark and at the end after its closing mark', () => {
+    const text = `${SPEED} 25°C ${ABOUT}`;
+    const shown = isolatedText(text);
+    const start = text.indexOf('25');
+    const end = start + '25°C'.length;
+    expect(shown[shownPosition(text, start)]).toBe(OPEN);
+    expect(shown[shownPosition(text, end) - 1]).toBe(CLOSE);
+    expect(shownPosition(text, start + 1)).toBe(start + 2);
+  });
+
+  it('counts only the saved characters before a position in the box', () => {
+    const shown = isolatedText(`${SPEED} 25°C`);
+    expect(plainPosition(shown, shown.length)).toBe(`${SPEED} 25°C`.length);
+    expect(plainPosition(shown, shown.indexOf(OPEN) + 1)).toBe(SPEED.length + 1);
   });
 });

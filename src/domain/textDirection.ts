@@ -65,3 +65,57 @@ export function directedRuns(line: string): DirectedRun[] {
   if (cursor < line.length) runs.push({ text: line.slice(cursor), ltr: false });
   return runs;
 }
+
+const ISOLATE_OPEN = '⁦';
+const ISOLATE_CLOSE = '⁩';
+const ISOLATE_MARKS = new RegExp(`[${ISOLATE_OPEN}${ISOLATE_CLOSE}]`, 'gu');
+const LINES_AND_BREAKS = /(\r?\n)/;
+
+/** Where each left-to-right piece of a text sits, as [start, end) positions in the text; a line without Arabic or without such a piece has none. */
+function directedPieces(text: string): [number, number][] {
+  const pieces: [number, number][] = [];
+  let offset = 0;
+  for (const part of text.split(LINES_AND_BREAKS)) {
+    if (ARABIC_CONTEXT.test(part)) {
+      const runs = directedRuns(part);
+      let at = offset;
+      for (const run of runs) {
+        if (run.ltr) pieces.push([at, at + run.text.length]);
+        at += run.text.length;
+      }
+    }
+    offset += part.length;
+  }
+  return pieces;
+}
+
+/** The text as a plain box should show it: every left-to-right piece inside Arabic is fenced by isolate marks so the box keeps its order. */
+export function isolatedText(text: string): string {
+  let shown = '';
+  let cursor = 0;
+  for (const [start, end] of directedPieces(text)) {
+    shown += `${text.slice(cursor, start)}${ISOLATE_OPEN}${text.slice(start, end)}${ISOLATE_CLOSE}`;
+    cursor = end;
+  }
+  return shown + text.slice(cursor);
+}
+
+/** What a box shows, without the isolate marks: the text that is saved. */
+export function plainText(shown: string): string {
+  return shown.replace(ISOLATE_MARKS, '');
+}
+
+/** A caret position in the box's text, as a position in the saved text. */
+export function plainPosition(shown: string, position: number): number {
+  return plainText(shown.slice(0, position)).length;
+}
+
+/** A caret position in the saved text, as a position in the box's text: at the start of a piece it stays before the opening mark, at the end it moves after the closing one. */
+export function shownPosition(text: string, position: number): number {
+  let shown = position;
+  for (const [start, end] of directedPieces(text)) {
+    if (position > start) shown += 1;
+    if (position >= end) shown += 1;
+  }
+  return shown;
+}

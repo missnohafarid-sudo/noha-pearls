@@ -72,7 +72,7 @@ function ContentBody({ slide }: SlideBodyProps<ContentSlide>) {
 const COMMON_FIELDS = [
   { kind: 'text', key: 'title', label: f.title },
   { kind: 'text', key: 'tag', label: f.tag },
-  { kind: 'custom', key: 'badges', label: f.badges, hint: f.badgesHint, render: (slide: Slide, onChange: (value: unknown) => void) => <BadgesField badges={slide.badges} onChange={onChange} /> },
+  { kind: 'custom', key: 'badges', hint: f.badgesHint, render: (slide: Slide, onChange: (value: unknown) => void) => <BadgesField badges={slide.badges} onChange={onChange} /> },
 ] as const;
 
 const PICTURES_FIELD = {

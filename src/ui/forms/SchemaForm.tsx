@@ -15,22 +15,23 @@ export interface SelectOption {
 
 interface FieldBase<T> {
   key: keyof T & string;
-  label: string;
   hint?: string;
 }
 
+type Labelled<T> = FieldBase<T> & { label: string };
+
 /** Describes one editable field of a `T`. A page's whole editing form is a list of these. */
 export type FieldSpec<T> =
-  | (FieldBase<T> & { kind: 'boolean' })
+  | (Labelled<T> & { kind: 'boolean' })
   /** `slideText` marks the text of a slide, where the editor's hide button works. */
-  | (FieldBase<T> & { kind: 'textarea'; slideText?: true })
+  | (Labelled<T> & { kind: 'textarea'; slideText?: true })
   /** `ltr` writes an address or a code left to right, even in a right-to-left form. */
-  | (FieldBase<T> & { kind: 'text'; ltr?: true })
-  | (FieldBase<T> & { kind: 'number'; min?: number; max?: number })
-  | (FieldBase<T> & { kind: 'select'; options: (value: T) => SelectOption[] })
-  /** A field whose editor is its own component: it draws itself from the record and reports its new value. */
+  | (Labelled<T> & { kind: 'text'; ltr?: true })
+  | (Labelled<T> & { kind: 'number'; min?: number; max?: number })
+  | (Labelled<T> & { kind: 'select'; options: (value: T) => SelectOption[] })
+  /** A field whose editor is its own component: it draws itself, its label included, from the record and reports its new value. */
   | (FieldBase<T> & { kind: 'custom'; render: (record: T, onChange: (value: unknown) => void) => ReactNode })
-  | (FieldBase<T> & { kind: 'list'; min: number; max: number; itemLabel: (index: number) => string;
+  | (Labelled<T> & { kind: 'list'; min: number; max: number; itemLabel: (index: number) => string;
       /** As for `text`: the items are addresses. */
       ltr?: true;
       /** Removes one item; use it when the record has other fields that depend on the item's position. */

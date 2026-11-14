@@ -10,8 +10,8 @@ import { peerRewardTargets } from './rewards';
 import { memberViews, type MemberView } from './sharedDevice';
 import { groupById, studentByCard, studentById } from './roster';
 import { pearlsEarned, publishedKeys, questionSlides, scoreboard, type GroupScore } from './scoring';
-import { liveSessions } from './sessions';
-import { slideKindSpec } from './slideKinds';
+import { liveSessions, openedParts } from './sessions';
+import { slideKindSpec, withOpenedParts } from './slideKinds';
 
 /**
  * The single home for what each kind of caller may read. It adds no arithmetic: it composes the rules that own
@@ -44,6 +44,12 @@ export function withoutKey(lesson: Lesson): Lesson {
   return { ...lesson, slides: lesson.slides.map((slide) => slideKindSpec(slide.kind).withoutKey(slide)) };
 }
 
+/** What a student or visitor reads of a lesson: no key, and of the hidden parts only those `opened` names for a slide. */
+function lessonForStudents(lesson: Lesson, opened: (slideId: Id) => readonly number[]): Lesson {
+  const bare = withoutKey(lesson);
+  return { ...bare, slides: bare.slides.map((slide) => withOpenedParts(slide, opened(slide.id))) };
+}
+
 export function lessonSummary(lesson: Lesson): LessonSummary {
   const { id, folderId, title, subject, grade, published, updatedAt, slides } = lesson;
   return { id, folderId, title, subject, grade, published, updatedAt, slideCount: slides.length, questionCount: questionSlides(lesson).length };
@@ -61,14 +67,14 @@ export function catalogueFor(isAdmin: boolean, lessons: readonly Lesson[]): Less
 export function lessonFor(isAdmin: boolean, lesson: Lesson | null): Lesson | null {
   if (!lesson) return null;
   if (isAdmin) return lesson;
-  return canViewLesson(lesson, false) ? withoutKey(lesson) : null;
+  return canViewLesson(lesson, false) ? lessonForStudents(lesson, () => []) : null;
 }
 
-/** A let-in seat reads her class's lesson even when it is not published; anyone else outside the admin gets none. */
-export function classLessonFor(reader: Reader, lesson: Lesson | null): Lesson | null {
+/** A let-in seat reads her class's lesson even when it is not published, with the hidden parts the teacher has opened in that class; anyone else outside the admin gets none. */
+export function classLessonFor(reader: Reader, lesson: Lesson | null, session: Session | null): Lesson | null {
   if (!lesson) return null;
   if (reader.isAdmin) return lesson;
-  return reader.seat ? withoutKey(lesson) : null;
+  return reader.seat ? lessonForStudents(lesson, (slideId) => (session ? openedParts(session, slideId) : [])) : null;
 }
 
 /** A visitor's folders carry their SHOWN parent, so the tree she builds from them is the one the server shows. */

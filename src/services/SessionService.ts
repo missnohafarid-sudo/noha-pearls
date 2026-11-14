@@ -6,7 +6,8 @@ import type { GroupPacing, Id, Lesson, PacingMode, Session } from '../domain/mod
 import { pacingFor } from '../domain/pacing';
 import { answerKey } from '../domain/scoring';
 import { isOnRoster } from '../domain/roster';
-import { acceptsChanges, isLive, liveSessions, newUniqueJoinCode, sessionBasis } from '../domain/sessions';
+import { acceptsChanges, isLive, liveSessions, newUniqueJoinCode, sessionBasis, withPartOpened } from '../domain/sessions';
+import { slideHiddenPartCount } from '../domain/slideKinds';
 import { cleanMessage } from '../domain/text';
 import type { DocumentStore, Unsubscribe } from '../ports/store';
 import type { Caller } from '../ports/caller';
@@ -87,6 +88,14 @@ export class SessionService {
     if (!slide || !isQuestion(slide)) return;
     const key = answerKey(slide);
     await this.update(sessionId, (session) => ({ reveals: { ...session.reveals, [slideId]: key } }));
+  }
+
+  /** Opens or closes one hidden part of a slide of the session's stored lesson for the whole class; a slide that is not in the lesson, or a position it does not have, changes nothing. */
+  async setHiddenOpen(sessionId: Id, slideId: Id, part: number, open: boolean): Promise<void> {
+    requireAdmin(this.caller);
+    const slide = (await this.lessonOf(sessionId))?.slides.find((s) => s.id === slideId);
+    if (!slide || part >= slideHiddenPartCount(slide)) return;
+    await this.store.update('sessions', sessionId, (current) => (acceptsChanges(current) ? withPartOpened(current, slideId, part, open) : current));
   }
 
   /** Sets how the given groups of the session's roster move through the lesson; any other id is ignored. */

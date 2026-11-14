@@ -19,6 +19,7 @@ export const MAX_SLIDES_PER_LESSON = 2000;
 export const MAX_RAW_MESSAGE_LENGTH = 1000;
 export const MAX_COLUMN_HEADER_LENGTH = 200;
 export const MAX_MIN_INTERACTIONS = 1000;
+export const MAX_HIDDEN_PART = 1000;
 /** A class code is at most this long once spaces are removed and digits made Latin. */
 const MAX_CODE_LENGTH = 12;
 const MAX_RAW_CODE_LENGTH = 64;
@@ -45,6 +46,7 @@ export const shape =
 export const isId: Check = nonEmptyText(MAX_ID_LENGTH);
 export const isName: Check = text(MAX_NAME_LENGTH);
 export const slideIndex: Check = integer(0, MAX_SLIDE_INDEX);
+export const hiddenPart: Check = integer(0, MAX_HIDDEN_PART);
 
 /** What a student types for a class code: after `normalizeJoinCode` it must be letters and digits of a code's length. */
 export const isClassCode: Check = (value) =>

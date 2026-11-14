@@ -9,7 +9,7 @@ export interface HiddenControl {
   toggle: ((part: number) => void) | null;
 }
 
-/** What stands inside an open part: shown as it is, with nothing to press. */
+/** Every part open with nothing to press: inside an open part, and on a student's device, where each part present is one the teacher opened. */
 export const SHOWN: HiddenControl = { isOpen: () => true, toggle: null };
 
 const HiddenControlContext = createContext<HiddenControl | null>(null);

@@ -24,10 +24,13 @@ const TITLE = 'Typed slide title';
 const LESSON_TITLE = 'Typed lesson title';
 const SLIDE_ROWS = '.slide-row';
 const CODE_FIELD_WAIT_MS = 30_000;
+const HIDDEN_TEXT = 'Typed hidden line';
 
 describe('a first-time teacher on an empty school', () => {
   let server: Server;
   let browser: Browser;
+  let deviceBrowser: Browser | undefined;
+  let phone: Tab;
   let teacher: Tab;
   const errors: string[] = [];
 
@@ -120,6 +123,7 @@ describe('a first-time teacher on an empty school', () => {
 
   afterAll(async () => {
     await browser?.close();
+    await deviceBrowser?.close();
     await stopEverything();
     rmSync(stateDir, { recursive: true, force: true });
   });
@@ -250,8 +254,8 @@ describe('a first-time teacher on an empty school', () => {
   });
 
   it('a shared group device gives its student an answer by moving her name onto an option, and the hub accepts it and shows it back', async () => {
-    const deviceBrowser = await launchBrowser();
-    const phone = await Tab.open(deviceBrowser, 'shared device', server.origin, PHONE, errors);
+    deviceBrowser = await launchBrowser();
+    phone = await Tab.open(deviceBrowser, 'shared device', server.origin, PHONE, errors);
     await phone.until('the code field', () => phone.exists('.join-code input'), CODE_FIELD_WAIT_MS);
     await phone.fill('.join-code input', sessionCodeIn(teacher));
     await phone.page.keyboard.press('Enter');
@@ -274,7 +278,48 @@ describe('a first-time teacher on an empty school', () => {
     await settle();
     expect(await phone.has(t.common.crashed)).toBe(false);
     await expectNoFailure();
-    await deviceBrowser.close();
+  });
+
+  it('opens a hidden part on the presenting screen, and the let-in phone shows it then, with no failure', async () => {
+    const code = sessionCodeIn(teacher);
+    const slide = SLIDE.poll + 1;
+    await open('#/');
+    await teacher.click(SAMPLE.title);
+    await teacher.until('the lesson address', async () => /#\/lesson\/[^/]+/.test(teacher.page.url()));
+    const lessonAddress = /#\/lesson\/([^/?]+)/.exec(teacher.page.url())?.[1] ?? '';
+    await open(`#/lesson/${lessonAddress}/${slide + 1}`);
+    await teacher.waitFor(SAMPLE.slides[slide].title);
+    await teacher.until('the hidden-text box', () =>
+      teacher.page.evaluate(
+        (wanted, value) => {
+          const field = [...document.querySelectorAll<HTMLElement>('.shell__panel .field')].find((candidate) => candidate.querySelector('.field__label')?.textContent?.trim() === wanted);
+          const control = field?.querySelector<HTMLTextAreaElement>('textarea');
+          if (!control) return false;
+          Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set?.call(control, value);
+          control.dispatchEvent(new Event('input', { bubbles: true }));
+          return true;
+        },
+        t.slides.field.hidden,
+        HIDDEN_TEXT,
+      ),
+    );
+    await settle();
+    await open(`#/session/${code}`);
+    await teacher.waitFor(t.session.pacingTitle);
+    await teacher.click(t.common.next);
+    await phone.waitFor(slideText(slide));
+    await teacher.waitFor(t.slides.view.showHidden);
+    expect(await phone.has(t.slides.view.showHidden)).toBe(false);
+    expect(await phone.has(HIDDEN_TEXT)).toBe(false);
+    await teacher.click(t.slides.view.showHidden, '.slide');
+    await phone.waitFor(HIDDEN_TEXT);
+    expect(await phone.has(t.slides.view.showHidden)).toBe(false);
+    await settle();
+    await expectNoFailure();
+    await teacher.click(t.slides.view.hideHidden, '.slide');
+    await phone.waitGone(HIDDEN_TEXT);
+    await settle();
+    await expectNoFailure();
   });
 
   it('gives a heart on the monitor, takes it back, then gives it again', async () => {

@@ -1,5 +1,5 @@
 import {
-  isAnswerValue, isBoolean, isCard, isClassCode, isId, isName, isPacingMode, isPeriod, isPeriodKind, listOf, MAX_COLUMN_HEADER_LENGTH, MAX_MIN_INTERACTIONS, MAX_RAW_MESSAGE_LENGTH, MAX_TITLE_LENGTH, nonEmptyText, nullable, number, oneOf, slideIndex, text, type Check,
+  hiddenPart, isAnswerValue, isBoolean, isCard, isClassCode, isId, isName, isPacingMode, isPeriod, isPeriodKind, listOf, MAX_COLUMN_HEADER_LENGTH, MAX_MIN_INTERACTIONS, MAX_RAW_MESSAGE_LENGTH, MAX_TITLE_LENGTH, nonEmptyText, nullable, number, oneOf, slideIndex, text, type Check,
 } from '../domain/argumentChecks';
 import { isDateRange, isGroup, isImportMode, isLesson, isSitePatch, isStudent, isSubject, isYearEnd } from '../domain/entityChecks';
 import { MAX_ADMIN_MESSAGE_LENGTH } from '../ports/limits';
@@ -32,6 +32,7 @@ export const SURFACE_SHAPES = {
   sessions: {
     watchAll: none, watchLive: none, start: [isId, isId, isId], end: id, goTo: [isId, slideIndex], reveal: [isId, isId], setPacing: [isId, listOf(isId), isPacingMode],
     sendMessage: [isId, text(MAX_RAW_MESSAGE_LENGTH), optionalFolder], clearMessage: id, setMinInteractions: [isId, number(0, MAX_MIN_INTERACTIONS)],
+    setHiddenOpen: [isId, isId, hiddenPart, isBoolean],
   },
   classLookup: { watchAnyLive: none, watchByCode: [isClassCode] },
   sessionRoster: {

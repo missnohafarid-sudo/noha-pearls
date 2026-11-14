@@ -92,3 +92,16 @@ export function canRemoveTeacher(teacherId: Id, sessions: readonly Session[]): b
 export function canRemoveLesson(lessonId: Id, sessions: readonly Session[]): boolean {
   return !sessions.some((session) => isLive(session) && session.lessonId === lessonId);
 }
+
+/** The positions of a slide's hidden parts that the teacher has opened for this class. */
+export function openedParts(session: Session, slideId: Id): readonly number[] {
+  return session.hiddenOpen?.[slideId] ?? [];
+}
+
+/** The session with one hidden part of a slide opened or closed; doing either twice changes nothing more. */
+export function withPartOpened(session: Session, slideId: Id, part: number, open: boolean): Session {
+  const others = openedParts(session, slideId).filter((position) => position !== part);
+  const parts = (open ? [...others, part] : others).sort((a, b) => a - b);
+  const { [slideId]: _, ...rest } = session.hiddenOpen ?? {};
+  return { ...session, hiddenOpen: parts.length > 0 ? { ...rest, [slideId]: parts } : rest };
+}

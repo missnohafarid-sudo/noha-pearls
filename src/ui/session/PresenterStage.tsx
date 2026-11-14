@@ -4,6 +4,7 @@ import type { Answer, Participant, Session, SessionRoster, Slide } from '../../d
 import { subjectName } from '../../domain/roster';
 import { t } from '../../i18n';
 import { useAdmin } from '../hooks/data';
+import { useSharedHiddenParts } from '../hooks/useSharedHiddenParts';
 import { DirectedText } from '../slides/DirectedText';
 import { SlideView } from '../slides/SlideView';
 import { PEARL_PANEL_ID } from './pearlPanel/panelId';
@@ -23,6 +24,7 @@ interface Props {
 /** The current slide, read-only, with live tallies and the wall of text answers. */
 export function PresenterStage({ session, slide, answers, roster, participants, tally, onOpenPanel }: Props) {
   const admin = useAdmin();
+  const hiddenControlOf = useSharedHiddenParts(session);
   if (!slide) return <p className="muted">{t.session.noSlide}</p>;
   const given = answersForSlide(answers, slide.id);
   const question = isQuestion(slide) ? slide : null;
@@ -32,6 +34,7 @@ export function PresenterStage({ session, slide, answers, roster, participants, 
       slide={slide}
       tally={slide.kind === 'choice' ? tallyChoices(slide, roster, participants, answers) : null}
       reveal={session.reveals[slide.id] ?? null}
+      hiddenControl={hiddenControlOf(slide.id)}
     >
       {tally && (
         <>

@@ -10,6 +10,7 @@ import { useLessonOf, useSeatView } from '../hooks/data';
 import { MyResults } from '../board/MyResults';
 import { Loading } from '../common/PageState';
 import { useServices } from '../ServicesContext';
+import { SHOWN } from '../slides/hiddenControl';
 import { SlideNav } from '../slides/SlideNav';
 import { SlideView } from '../slides/SlideView';
 import { OwnStandings } from '../standings/OwnStandings';
@@ -119,7 +120,7 @@ export function DeviceScreen({ session, group, participant, roster, onChooseName
               onGive={(studentId, option) => void answerService.submitForMember(session.id, slide.id, studentId, option)}
               onGroupAnswer={answerForGroup}
             >
-              {({ underOption, onAnswer }) => <SlideView slide={slide} answer={shown?.answer.value ?? null} reveal={session.reveals[slide.id] ?? null} onAnswer={onAnswer} underOption={underOption} />}
+              {({ underOption, onAnswer }) => <SlideView slide={slide} answer={shown?.answer.value ?? null} reveal={session.reveals[slide.id] ?? null} onAnswer={onAnswer} underOption={underOption} hiddenControl={SHOWN} />}
             </MemberAnswers>
           ) : (
             <SlideView
@@ -128,6 +129,7 @@ export function DeviceScreen({ session, group, participant, roster, onChooseName
               groupAnswer={shown?.coveredByGroup ? shown.answer.value : null}
               reveal={session.reveals[slide.id] ?? null}
               onAnswer={open ? answerForGroup : null}
+              hiddenControl={SHOWN}
             />
           )}
         </>

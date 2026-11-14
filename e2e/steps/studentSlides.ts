@@ -11,7 +11,7 @@ const CONTENT_SLIDE = 10;
 const PHOTO = `https://${PICTURE_HOST}/for-the-student`;
 const SECRET = 'A secret line for the student';
 
-/** What the teacher's slides show on a student's phone in the running class: a written question's picture, and a hidden section's button. */
+/** What the teacher's slides show on a student's phone in the running class: a written question's picture, and a hidden section, which the teacher alone opens. */
 export function studentSlidesSteps(world: World): void {
   describe('pictures and hidden sections on a student\'s phone', () => {
     const editSlide = async (position: number) => {
@@ -51,15 +51,24 @@ export function studentSlidesSteps(world: World): void {
       expect(picture.bottom).toBeLessThanOrEqual(answerBox.top);
     });
 
-    it('the hidden section\'s button opens its text on the student\'s phone', async () => {
+    it('a hidden section has no button and no text on the student\'s phone', async () => {
       await editSlide(CONTENT_SLIDE);
       await typeIntoField(world, t.slides.field.hidden, SECRET, 'textarea');
       await backToClass();
       await presentUpTo(world, CONTENT_SLIDE);
-      await world.student.waitFor(t.slides.view.showHidden);
+      await world.admin.waitFor(t.slides.view.showHidden);
+      await world.student.waitFor(slideText(CONTENT_SLIDE));
+      expect(await world.student.has(t.slides.view.showHidden)).toBe(false);
       expect(await world.student.has(SECRET)).toBe(false);
-      await world.student.click(t.slides.view.showHidden, '.slide');
+    });
+
+    it('the teacher\'s button on the presenting screen shows the text on the phone, still without a button there, and hides it again', async () => {
+      await world.admin.click(t.slides.view.showHidden, '.slide');
       await world.student.waitFor(SECRET);
+      expect(await world.student.has(t.slides.view.showHidden)).toBe(false);
+      expect(await world.student.has(t.slides.view.hideHidden)).toBe(false);
+      await world.admin.click(t.slides.view.hideHidden, '.slide');
+      await world.student.waitGone(SECRET);
     });
 
     it('the walkthrough takes both additions off the sample lesson and brings the class back to the slide later steps expect', async () => {

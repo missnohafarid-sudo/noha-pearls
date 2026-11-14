@@ -79,6 +79,7 @@ const ADMIN_ONLY: Record<string, unknown[]> = {
   'sessions.sendMessage': ['x', '', null],
   'sessions.clearMessage': ['x'],
   'sessions.setMinInteractions': ['x', 1],
+  'sessions.setHiddenOpen': ['x', 'c1', 0, true],
   'sessionRoster.watchRoster': ['x', listener],
   'sessionRoster.moveStudent': ['x', 's1', 'g1'],
   'sessionRoster.addStudent': ['x', 'New', 'g1'],

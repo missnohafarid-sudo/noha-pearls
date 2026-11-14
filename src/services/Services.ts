@@ -54,7 +54,7 @@ export const UI_SURFACE = {
   teachers: ['watchTeachers', 'add', 'rename', 'remove'],
   folders: ['watchFolders', 'add', 'rename', 'move', 'remove'],
   lessons: ['watchLessons', 'watchLesson', 'create', 'save', 'moveToFolder', 'setPublished', 'remove', 'importFromText', 'exportToText'],
-  sessions: ['watchAll', 'watchLive', 'start', 'end', 'goTo', 'reveal', 'setPacing', 'sendMessage', 'clearMessage', 'setMinInteractions'],
+  sessions: ['watchAll', 'watchLive', 'start', 'end', 'goTo', 'reveal', 'setPacing', 'sendMessage', 'clearMessage', 'setMinInteractions', 'setHiddenOpen'],
   allowance: ['watchLevel'],
   classLookup: ['watchAnyLive', 'watchByCode'],
   sessionRoster: ['watchRoster', 'watchSeen', 'moveStudent', 'addStudent', 'renameGroup', 'markPresent', 'markAbsent'],

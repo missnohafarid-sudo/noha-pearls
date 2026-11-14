@@ -111,6 +111,8 @@ export interface Session {
   message: TeacherMessage | null;
   /** The fewest individual questions a present student should answer; absent means the default. */
   minInteractions?: number;
+  /** The hidden parts of each slide the teacher has opened for the class, by slide id and position (see `hiddenPartCount`); absent means none. */
+  hiddenOpen?: Record<Id, number[]>;
   startedAt: number;
 }
 

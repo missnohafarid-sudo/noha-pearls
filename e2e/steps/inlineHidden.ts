@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { ContentSlide } from '../../src/domain/models';
 import { HIDDEN_FENCE } from '../../src/domain/slideText';
 import { t } from '../../src/i18n';
+import { Device } from '../device';
 import { PANEL, answerPictureRequest, boxesOf, deleteLessonOnPage, exportedFileOnPage, importLessonFile, lessonFileText, PICTURE_HOST, storedLessonById, typeIntoField } from '../lessonLane';
 import type { World } from '../world';
 
@@ -20,6 +21,7 @@ const TOOLS_TITLE = 'Slide for tools';
 const TOOLS_BODY = 'tool line one\ntool line two\ntool line three';
 const FOR_TOOLS = { kind: 'content', title: TOOLS_TITLE, body: TOOLS_BODY };
 const UNCLOSED = ['intro line', F, 'late one', 'late two'].join('\n');
+const VISITOR_SCREEN = { width: 1100, height: 700 };
 const BUTTONS = '.slide .slide-hidden > button';
 const OPEN_IMAGES = '.slide .slide-hidden__box .slide-pictures__image';
 const OPEN_BOXES = '.slide .slide-hidden__box';
@@ -200,6 +202,26 @@ export function inlineHiddenSteps(world: World): void {
       await world.admin.until('the hide button disabled', async () => (await toolButtonDisabled(world, t.slides.tools.hide)) === true);
       await focusField(world, t.slides.field.body, 'textarea');
       await world.admin.until('the hide button enabled', async () => (await toolButtonDisabled(world, t.slides.tools.hide)) === false);
+    });
+
+    it('a signed-out visitor reading the published lesson sees none of its hidden parts and no button', async () => {
+      await world.admin.goto(`#/lesson/${encodeURIComponent(lessonId)}/1`);
+      await world.admin.waitFor('visible one');
+      await world.admin.page.evaluate(
+        (panel, label) => [...document.querySelectorAll<HTMLElement>(`${panel} .checkbox`)].find((box) => box.textContent?.includes(label))?.click(),
+        PANEL,
+        t.lesson.field.published,
+      );
+      await world.admin.until('the lesson published', async () => (await storedLessonById(world, lessonId)).published);
+      const visitor = await Device.open(world.browser, 'lesson visitor', new URL(`#/lesson/${encodeURIComponent(lessonId)}/1`, world.baseUrl).href, VISITOR_SCREEN, world.errors);
+      try {
+        await visitor.waitFor('visible three');
+        expect(await visitor.count('.slide .slide-hidden')).toBe(0);
+        const shown = await visitor.text();
+        for (const secret of ['secret A', 'secret B', BOTTOM]) expect(shown).not.toContain(secret);
+      } finally {
+        await visitor.page.close();
+      }
     });
 
     it('the walkthrough removes its two lessons so that later steps meet the lessons they expect', async () => {

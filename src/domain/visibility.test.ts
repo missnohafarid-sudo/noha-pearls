@@ -2,18 +2,20 @@ import { describe, expect, it } from 'vitest';
 import { contestedRequestNumber, namesHeldByOthers, requestNumber } from './admission';
 import { studentReport } from './analytics';
 import { FolderTree } from './folders';
-import type { ChoiceSlide, Lesson, LessonFolder, QuestionSlide, Session, Slide } from './models';
+import type { ChoiceSlide, ContentSlide, Lesson, LessonFolder, QuestionSlide, Session, Slide } from './models';
 import { messageFor } from './pacing';
 import { answerKey, optionMark, pointsFor, publishedKeys, verdictFor } from './scoring';
-import { liveSessions } from './sessions';
+import { liveSessions, openedParts, withPartOpened } from './sessions';
 import { SLIDE_KIND_NAMES, slideKindSpec } from './slideKinds';
-import { answers, ended, lesson, live, reveal1, reveal2, roster, seatOf, students } from './visibility.fixtures';
+import { HIDDEN_FENCE } from './slideText';
+import { answers, ended, intro, lesson, live, reveal1, reveal2, roster, seatOf, students } from './visibility.fixtures';
 import {
   anyClassLive, catalogueFor, classLessonFor, foldersFor, lessonFor, lessonSummaries, lessonSummary, nameClaims, readerOf, seatRef, seenRoster, sessionFor, withoutKey,
   type Reader,
 } from './visibility';
 
 const sara = seatOf('p', 'g1', 's1');
+const withoutHidden = (read: Lesson): Lesson => ({ ...read, slides: read.slides.map((slide) => (slide.kind === 'content' ? { ...slide, hidden: '' } : slide)) });
 const visitor: Reader = { isAdmin: false, seat: null };
 const named: Reader = { isAdmin: false, seat: sara };
 const admin: Reader = { isAdmin: true, seat: null };
@@ -108,15 +110,56 @@ describe('lessons a caller receives', () => {
   it('gives the admin the lesson raw and a visitor the published one without its key', () => {
     expect(lessonFor(true, draft)).toBe(draft);
     expect(lessonFor(false, draft)).toBeNull();
-    expect(lessonFor(false, lesson)).toEqual(withoutKey(lesson));
+    expect(lessonFor(false, lesson)).toEqual(withoutHidden(withoutKey(lesson)));
     expect(lessonFor(false, null)).toBeNull();
   });
 
   it('gives a let-in seat her class lesson even unpublished, without its key, and others none', () => {
-    expect(classLessonFor(admin, draft)).toBe(draft);
-    expect(classLessonFor(named, draft)).toEqual(withoutKey(draft));
-    expect(classLessonFor(visitor, draft)).toBeNull();
-    expect(classLessonFor(named, null)).toBeNull();
+    expect(classLessonFor(admin, draft, live)).toBe(draft);
+    expect(classLessonFor(named, draft, live)).toEqual(withoutHidden(withoutKey(draft)));
+    expect(classLessonFor(visitor, draft, live)).toBeNull();
+    expect(classLessonFor(named, null, live)).toBeNull();
+  });
+});
+
+describe('hidden parts a caller receives', () => {
+  const F = HIDDEN_FENCE;
+  const parts: ContentSlide = { ...intro, id: 'p1', body: ['a', F, 'first', F, 'b', F, 'second', F].join('\n'), hidden: 'the end' };
+  const deck: Lesson = { ...lesson, slides: [parts] };
+  const textOf = (read: Lesson | null) => JSON.stringify(read?.slides[0]);
+  const opening = (positions: number[]): Session => ({ ...live, hiddenOpen: { p1: positions } });
+
+  it('gives the admin every part, whatever is opened', () => {
+    expect(lessonFor(true, deck)).toBe(deck);
+    expect(classLessonFor(admin, deck, opening([]))).toBe(deck);
+  });
+
+  it('gives a visitor no part at all', () => {
+    const read = lessonFor(false, deck);
+    expect(textOf(read)).not.toContain('first');
+    expect(textOf(read)).not.toContain('second');
+    expect(textOf(read)).not.toContain('the end');
+    expect(read?.slides[0]).toMatchObject({ body: 'a\nb', hidden: '' });
+  });
+
+  it('gives a let-in seat only the parts opened in her class, the end-of-slide one being the last', () => {
+    expect(classLessonFor(named, deck, live)?.slides[0]).toMatchObject({ body: 'a\nb', hidden: '' });
+    expect(classLessonFor(named, deck, opening([1]))?.slides[0]).toMatchObject({ body: ['a', 'b', F, 'second', F].join('\n'), hidden: '' });
+    expect(classLessonFor(named, deck, opening([0, 2]))?.slides[0]).toMatchObject({ body: ['a', F, 'first', F, 'b'].join('\n'), hidden: 'the end' });
+  });
+
+  it('reads what a session opened for another slide as nothing', () => {
+    expect(textOf(classLessonFor(named, deck, { ...live, hiddenOpen: { other: [0, 1, 2] } }))).not.toContain('first');
+    expect(textOf(classLessonFor(named, deck, null))).not.toContain('first');
+  });
+
+  it('keeps what is opened and closed again in order, once, and drops a slide with none', () => {
+    const opened = withPartOpened(withPartOpened(withPartOpened(live, 'p1', 2, true), 'p1', 0, true), 'p1', 2, true);
+    expect(openedParts(opened, 'p1')).toEqual([0, 2]);
+    expect(openedParts(opened, 'p2')).toEqual([]);
+    expect(withPartOpened(opened, 'p1', 1, false)).toEqual(opened);
+    expect(openedParts(withPartOpened(opened, 'p1', 0, false), 'p1')).toEqual([2]);
+    expect(withPartOpened(withPartOpened(live, 'p1', 0, true), 'p1', 0, false).hiddenOpen).toEqual({});
   });
 });
 

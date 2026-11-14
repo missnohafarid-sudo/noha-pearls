@@ -1,16 +1,16 @@
-import { useEffect, useState, type ComponentType } from 'react';
-import { MAX_TEXT_ANSWER_LENGTH } from '../../domain/answering';
+import type { ComponentType } from 'react';
 import { MAX_CHOICES, MIN_CHOICES, removeOption } from '../../domain/choices';
-import type { AnswerKey, ChoiceSlide, ContentSlide, Slide, SlideKind, TextSlide } from '../../domain/models';
+import type { AnswerKey, ContentSlide, Slide, SlideKind } from '../../domain/models';
 import { choiceLetter, t } from '../../i18n';
 import { MAX_POINTS, MIN_POINTS } from '../../domain/slideKinds';
-import { optionMark, verdictOf } from '../../domain/scoring';
 import { MAX_PICTURES, MEDIA_CHOICES } from '../../domain/media';
 import type { FieldSpec, SelectOption } from '../forms/SchemaForm';
 import { BodyText } from './BodyText';
+import { ChoiceBody } from './ChoiceBody';
 import { HiddenSection } from './HiddenSection';
 import { MediaBody } from './MediaBody';
 import { Pictures } from './Pictures';
+import { TextBody } from './TextBody';
 
 /**
  * The UI half of the slide-kind registry: for each kind, its editing fields and
@@ -58,91 +58,6 @@ function ContentBody({ slide }: SlideBodyProps<ContentSlide>) {
       <BodyText text={slide.body} />
       <Pictures links={slide.images} />
       <HiddenSection text={slide.hidden} />
-    </div>
-  );
-}
-
-function ChoiceBody({ slide, interaction }: SlideBodyProps<ChoiceSlide>) {
-  const { onAnswer, reveal, tally, answer } = interaction;
-  const most = Math.max(1, ...(tally ?? []));
-  const verdict = reveal && answer !== null ? verdictOf(reveal, answer) : 'recorded';
-  return (
-    <div className="slide-question">
-      <p className="slide-question__prompt">{slide.prompt}</p>
-      <div className="slide-options">
-        {slide.options.map((option, index) => (
-          <button
-            key={index}
-            type="button"
-            className={`slide-option slide-option--${optionMark(reveal, index, answer)}`}
-            disabled={!onAnswer}
-            onClick={() => onAnswer?.(index)}
-          >
-            <span className="slide-option__letter">{choiceLetter(index)}</span>
-            <span className="slide-option__text">{option}</span>
-            {tally && (
-              <span className="slide-option__tally">
-                <span className="bar">
-                  <span className="bar__fill" style={{ inlineSize: `${(tally[index] / most) * 100}%` }} />
-                </span>
-                <b>{tally[index]}</b>
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
-      {(verdict === 'correct' || verdict === 'wrong') && <p className={`slide-verdict slide-verdict--${verdict}`}>{t.slides.view[verdict]}</p>}
-      {reveal?.explanation && <p className="slide-explanation">{reveal.explanation}</p>}
-    </div>
-  );
-}
-
-function TextBody({ slide, interaction }: SlideBodyProps<TextSlide>) {
-  const { onAnswer, answer, groupAnswer, reveal } = interaction;
-  const covered = typeof groupAnswer === 'string' ? groupAnswer : '';
-  const sent = covered === '' && typeof answer === 'string' ? answer : '';
-  const [draft, setDraft] = useState(sent);
-
-  // A group shares one answer: when a teammate sends theirs, every device of the group shows it. Her group's answer behind her own box never replaces her draft.
-  useEffect(() => setDraft(sent), [sent]);
-
-  return (
-    <div className="slide-question">
-      <p className="slide-question__prompt">{slide.prompt}</p>
-      <Pictures links={slide.images} />
-      {covered !== '' && (
-        <div className="slide-answer slide-answer--group">
-          <span className="muted">{t.common.yourGroupAnswer}</span>
-          <p>{covered}</p>
-        </div>
-      )}
-      {onAnswer ? (
-        <form
-          className="stack"
-          onSubmit={(event) => {
-            event.preventDefault();
-            onAnswer(draft);
-          }}
-        >
-          <textarea
-            className="input"
-            rows={4}
-            maxLength={MAX_TEXT_ANSWER_LENGTH}
-            placeholder={slide.placeholder}
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-          />
-          <div className="row">
-            <button type="submit" className="btn btn--primary" disabled={draft.trim() === '' || draft === sent}>
-              {sent ? t.slides.view.update : t.slides.view.send}
-            </button>
-            {sent && <span className="muted">{t.slides.view.sent}</span>}
-          </div>
-        </form>
-      ) : (
-        sent && <p className="slide-answer">{sent}</p>
-      )}
-      {reveal && <p className="muted">{t.slides.view.locked}</p>}
     </div>
   );
 }

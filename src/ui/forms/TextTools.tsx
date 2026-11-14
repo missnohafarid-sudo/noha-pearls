@@ -25,6 +25,7 @@ function insertSymbol(control: Control, symbol: string): void {
 
 function hideSelected(control: Control): void {
   const edit = hideSelection(control.value, control.selectionStart ?? 0, control.selectionEnd ?? 0);
+  if (!edit) return;
   control.focus();
   control.setRangeText(edit.insert, edit.from, edit.to, 'preserve');
   announce(control);

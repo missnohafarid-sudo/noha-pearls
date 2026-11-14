@@ -66,25 +66,79 @@ export interface TextEdit {
 
 const FENCE_LINE = `${HIDDEN_FENCE}\n`;
 
+interface Row {
+  start: number;
+  end: number;
+  fence: boolean;
+}
+
+/** A hidden part as the rows from its opening fence to its closing fence, or to the last row when it is never closed. */
+interface Span {
+  first: number;
+  last: number;
+}
+
+function rowsOf(text: string): Row[] {
+  const rows: Row[] = [];
+  let start = 0;
+  for (;;) {
+    const found = text.indexOf('\n', start);
+    const end = found === -1 ? text.length : found;
+    rows.push({ start, end, fence: isFence(text.slice(start, end)) });
+    if (found === -1) return rows;
+    start = found + 1;
+  }
+}
+
+function hiddenSpans(rows: readonly Row[]): Span[] {
+  const spans: Span[] = [];
+  let open: number | null = null;
+  rows.forEach((row, index) => {
+    if (!row.fence) return;
+    if (open === null) open = index;
+    else {
+      spans.push({ first: open, last: index });
+      open = null;
+    }
+  });
+  if (open !== null) spans.push({ first: open, last: rows.length - 1 });
+  return spans;
+}
+
+const rowAt = (rows: readonly Row[], point: number): number => rows.filter((row) => row.start <= point).length - 1;
+
 /**
  * The edit that hides the lines a selection touches between two fence lines, which always stand alone on their lines.
+ * The selection grows to whole lines and over every hidden part it touches, so text that was hidden stays hidden;
+ * the fence lines inside are dropped and the whole range is wrapped once.
  * With nothing selected it opens an empty hidden block after the caret's line and puts the caret on its empty line.
+ * `null` when there is nothing to do: the caret or the whole selection is already inside one hidden part.
  */
-export function hideSelection(text: string, start: number, end: number): TextEdit {
+export function hideSelection(text: string, start: number, end: number): TextEdit | null {
   const first = Math.max(0, Math.min(start, end, text.length));
   const last = Math.max(0, Math.min(Math.max(start, end), text.length));
-  const lineStart = first === 0 ? 0 : text.lastIndexOf('\n', first - 1) + 1;
+  const rows = rowsOf(text);
+  const spans = hiddenSpans(rows);
   const reachedPoint = last > first && text[last - 1] === '\n' ? last - 1 : last;
-  const found = text.indexOf('\n', reachedPoint);
-  const lineEnd = found === -1 ? text.length : found;
-  if (last > first) {
-    const lines = text.slice(lineStart, lineEnd);
-    const selectFrom = lineStart + FENCE_LINE.length;
-    return { from: lineStart, to: lineEnd, insert: `${FENCE_LINE}${lines}\n${HIDDEN_FENCE}`, selectFrom, selectTo: selectFrom + lines.length };
+  let top = rowAt(rows, first);
+  let bottom = rowAt(rows, reachedPoint);
+  if (spans.some((span) => span.first <= top && span.last >= bottom)) return null;
+  if (last === first) {
+    const onBlankLine = rows[top].start === rows[top].end;
+    const lead = onBlankLine ? '' : '\n';
+    const at = onBlankLine ? rows[top].start : rows[top].end;
+    const caret = at + lead.length + FENCE_LINE.length;
+    return { from: at, to: at, insert: `${lead}${FENCE_LINE}\n${HIDDEN_FENCE}`, selectFrom: caret, selectTo: caret };
   }
-  const onBlankLine = lineStart === lineEnd;
-  const lead = onBlankLine ? '' : '\n';
-  const at = onBlankLine ? lineStart : lineEnd;
-  const caret = at + lead.length + FENCE_LINE.length;
-  return { from: at, to: at, insert: `${lead}${FENCE_LINE}\n${HIDDEN_FENCE}`, selectFrom: caret, selectTo: caret };
+  const [touchedTop, touchedBottom] = [top, bottom];
+  for (const span of spans) {
+    if (span.first > touchedBottom || span.last < touchedTop) continue;
+    top = Math.min(top, span.first);
+    bottom = Math.max(bottom, span.last);
+  }
+  const kept = rows.slice(top, bottom + 1).filter((row) => !row.fence);
+  if (kept.length === 0) return null;
+  const lines = kept.map((row) => text.slice(row.start, row.end)).join('\n');
+  const selectFrom = rows[top].start + FENCE_LINE.length;
+  return { from: rows[top].start, to: rows[bottom].end, insert: `${FENCE_LINE}${lines}\n${HIDDEN_FENCE}`, selectFrom, selectTo: selectFrom + lines.length };
 }

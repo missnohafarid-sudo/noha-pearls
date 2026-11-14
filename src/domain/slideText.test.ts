@@ -163,6 +163,7 @@ describe('slideTextBlocks: nothing is lost or duplicated', () => {
 describe('hideSelection', () => {
   const apply = (text: string, start: number, end: number) => {
     const edit = hideSelection(text, start, end);
+    if (!edit) throw new Error('no edit');
     const result = text.slice(0, edit.from) + edit.insert + text.slice(edit.to);
     return { edit, result, selected: result.slice(edit.selectFrom, edit.selectTo) };
   };
@@ -250,5 +251,72 @@ describe('hideSelection', () => {
 
   it('clamps a selection past the end of the text', () => {
     expect(apply('a', 5, 9).result).toBe(`a\n${F}\n\n${F}`);
+  });
+});
+
+describe('hideSelection around text that is already hidden', () => {
+  const hiddenRows = (text: string) => slideTextBlocks(text).flatMap((block) => (block.kind === 'hidden' ? flatten(block.blocks) : []));
+  const run = (text: string, start: number, end: number) => {
+    const edit = hideSelection(text, start, end);
+    return edit && text.slice(0, edit.from) + edit.insert + text.slice(edit.to);
+  };
+  const keepsHidden = (text: string, start: number, end: number) => {
+    const result = run(text, start, end);
+    expect(result).not.toBeNull();
+    for (const row of hiddenRows(text)) expect(hiddenRows(result ?? '')).toContain(row);
+    return result;
+  };
+
+  it('selecting all over an inner hidden part leaves one part and nothing visible that was hidden', () => {
+    const text = lines('x', F, 'y', F, 'z');
+    const result = keepsHidden(text, 0, text.length);
+    expect(result).toBe(lines(F, 'x', 'y', 'z', F));
+    expect(slideTextBlocks(result ?? '')).toEqual([hidden(line('x'), line('y'), line('z'))]);
+  });
+
+  it('a selection starting inside a part and ending in visible text takes the whole part', () => {
+    const text = lines('a', F, 'b', 'c', F, 'd');
+    expect(keepsHidden(text, text.indexOf('c'), text.indexOf('d') + 1)).toBe(lines('a', F, 'b', 'c', 'd', F));
+  });
+
+  it('a selection starting in visible text and ending inside a part takes the whole part', () => {
+    const text = lines('a', F, 'b', 'c', F, 'd');
+    expect(keepsHidden(text, 0, text.indexOf('b') + 1)).toBe(lines(F, 'a', 'b', 'c', F, 'd'));
+  });
+
+  it('a selection spanning two parts makes one part', () => {
+    const text = lines('a', F, 'b1', 'b2', F, 'c', F, 'd1', 'd2', F, 'e');
+    expect(keepsHidden(text, text.indexOf('b2'), text.indexOf('d1') + 1)).toBe(lines('a', F, 'b1', 'b2', 'c', 'd1', 'd2', F, 'e'));
+  });
+
+  it('a caret, or a whole selection, inside one part does nothing', () => {
+    const text = lines('a', F, 'b', 'c', F, 'd');
+    const at = text.indexOf('b');
+    expect(hideSelection(text, at, at)).toBeNull();
+    expect(hideSelection(text, at, text.indexOf('c') + 1)).toBeNull();
+    expect(hideSelection(text, text.indexOf(F), text.lastIndexOf(F) + 3)).toBeNull();
+  });
+
+  it('an unclosed part is widened to the end of the text and closed', () => {
+    const text = lines('a', 'b', F, 'c', 'd');
+    expect(keepsHidden(text, 0, text.indexOf('c') + 1)).toBe(lines(F, 'a', 'b', 'c', 'd', F));
+    expect(hideSelection(text, text.indexOf('d'), text.indexOf('d'))).toBeNull();
+  });
+
+  it('works on text with CRLF line breaks', () => {
+    const text = `x\r\n${F}\r\ny\r\n${F}\r\nz`;
+    const result = keepsHidden(text, 0, text.length);
+    expect(hiddenRows(result ?? '')).toEqual(['x', 'y', 'z']);
+  });
+
+  it('never makes a hidden line visible, whatever the selection', () => {
+    const text = lines('a', F, 'b', 'c', F, 'd', F, 'e', 'f');
+    for (let start = 0; start <= text.length; start += 1) {
+      for (let end = start; end <= text.length; end += 1) {
+        const result = run(text, start, end);
+        if (result === null) continue;
+        for (const row of ['b', 'c', 'e', 'f']) expect(hiddenRows(result)).toContain(row);
+      }
+    }
   });
 });

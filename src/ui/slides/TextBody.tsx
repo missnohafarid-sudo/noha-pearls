@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { MAX_TEXT_ANSWER_LENGTH } from '../../domain/answering';
 import type { TextSlide } from '../../domain/models';
 import { t } from '../../i18n';
+import { DirectedText } from './DirectedText';
 import { Pictures } from './Pictures';
 import type { SlideBodyProps } from './slideUi';
 
@@ -17,12 +18,12 @@ export function TextBody({ slide, interaction }: SlideBodyProps<TextSlide>) {
 
   return (
     <div className="slide-question">
-      <p className="slide-question__prompt">{slide.prompt}</p>
+      <p className="slide-question__prompt"><DirectedText text={slide.prompt} /></p>
       <Pictures links={slide.images} />
       {covered !== '' && (
         <div className="slide-answer slide-answer--group">
           <span className="muted">{t.common.yourGroupAnswer}</span>
-          <p>{covered}</p>
+          <p><DirectedText text={covered} /></p>
         </div>
       )}
       {onAnswer ? (
@@ -49,7 +50,7 @@ export function TextBody({ slide, interaction }: SlideBodyProps<TextSlide>) {
           </div>
         </form>
       ) : (
-        sent && <p className="slide-answer">{sent}</p>
+        sent && <p className="slide-answer"><DirectedText text={sent} /></p>
       )}
       {reveal && <p className="muted">{t.slides.view.locked}</p>}
     </div>

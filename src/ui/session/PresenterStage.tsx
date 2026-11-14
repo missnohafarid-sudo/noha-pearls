@@ -4,6 +4,7 @@ import type { Answer, Participant, Session, SessionRoster, Slide } from '../../d
 import { subjectName } from '../../domain/roster';
 import { t } from '../../i18n';
 import { useAdmin } from '../hooks/data';
+import { DirectedText } from '../slides/DirectedText';
 import { SlideView } from '../slides/SlideView';
 import { PEARL_PANEL_ID } from './pearlPanel/panelId';
 
@@ -48,7 +49,7 @@ export function PresenterStage({ session, slide, answers, roster, participants, 
           {given.map((answer) => (
             <li key={answer.id} className="card wall__item">
               <strong>{subjectName(answer.subject, roster.students, roster.groups)}</strong>
-              <span>{String(answer.value)}</span>
+              <span><DirectedText text={String(answer.value)} /></span>
             </li>
           ))}
         </ul>

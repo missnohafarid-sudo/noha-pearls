@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { answersForWholeGroup, canAnswer, isQuestion } from '../../domain/answering';
+import { answersForWholeGroup, canAnswer, isPerStudentChoice, isQuestion } from '../../domain/answering';
 import type { Group, Participant, Session } from '../../domain/models';
 import { messageFor, resolveStudentView } from '../../domain/pacing';
 import { resultsReport } from '../../domain/resultRows';
@@ -15,6 +15,7 @@ import { SlideView } from '../slides/SlideView';
 import { OwnStandings } from '../standings/OwnStandings';
 import { DeviceHeader } from './DeviceHeader';
 import { LeaveLink } from './LeaveLink';
+import { MemberAnswers } from './MemberAnswers';
 import { PeerHearts } from './PeerHearts';
 import { StatusMessage } from './StatusMessage';
 
@@ -88,6 +89,10 @@ export function DeviceScreen({ session, group, participant, roster, onChooseName
   const question = slide && isQuestion(slide) ? slide : null;
   const shown = question ? (mine.answers[question.id] ?? null) : null;
   const open = question !== null && canAnswer(session, question);
+  const perMember = question !== null && isPerStudentChoice(question) && answersForWholeGroup(question, participant) && mine.members.length > 0;
+  const answerForGroup = (value: number | string) => {
+    if (slide) void answerService.submitFromDevice(session.id, slide.id, value);
+  };
 
   return (
     <div className="stack">
@@ -102,15 +107,29 @@ export function DeviceScreen({ session, group, participant, roster, onChooseName
       )}
       {slide && (
         <>
-          {open && answersForWholeGroup(question, participant) && <p className="notice">{t.join.answersForWholeGroup}</p>}
+          {open && answersForWholeGroup(question, participant) && <p className="notice">{perMember ? t.join.answersPerStudentOnGroupDevice : t.join.answersForWholeGroup}</p>}
           {shown?.coveredByGroup && <p className="notice">{open ? t.join.groupAnswered : t.join.groupAnswerKept}</p>}
-          <SlideView
-            slide={slide}
-            answer={shown?.answer.value ?? null}
-            groupAnswer={shown?.coveredByGroup ? shown.answer.value : null}
-            reveal={session.reveals[slide.id] ?? null}
-            onAnswer={open ? (value) => void answerService.submitFromDevice(session.id, slide.id, value) : null}
-          />
+          {perMember ? (
+            <MemberAnswers
+              key={slide.id}
+              questionId={slide.id}
+              color={group.color}
+              members={mine.members}
+              open={open}
+              onGive={(studentId, option) => void answerService.submitForMember(session.id, slide.id, studentId, option)}
+              onGroupAnswer={answerForGroup}
+            >
+              {({ underOption, onAnswer }) => <SlideView slide={slide} answer={shown?.answer.value ?? null} reveal={session.reveals[slide.id] ?? null} onAnswer={onAnswer} underOption={underOption} />}
+            </MemberAnswers>
+          ) : (
+            <SlideView
+              slide={slide}
+              answer={shown?.answer.value ?? null}
+              groupAnswer={shown?.coveredByGroup ? shown.answer.value : null}
+              reveal={session.reveals[slide.id] ?? null}
+              onAnswer={open ? answerForGroup : null}
+            />
+          )}
         </>
       )}
       {view.state === 'slide' && (

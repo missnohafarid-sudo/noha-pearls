@@ -1,4 +1,4 @@
-import type { ComponentType } from 'react';
+import type { ComponentType, ReactNode } from 'react';
 import { MAX_CHOICES, MIN_CHOICES, removeOption } from '../../domain/choices';
 import type { AnswerKey, ContentSlide, Slide, SlideKind } from '../../domain/models';
 import { choiceLetter, t } from '../../i18n';
@@ -30,6 +30,8 @@ export interface SlideInteraction {
   reveal: AnswerKey | null;
   /** Answers per option, for the presenter's live bars. */
   tally: number[] | null;
+  /** What a choice question draws under an option's button (a shared device's names for that option), and makes the option a drop target. */
+  underOption: ((index: number) => ReactNode) | null;
 }
 
 export interface SlideBodyProps<S extends Slide> {

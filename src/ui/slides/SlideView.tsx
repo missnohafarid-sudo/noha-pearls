@@ -20,12 +20,14 @@ interface SlideViewProps {
   reveal?: AnswerKey | null;
   /** Answers per option, for the presenter. */
   tally?: number[] | null;
+  /** Names drawn under each option of a choice question; `null` everywhere but a shared device's individual question. */
+  underOption?: ((index: number) => ReactNode) | null;
   /** Extra content under the slide body, e.g. the presenter's wall of text answers. */
   children?: ReactNode;
 }
 
 /** Draws any slide, for any audience. The same component serves the lesson page, the presenter and student devices. */
-export function SlideView({ slide, answer = null, groupAnswer = null, onAnswer = null, reveal = null, tally = null, children }: SlideViewProps) {
+export function SlideView({ slide, answer = null, groupAnswer = null, onAnswer = null, reveal = null, tally = null, underOption = null, children }: SlideViewProps) {
   const { Body } = slideUi(slide.kind);
   const repaired = normalizeSlide(slide);
   return (
@@ -40,7 +42,7 @@ export function SlideView({ slide, answer = null, groupAnswer = null, onAnswer =
         <h2 className="slide__title">{slide.title ? <DirectedText text={slide.title} /> : t.slides.view.emptySlide}</h2>
       </header>
       {/* Keyed by slide: nothing typed on one slide may leak into the next. */}
-      <Body key={slide.id} slide={repaired} interaction={{ answer, groupAnswer, onAnswer, reveal, tally }} />
+      <Body key={slide.id} slide={repaired} interaction={{ answer, groupAnswer, onAnswer, reveal, tally, underOption }} />
       {children}
     </article>
   );

@@ -6,7 +6,7 @@ import type { SlideBodyProps } from './slideUi';
 
 /** A choice question: its prompt and options, for whoever looks at it (answering, read-only, or with the presenter's tallies). */
 export function ChoiceBody({ slide, interaction }: SlideBodyProps<ChoiceSlide>) {
-  const { onAnswer, reveal, tally, answer } = interaction;
+  const { onAnswer, reveal, tally, answer, underOption } = interaction;
   const most = Math.max(1, ...(tally ?? []));
   const verdict = reveal && answer !== null ? verdictOf(reveal, answer) : 'recorded';
   return (
@@ -14,8 +14,8 @@ export function ChoiceBody({ slide, interaction }: SlideBodyProps<ChoiceSlide>) 
       <p className="slide-question__prompt"><DirectedText text={slide.prompt} /></p>
       <div className="slide-options">
         {slide.options.map((option, index) => (
+          <div key={index} className="slide-option-slot" data-option={index}>
           <button
-            key={index}
             type="button"
             className={`slide-option slide-option--${optionMark(reveal, index, answer)}`}
             disabled={!onAnswer}
@@ -32,6 +32,8 @@ export function ChoiceBody({ slide, interaction }: SlideBodyProps<ChoiceSlide>) 
               </span>
             )}
           </button>
+          {underOption?.(index)}
+          </div>
         ))}
       </div>
       {(verdict === 'correct' || verdict === 'wrong') && <p className={`slide-verdict slide-verdict--${verdict}`}>{t.slides.view[verdict]}</p>}

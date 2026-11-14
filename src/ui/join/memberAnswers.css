@@ -1,0 +1,86 @@
+/* A shared device's names: the row above the options, the grids under them, and the copy that follows the pointer. */
+.member-answers {
+  display: grid;
+  gap: 12px;
+}
+
+.member-row,
+.member-pick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.member-row {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 1;
+  padding-block: 8px;
+  background: var(--veil);
+}
+
+.member-pick {
+  padding-block-start: 8px;
+  padding-inline-start: 18px;
+}
+
+.name-chip {
+  min-block-size: 40px;
+  padding-inline: 16px;
+  border: 1.5px solid color-mix(in srgb, var(--tone) 70%, var(--surface));
+  background: color-mix(in srgb, var(--tone) 28%, var(--surface));
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.95rem;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.name-chip:disabled {
+  cursor: default;
+  color: var(--ink);
+}
+
+.name-chip[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: var(--shadow-button);
+}
+
+.name-chip--group {
+  border-style: dashed;
+  background: var(--surface);
+}
+
+.name-chip--lifted {
+  opacity: 0.4;
+}
+
+.name-chip--away {
+  gap: 8px;
+  border-style: dotted;
+  background: var(--surface-2);
+  color: var(--muted);
+  cursor: default;
+}
+
+.name-chip--ghost {
+  position: fixed;
+  inset-block-start: var(--drag-y, 0);
+  inset-inline-start: var(--drag-x, 0);
+  z-index: 1100;
+  pointer-events: none;
+  box-shadow: var(--shadow-lift);
+}
+
+.slide-option-slot--over > .slide-option {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: var(--glow);
+}

@@ -118,6 +118,11 @@
   gap: 10px;
 }
 
+/* The option and whatever is drawn under it; a grid so the option keeps the full width a bare button would not take. */
+.slide-option-slot {
+  display: grid;
+}
+
 .slide-option {
   display: grid;
   grid-template-columns: auto 1fr;

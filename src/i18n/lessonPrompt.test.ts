@@ -96,7 +96,8 @@ describe('lesson prompt', () => {
 
   it('teaches the table rows, the fraction and the picture option the site draws', () => {
     expect(prompt).toContain('|---|---|');
-    expect(prompt).toContain('فاكتبها جدولاً صغيراً بدل النقاط');
+    expect(prompt).toContain('الجدول الموجود في العرض التقديمي يبقى جدولاً دائماً');
+    expect(prompt).toContain('فلك أن تكتبه جدولاً صغيراً');
     expect(prompt).toContain('{البسط/المقام}');
     expect(prompt).toContain('فيظهر الخيار صورة');
   });

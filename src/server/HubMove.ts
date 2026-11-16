@@ -7,15 +7,17 @@ import type { PlatformKv } from './platformKv';
 export interface FormerHub {
   giveData(): Promise<Snapshot>;
   retire(): Promise<void>;
+  clear(): Promise<void>;
 }
 
 /**
  * Kept in the platform's key-value store, which the hub's own tables never hold: this hub gave all its data to the hub that replaced
- * it; this hub holds the former hub's data; the former hub has been told to answer nothing for good.
+ * it; this hub holds the former hub's data; the former hub has been told to answer nothing for good; and to keep nothing.
  */
 const HANDED_OVER = 'handed-over';
 const MOVED_IN = 'moved-in';
 const FORMER_RETIRED = 'former-retired';
+const FORMER_CLEARED = 'former-cleared';
 
 /**
  * The one-time move of the school's data from the former hub to the hub named `HUB_NAME`, both sides of it. The former hub gives
@@ -38,8 +40,9 @@ export class HubMove {
 
   /**
    * On every start, before any part reads this hub's storage: the first start of the hub named `HUB_NAME` takes all the former
-   * hub's data, then retires the former hub. A failed retire stops the start, and the data it stored stays: the next start
-   * retires the former hub without copying again. Only a hub that has not moved needs its name
+   * hub's data, then retires the former hub, then has it delete all it keeps. A failed retire stops the start, and the data it
+   * stored stays: the next start retires the former hub without copying again. A failed delete only waits for the next start:
+   * the school's data is safe here either way. Only a hub that has not moved needs its name
    * to know which it is; one reached without it does not start rather than open an empty school.
    */
   async moveIn(name: string | undefined, formerHub: () => FormerHub): Promise<void> {
@@ -53,9 +56,17 @@ export class HubMove {
         this.kv.put(MOVED_IN, true);
       });
     }
-    if (this.kv.get<boolean>(FORMER_RETIRED) === true) return;
-    await formerHub().retire();
-    this.kv.put(FORMER_RETIRED, true);
+    if (this.kv.get<boolean>(FORMER_RETIRED) !== true) {
+      await formerHub().retire();
+      this.kv.put(FORMER_RETIRED, true);
+    }
+    if (this.kv.get<boolean>(FORMER_CLEARED) === true) return;
+    await formerHub()
+      .clear()
+      .then(
+        () => this.kv.put(FORMER_CLEARED, true),
+        (error: unknown) => console.error(error),
+      );
   }
 
   /** The former hub's first half: it answers nothing until it is built again, and returns all its data. */
@@ -67,5 +78,10 @@ export class HubMove {
   /** The former hub's second half, once the new hub has stored the data: it answers nothing for good. */
   retire(): void {
     this.kv.put(HANDED_OVER, true);
+  }
+
+  /** Whether the former hub may delete all it keeps: only once it has handed over for good, so the one copy of the school is never lost. */
+  mayClear(): boolean {
+    return this.kv.get<boolean>(HANDED_OVER) === true;
   }
 }

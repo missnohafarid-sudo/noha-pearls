@@ -69,6 +69,13 @@ export class SchoolHub extends DurableObject<Env> {
     await this.ctx.storage.deleteAlarm();
   }
 
+  /** Asked last, by the hub that holds the school now: this hub deletes everything it keeps. A hub that has not handed over refuses. */
+  async clear(): Promise<void> {
+    if (!this.move.mayClear()) throw new Error('A hub that has not handed its data over keeps it');
+    await this.ctx.storage.deleteAlarm();
+    await this.ctx.storage.deleteAll();
+  }
+
   webSocketMessage(socket: WebSocket, message: string | ArrayBuffer): Promise<void> | void {
     if (this.move.handedOver()) return closeMoved(socket);
     const connection = this.connections.get(socket);

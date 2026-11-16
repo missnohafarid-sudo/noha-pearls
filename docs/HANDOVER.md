@@ -76,7 +76,8 @@ The move goes out in three releases, each deployed and checked before the next:
 
 1. A hub marked as handed over refuses every request, closes its sockets and wakes for no alarm. This release only taught the hubs that; nothing marked one yet. Live since 2026-11-16.
 2. The Worker sends everything to the new hub. On its first start, the new hub asks the old one for all its tables (the old one stops answering, in memory only), stores them together with its own "moved in" mark, and then marks the old one as handed over for good. Until that last step succeeds the new hub does not start, so requests fail and are tried again; the copied data stays and is not copied twice. The whole copy goes in one call between hubs, which Cloudflare limits to 32 MiB: check the hub's stored size in the dashboard first. A rollback to release 1 after this gives an outage, never two copies that drift apart. Never roll back past release 1 once release 2 is live.
-3. After the data is confirmed on the live site: the old hub's data is deleted, then the move code is removed.
+3. After the data is confirmed on the live site, the new hub has the old one delete everything it keeps, its alarm too. Only a hub that has handed over for good may do that, so the one copy of the school is never lost; a delete that fails is tried again on the next start without stopping the site.
+4. Then the move code is removed.
 
 ### The old Pages site
 

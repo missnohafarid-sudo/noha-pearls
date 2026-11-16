@@ -8,7 +8,6 @@ import { LOCAL_ADMIN_SECRETS } from '../vite.config';
 import { Device, LiveSocket, rightCode, rightPassword, wrongCode } from './hubClient';
 import { build, BUILT_WRANGLER_CONFIG, start, STARTUP_MS, stopEverything, type Server } from './serverProcess';
 import { MAX_POST_BODY_BYTES } from '../src/ports/limits';
-import { STATUS_HUB_MOVED } from '../src/ports/wire';
 import { FORMER_HUB_PATH, INSTANCE_PATH } from '../src/server/testing/probePaths';
 import { SAMPLE } from './sample';
 
@@ -505,7 +504,7 @@ describe('the local server', () => {
       rmSync(probeState, { recursive: true, force: true });
     });
 
-    it('takes all the former hub’s data on its first start: a teacher added there, the teacher’s sign-in and the device; the former hub then answers nothing, also once built again', async () => {
+    it('takes all the former hub’s data on its first start: a teacher added there, the teacher’s sign-in and the device; the former hub then keeps none of it', async () => {
       let target = `${probed.origin}${FORMER_HUB_PATH}`;
       const seat = new Device(() => target, '10.6.6.6');
       await seat.hello();
@@ -526,7 +525,17 @@ describe('the local server', () => {
       await probed.stop();
       probed = await start(probeState, { withSecrets: true, config: PROBE_CONFIG });
       target = `${probed.origin}${FORMER_HUB_PATH}`;
-      expect((await seat.post('/api/hello')).status, 'the former hub answered again once built again, so its retirement was not kept').toBe(STATUS_HUB_MOVED);
+      await seat.hello();
+      const left = await seat.open();
+      const leftNames = (await left.firstValue<Teacher[]>('teachers', 'watchTeachers')).map((entry) => entry.name);
+      expect(leftNames, 'the former hub still keeps the school').not.toContain('Before the move');
+      left.close();
+
+      target = probed.origin;
+      await seat.hello();
+      const kept = await seat.open();
+      expect((await kept.firstValue<Teacher[]>('teachers', 'watchTeachers')).map((entry) => entry.name)).toContain('Before the move');
+      kept.close();
     }, STARTUP_MS * 2);
   });
 

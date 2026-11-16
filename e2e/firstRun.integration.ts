@@ -152,6 +152,13 @@ describe('a first-time teacher on an empty school', () => {
     await teacher.until('the tip naming the hub’s place', () =>
       teacher.page.evaluate((name) => (document.querySelector('[role="tooltip"]')?.textContent ?? '').includes(name), t.home.hubPlaceName),
     );
+    const tip = await teacher.page.evaluate(() => {
+      const bubble = document.querySelector('[role="tooltip"]')?.getBoundingClientRect();
+      const dot = document.querySelector('.data-note__dot')?.getBoundingClientRect();
+      if (!bubble || !dot) return null;
+      return { onScreen: bubble.left >= 0 && bubble.top >= 0 && bubble.right <= window.innerWidth && bubble.bottom <= window.innerHeight, aboveTheDot: bubble.bottom <= dot.top, reachesRight: bubble.right > dot.right };
+    });
+    expect(tip, 'the tip is not wholly on screen, above the dot and reaching to its right').toEqual({ onScreen: true, aboveTheDot: true, reachesRight: true });
     await expectNoFailure();
   });
 

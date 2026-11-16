@@ -1,4 +1,4 @@
-/** There is exactly one hub; every request is addressed to it by this name. */
+/** Every request is addressed to the hub by this name; the former hub only gives its data to it once (`HubMove`). */
 export const HUB_NAME = 'school-middle-east';
 
 /**

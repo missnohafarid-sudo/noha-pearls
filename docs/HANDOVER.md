@@ -68,6 +68,16 @@ All data is in the hub's own storage inside the Cloudflare account (a Durable Ob
 
 The D1 database created earlier is unused. It can be deleted in the Cloudflare dashboard.
 
+### Where the hub runs
+
+A Durable Object stays where it was first made, and Cloudflare cannot move it. The first hub, named `school`, was made in the United States, by the deploy's smoke test from a GitHub runner. The data moves to a new hub, `school-middle-east`, made with the location hint `me` (`src/server/hubName.ts`). Cloudflare runs no Durable Objects in the Middle East itself, so it places a `me` hub in the nearest data centre that has them; Qatar cannot be chosen. The dot at the bottom left of the home page note says which data centre the hub runs in.
+
+The move goes out in three releases, each deployed and checked before the next:
+
+1. A hub marked as handed over refuses every request, closes its sockets and wakes for no alarm. Nothing marks one yet.
+2. The Worker sends everything to the new hub. On its first start, the new hub asks the old one for all its tables (the old one stops answering, in memory only), stores them together with its own "moved in" mark, and then marks the old one as handed over for good. A rollback to release 1 after this gives an outage, never two copies that drift apart. Never roll back past release 1 once release 2 is live.
+3. After the data is confirmed on the live site: the old hub's data is deleted, then the move code is removed.
+
 ### The old Pages site
 
 The old GitHub Pages site was a browser-only prototype whose files carried the password's hash and the authenticator key. Nothing in this repository deploys to Pages any more. Switch it off once:

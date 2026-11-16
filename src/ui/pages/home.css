@@ -89,11 +89,12 @@
 
 /*
  * The note at the foot of the home page: quiet, one centred line, and gone while the browser is full screen. The sentence keeps
- * to its own lane; the dot that says where the hub runs has the column at the end edge (bottom left), so the two never meet.
+ * to its own lane; the dot that says where the hub runs has the column at the end edge (bottom left), so the two never meet. A
+ * column of the same width at the start edge keeps the sentence centred, and both are there before the dot is, so nothing moves.
  */
 .data-note {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: 24px minmax(0, 1fr) 24px;
   gap: 12px;
   align-items: center;
   inline-size: 100%;
@@ -105,16 +106,21 @@
 }
 
 .data-note__lane {
+  grid-column: 2;
   overflow: hidden;
   container-type: inline-size;
   text-align: center;
+}
+
+.data-note > .tip {
+  grid-column: 3;
 }
 
 .data-note__dot {
   display: block;
   inline-size: 10px;
   block-size: 10px;
-  margin: 6px;
+  margin: 7px;
   border-radius: var(--radius-pill);
   background: var(--rose);
   box-shadow: 0 0 0 3px var(--line-soft);

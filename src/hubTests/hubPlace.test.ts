@@ -1,12 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { coloOf, TracedPlace } from '../server/TracedPlace';
+import { memoryKv } from './memoryKv';
 
 const TRACE = 'fl=1f\nh=www.cloudflare.com\nip=203.0.113.9\nts=1763300000.1\nvisit_scheme=https\ncolo=FRA\nhttp=http/1.1\nloc=DE\n';
-
-function memoryKv() {
-  const kept = new Map<string, unknown>();
-  return { get: <T>(key: string) => kept.get(key) as T | undefined, put: <T>(key: string, value: T) => void kept.set(key, value) };
-}
 
 describe('where the hub runs', () => {
   it('reads the data centre from a trace, and nothing from a page without one', () => {

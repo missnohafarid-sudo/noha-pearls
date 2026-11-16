@@ -4,11 +4,7 @@ import { takeSnapshot } from '../infrastructure/sql/snapshot';
 import { NodeSqlDatabase } from '../infrastructure/testKit/NodeSqlDatabase';
 import { HUB_NAME } from '../server/hubName';
 import { HubMove, type FormerHub } from '../server/HubMove';
-
-function memoryKv() {
-  const kept = new Map<string, unknown>();
-  return { get: <T>(key: string) => kept.get(key) as T | undefined, put: <T>(key: string, value: T) => void kept.set(key, value) };
-}
+import { memoryKv } from './memoryKv';
 
 function hub() {
   const db = new NodeSqlDatabase();

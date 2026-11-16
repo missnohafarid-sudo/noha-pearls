@@ -31,9 +31,9 @@ export const home = {
   lessonsTitle: 'الدروس',
   /** The note at the foot of the home page about who sees the students' data. */
   dataNote: 'بيانات الطالبات لا يتم الوصول لها إلا بعد الدخول والمصادقة وتظهر للمعلمات فقط',
-  /** The dot beside the note: its name, and its tip saying where the hub runs now. */
-  hubPlaceName: 'مكان الخادم',
-  hubPlace: (code: string) => `مكان الخادم الآن: ${HUB_PLACES[code] ?? `مركز البيانات ${code}`}`,
+  /** The dot beside the note: its name, and its tip saying where the site is hosted now. */
+  hubPlaceName: 'مكان استضافة الموقع',
+  hubPlace: (code: string) => `مكان استضافة الموقع: ${HUB_PLACES[code] ?? `مركز البيانات ${code}`}`,
   noLessons: 'لا توجد دروس بعد.',
   unpublished: 'غير منشور',
   questionCount: (n: number) => `${n} سؤال`,

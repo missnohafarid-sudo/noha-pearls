@@ -3,7 +3,7 @@ import { listed } from './common';
 /** "The teacher" in the singular, the dual and the plural. */
 const TEACHERS_LABEL = ['المعلّمة', 'المعلّمتان', 'المعلّمات'] as const;
 
-/** The places Cloudflare may run the hub in, by the code of the data centre; a code not here is shown as it is. */
+/** Names for Cloudflare data centres near the school and in the regions a hub could be placed in, by code; any other code is shown as it is. */
 const HUB_PLACES: Readonly<Record<string, string>> = {
   DOH: 'الدوحة، قطر', BAH: 'المنامة، البحرين', DXB: 'دبي، الإمارات', AUH: 'أبوظبي، الإمارات', KWI: 'الكويت', MCT: 'مسقط، عُمان',
   RUH: 'الرياض، السعودية', JED: 'جدة، السعودية', DMM: 'الدمام، السعودية', AMM: 'عمّان، الأردن', CAI: 'القاهرة، مصر', IST: 'إسطنبول، تركيا',

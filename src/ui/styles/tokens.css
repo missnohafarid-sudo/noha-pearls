@@ -77,6 +77,8 @@
   --line-soft: color-mix(in srgb, var(--line) 55%, transparent);
   --glass: color-mix(in srgb, var(--bg) 74%, transparent);
   --glass-panel: color-mix(in srgb, var(--surface) 70%, transparent);
+  /* What stays on screen over the page as it scrolls under it: the top bar. */
+  --glass-bar: color-mix(in srgb, var(--bg) 90%, transparent);
   /* A mask that fades all four edges of a picture into the page. */
   --feather: linear-gradient(90deg, transparent, var(--ink) 14%, var(--ink) 86%, transparent), linear-gradient(180deg, transparent, var(--ink) 18%, var(--ink) 82%, transparent);
   /* The same fade kept shallow, for a picture that carries the lettering: no letter may be dimmed. */

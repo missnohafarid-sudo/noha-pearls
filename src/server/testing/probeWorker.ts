@@ -1,7 +1,7 @@
 import { withApiHeaders } from '../apiHeaders';
 import { SchoolHub } from '../SchoolHub';
-import { HUB_NAME } from '../hubName';
-import { INSTANCE_PATH } from './instancePath';
+import { theHub } from '../hubName';
+import { INSTANCE_PATH } from './probePaths';
 
 /** Only the hibernation test runs this Worker (its configuration is e2e/probe/wrangler.jsonc); the deployed Worker never imports it. */
 
@@ -15,5 +15,5 @@ export class ProbedHub extends SchoolHub {
 }
 
 export default {
-  fetch: async (request: Request, env: Env): Promise<Response> => withApiHeaders(await env.HUB.getByName(HUB_NAME).fetch(request)),
+  fetch: async (request: Request, env: Env): Promise<Response> => withApiHeaders(await theHub(env.HUB).fetch(request)),
 } satisfies ExportedHandler<Env>;

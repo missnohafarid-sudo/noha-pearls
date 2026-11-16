@@ -8,7 +8,7 @@ import { LOCAL_ADMIN_SECRETS } from '../vite.config';
 import { Device, LiveSocket, rightCode, rightPassword, wrongCode } from './hubClient';
 import { build, BUILT_WRANGLER_CONFIG, start, STARTUP_MS, stopEverything, type Server } from './serverProcess';
 import { MAX_POST_BODY_BYTES } from '../src/ports/limits';
-import { INSTANCE_PATH } from '../src/server/testing/instancePath';
+import { INSTANCE_PATH } from '../src/server/testing/probePaths';
 import { SAMPLE } from './sample';
 
 /** The real local server, driven the way pages drive it: plain requests and one socket per page, each device with its own cookies. */

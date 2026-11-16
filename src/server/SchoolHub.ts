@@ -20,46 +20,30 @@ import { adminSecretsOf } from './identity';
 import { wantsSampleSchool } from './sampleSchool';
 import { SignInGuard } from './SignInGuard';
 
+/** The parts that read the hub's storage; they are built only once the storage is ready (`start`). */
+interface HubParts {
+  core: HubCore;
+  requests: HubRequests;
+  adminSessions: AdminSessionTable;
+  signIns: SignInGuard;
+}
+
 /**
  * The hub: the one place the school's data lives and every device connects to. This class only joins the platform to
  * the parts that carry the logic: `HubRequests` for each request, `Connection` for each socket, `HubCore` for the store.
  */
 export class SchoolHub extends DurableObject<Env> {
-  private readonly core: HubCore;
-  private readonly sessions: Promise<AdminSessions | null>;
-  private readonly requests: Promise<HubRequests>;
   private readonly connections = new ConnectionRegistry<WebSocket>();
-  private readonly adminSessions: AdminSessionTable;
-  private readonly signIns: SignInGuard;
+  private readonly parts: Promise<HubParts>;
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
-    const raw = new DurableObjectSql(ctx.storage);
-    migrate(raw);
-    const db = new MeteredSql(raw, Date.now);
-    const report = (error: unknown): void => console.error(error);
-    const locks = new SqlLocks(db);
-    const gate = new Gatekeeper(Date.now, this.connections);
-    this.core = new HubCore(new SqlDocumentStore(db, report), gate, new DayBreaker(db), Date.now, report);
-    const secrets = adminSecretsOf(env);
-    this.adminSessions = new AdminSessionTable(db);
-    this.signIns = new SignInGuard(locks, new SqlWindowMemory(db), Date.now);
-    this.sessions = Promise.resolve(secrets ? AdminSessions.from(secrets, this.adminSessions, Date.now) : null);
-    this.requests = Promise.all([this.sessions, DeviceTokens.from(db, Date.now)]).then(
-      ([sessions, devices]) =>
-        new HubRequests(new HubHttp(secrets, sessions, this.signIns, devices, this.core.now), sessions, devices, this.connections, gate, (device) => this.core.isSeated(device), (origin) => this.acceptSocket(origin)),
-    );
     ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair(PING, PONG));
-    ctx.blockConcurrencyWhile(async () => {
-      await this.core.seed(wantsSampleSchool(env));
-      const sessions = (await this.sessions) ?? NO_SESSIONS;
-      for (const socket of ctx.getWebSockets()) this.restore(socket, sessions);
-      if ((await ctx.storage.getAlarm()) === null) await ctx.storage.setAlarm(await this.core.nextCheckAt());
-    });
+    this.parts = ctx.blockConcurrencyWhile(() => this.start());
   }
 
   async fetch(request: Request): Promise<Response> {
-    return (await this.requests).handle(request);
+    return (await this.parts).requests.handle(request);
   }
 
   webSocketMessage(socket: WebSocket, message: string | ArrayBuffer): Promise<void> | void {
@@ -76,22 +60,41 @@ export class SchoolHub extends DurableObject<Env> {
   }
 
   async alarm(): Promise<void> {
+    const { core, requests, adminSessions, signIns } = await this.parts;
     this.connections.closeExpired();
-    this.adminSessions.prune(Date.now());
-    this.signIns.prune();
-    (await this.requests).prune();
-    await this.ctx.storage.setAlarm(await this.core.runAlarm());
+    adminSessions.prune(Date.now());
+    signIns.prune();
+    requests.prune();
+    await this.ctx.storage.setAlarm(await core.runAlarm());
   }
 
-  private acceptSocket(origin: ConnectionOrigin): Response {
+  private async start(): Promise<HubParts> {
+    const raw = new DurableObjectSql(this.ctx.storage);
+    migrate(raw);
+    const db = new MeteredSql(raw, Date.now);
+    const report = (error: unknown): void => console.error(error);
+    const gate = new Gatekeeper(Date.now, this.connections);
+    const core = new HubCore(new SqlDocumentStore(db, report), gate, new DayBreaker(db), Date.now, report);
+    const secrets = adminSecretsOf(this.env);
+    const adminSessions = new AdminSessionTable(db);
+    const signIns = new SignInGuard(new SqlLocks(db), new SqlWindowMemory(db), Date.now);
+    const [sessions, devices] = await Promise.all([secrets ? AdminSessions.from(secrets, adminSessions, Date.now) : null, DeviceTokens.from(db, Date.now)]);
+    const requests = new HubRequests(new HubHttp(secrets, sessions, signIns, devices, core.now), sessions, devices, this.connections, gate, (device) => core.isSeated(device), (origin) => this.acceptSocket(core, origin));
+    await core.seed(wantsSampleSchool(this.env));
+    for (const socket of this.ctx.getWebSockets()) this.restore(socket, core, sessions ?? NO_SESSIONS);
+    if ((await this.ctx.storage.getAlarm()) === null) await this.ctx.storage.setAlarm(await core.nextCheckAt());
+    return { core, requests, adminSessions, signIns };
+  }
+
+  private acceptSocket(core: HubCore, origin: ConnectionOrigin): Response {
     const { 0: client, 1: server } = new WebSocketPair();
     this.ctx.acceptWebSocket(server);
-    this.connections.add(server, Connection.open(server, this.core, origin));
+    this.connections.add(server, Connection.open(server, core, origin));
     return new Response(null, { status: 101, webSocket: client });
   }
 
-  private restore(socket: WebSocket, sessions: SessionRegister): void {
-    const connection = Connection.restore(socket, this.core, sessions);
+  private restore(socket: WebSocket, core: HubCore, sessions: SessionRegister): void {
+    const connection = Connection.restore(socket, core, sessions);
     if (connection) this.connections.add(socket, connection);
     else socket.close(CLOSE_POLICY, 'lost its identity');
   }

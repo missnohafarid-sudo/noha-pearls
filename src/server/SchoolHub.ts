@@ -5,7 +5,7 @@ import { SqlLocks } from '../infrastructure/sql/locks';
 import { migrate } from '../infrastructure/sql/schema';
 import { SqlWindowMemory } from '../infrastructure/sql/windowEvents';
 import { SqlDocumentStore } from '../infrastructure/SqlDocumentStore';
-import { CLOSE_POLICY, PING, PONG } from '../ports/wire';
+import { CLOSE_HUB_MOVED, CLOSE_POLICY, PING, PONG, STATUS_HUB_MOVED } from '../ports/wire';
 import { AdminSessions, NO_SESSIONS, type SessionRegister } from './AdminSessions';
 import { Connection, type ConnectionOrigin } from './Connection';
 import { ConnectionRegistry } from './ConnectionRegistry';
@@ -28,6 +28,9 @@ interface HubParts {
   signIns: SignInGuard;
 }
 
+/** Kept in the platform's key-value store, which the hub's own tables never hold: this hub gave all its data to the hub that replaced it. */
+const HANDED_OVER = 'handed-over';
+
 /**
  * The hub: the one place the school's data lives and every device connects to. This class only joins the platform to
  * the parts that carry the logic: `HubRequests` for each request, `Connection` for each socket, `HubCore` for the store.
@@ -43,10 +46,12 @@ export class SchoolHub extends DurableObject<Env> {
   }
 
   async fetch(request: Request): Promise<Response> {
-    return (await this.parts).requests.handle(request);
+    const { requests } = await this.parts;
+    return this.handedOver() ? new Response(null, { status: STATUS_HUB_MOVED }) : requests.handle(request);
   }
 
   webSocketMessage(socket: WebSocket, message: string | ArrayBuffer): Promise<void> | void {
+    if (this.handedOver()) return closeMoved(socket);
     const connection = this.connections.get(socket);
     return connection ? connection.receive(message) : socket.close(CLOSE_POLICY, 'unknown connection');
   }
@@ -61,6 +66,7 @@ export class SchoolHub extends DurableObject<Env> {
 
   async alarm(): Promise<void> {
     const { core, requests, adminSessions, signIns } = await this.parts;
+    if (this.handedOver()) return;
     this.connections.closeExpired();
     adminSessions.prune(Date.now());
     signIns.prune();
@@ -82,8 +88,13 @@ export class SchoolHub extends DurableObject<Env> {
     const requests = new HubRequests(new HubHttp(secrets, sessions, signIns, devices, core.now), sessions, devices, this.connections, gate, (device) => core.isSeated(device), (origin) => this.acceptSocket(core, origin));
     await core.seed(wantsSampleSchool(this.env));
     for (const socket of this.ctx.getWebSockets()) this.restore(socket, core, sessions ?? NO_SESSIONS);
-    if ((await this.ctx.storage.getAlarm()) === null) await this.ctx.storage.setAlarm(await core.nextCheckAt());
+    if (!this.handedOver() && (await this.ctx.storage.getAlarm()) === null) await this.ctx.storage.setAlarm(await core.nextCheckAt());
     return { core, requests, adminSessions, signIns };
+  }
+
+  /** A hub that has handed over answers nothing, keeps no socket and wakes for no alarm. */
+  private handedOver(): boolean {
+    return this.ctx.storage.kv.get<boolean>(HANDED_OVER) === true;
   }
 
   private acceptSocket(core: HubCore, origin: ConnectionOrigin): Response {
@@ -94,8 +105,11 @@ export class SchoolHub extends DurableObject<Env> {
   }
 
   private restore(socket: WebSocket, core: HubCore, sessions: SessionRegister): void {
+    if (this.handedOver()) return closeMoved(socket);
     const connection = Connection.restore(socket, core, sessions);
     if (connection) this.connections.add(socket, connection);
     else socket.close(CLOSE_POLICY, 'lost its identity');
   }
 }
+
+const closeMoved = (socket: WebSocket): void => socket.close(CLOSE_HUB_MOVED, 'the hub moved');

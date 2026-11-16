@@ -12,6 +12,7 @@ import { effectsOf, SURFACE_EFFECTS } from './surfaceEffects';
 /** Every method of the surface is public by design, listed here with the reason, or admin only, listed here with harmless arguments. */
 const PUBLIC_BY_DESIGN: Record<string, string> = {
   'content.watchSite': 'the school name and welcome text are the home page',
+  'hubPlace.code': 'the data centre the hub runs in says nothing about the school or anyone in it',
   'teachers.watchTeachers': 'the home page names the teachers',
   'folders.watchFolders': 'folders are cut to those holding a published lesson',
   'lessons.watchLessons': 'summaries of published lessons only',
@@ -158,7 +159,7 @@ describe('what each method of the surface does', () => {
 
   it('calls only the live reads and the questions that read reads, and the essential writes are answering, joining and leaving', () => {
     const reads = Object.entries(SURFACE_EFFECTS.read).flatMap(([service, names]) => names.map((name) => `${service}.${name}`));
-    expect(reads.filter((method) => !method.split('.')[1].startsWith('watch'))).toEqual(['roster.exportToText', 'lessons.exportToText', 'records.currentPeriod', 'records.standingsOf', 'records.groupStandingsOf', 'records.ownStandingIn', 'retention.rangeLimits', 'retention.classesToRemove']);
+    expect(reads.filter((method) => !method.split('.')[1].startsWith('watch'))).toEqual(['roster.exportToText', 'lessons.exportToText', 'hubPlace.code', 'records.currentPeriod', 'records.standingsOf', 'records.groupStandingsOf', 'records.ownStandingIn', 'retention.rangeLimits', 'retention.classesToRemove']);
     expect(SURFACE_EFFECTS.essential).toEqual({ participants: ['join', 'leave'], answers: ['submitFromDevice', 'submitForMember'] });
   });
 });

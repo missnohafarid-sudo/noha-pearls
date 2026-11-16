@@ -9,6 +9,7 @@ import type { BoardService } from './BoardService';
 import type { ClassLookupService } from './ClassLookupService';
 import type { ContentService } from './ContentService';
 import type { FolderService } from './FolderService';
+import type { HubPlaceService } from './HubPlaceService';
 import type { LessonService } from './LessonService';
 import type { ParticipantService } from './ParticipantService';
 import type { RecordService } from './RecordService';
@@ -31,6 +32,7 @@ export interface ServiceClasses {
   lessons: LessonService;
   sessions: SessionService;
   allowance: AllowanceService;
+  hubPlace: HubPlaceService;
   classLookup: ClassLookupService;
   sessionRoster: SessionRosterService;
   participants: ParticipantService;
@@ -56,6 +58,7 @@ export const UI_SURFACE = {
   lessons: ['watchLessons', 'watchLesson', 'create', 'save', 'moveToFolder', 'setPublished', 'remove', 'importFromText', 'exportToText'],
   sessions: ['watchAll', 'watchLive', 'start', 'end', 'goTo', 'reveal', 'setPacing', 'sendMessage', 'clearMessage', 'setMinInteractions', 'setHiddenOpen'],
   allowance: ['watchLevel'],
+  hubPlace: ['code'],
   classLookup: ['watchAnyLive', 'watchByCode'],
   sessionRoster: ['watchRoster', 'watchSeen', 'moveStudent', 'addStudent', 'renameGroup', 'markPresent', 'markAbsent'],
   participants: ['watchParticipants', 'watchMine', 'watchNameClaims', 'join', 'leave'],

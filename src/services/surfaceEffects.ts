@@ -17,6 +17,7 @@ export const SURFACE_EFFECTS = {
     lessons: ['watchLessons', 'watchLesson', 'exportToText'],
     sessions: ['watchAll', 'watchLive'],
     allowance: ['watchLevel'],
+    hubPlace: ['code'],
     classLookup: ['watchAnyLive', 'watchByCode'],
     sessionRoster: ['watchRoster', 'watchSeen'],
     participants: ['watchParticipants', 'watchMine', 'watchNameClaims'],

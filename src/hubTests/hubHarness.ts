@@ -1,3 +1,4 @@
+import { NO_HUB_PLACE } from '../ports/hubPlace';
 import { MeteredSql } from '../infrastructure/MeteredSql';
 import { AdminSessionTable } from '../infrastructure/sql/adminSessions';
 import { SqlLocks } from '../infrastructure/sql/locks';
@@ -87,7 +88,7 @@ export function createHarness(location = ':memory:'): Harness {
   const adminSessions = new AdminSessionTable(meter);
   const gate = new Gatekeeper(now, registry);
   const breaker = new DayBreaker(meter);
-  return { sql, meter, store, clock, reported, gate, locks, adminSessions, registry, breaker, core: new HubCore(store, gate, breaker, now, (error) => reported.push(error)) };
+  return { sql, meter, store, clock, reported, gate, locks, adminSessions, registry, breaker, core: new HubCore(store, gate, breaker, NO_HUB_PLACE, now, (error) => reported.push(error)) };
 }
 
 export interface Client {

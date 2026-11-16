@@ -9,6 +9,7 @@ import { ClassCodes } from './ClassCodes';
 import { ClassLookupService } from './ClassLookupService';
 import { ContentService } from './ContentService';
 import { FolderService } from './FolderService';
+import { HubPlaceService } from './HubPlaceService';
 import { LessonService } from './LessonService';
 import { ParticipantService } from './ParticipantService';
 import { RecordService } from './RecordService';
@@ -39,6 +40,7 @@ export function createDataServices(store: DocumentStore, caller: Caller, runtime
     lessons,
     sessions: new SessionService(store, caller, roster, sessionRoster, records),
     allowance: new AllowanceService(caller, runtime.allowance),
+    hubPlace: new HubPlaceService(runtime.hubPlace),
     classLookup: new ClassLookupService(store, codes, participants, sessionRoster),
     sessionRoster,
     participants,

@@ -22,6 +22,7 @@ import { HubMove } from './HubMove';
 import { adminSecretsOf } from './identity';
 import { wantsSampleSchool } from './sampleSchool';
 import { SignInGuard } from './SignInGuard';
+import { TracedPlace } from './TracedPlace';
 
 /** The parts that read the hub's storage; they are built only once the storage is ready (`start`). */
 interface HubParts {
@@ -98,7 +99,7 @@ export class SchoolHub extends DurableObject<Env> {
     const db = new MeteredSql(this.raw, Date.now);
     const report = (error: unknown): void => console.error(error);
     const gate = new Gatekeeper(Date.now, this.connections);
-    const core = new HubCore(new SqlDocumentStore(db, report), gate, new DayBreaker(db), Date.now, report);
+    const core = new HubCore(new SqlDocumentStore(db, report), gate, new DayBreaker(db), new TracedPlace(this.ctx.storage.kv), Date.now, report);
     const secrets = adminSecretsOf(this.env);
     const adminSessions = new AdminSessionTable(db);
     const signIns = new SignInGuard(new SqlLocks(db), new SqlWindowMemory(db), Date.now);

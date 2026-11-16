@@ -6,7 +6,8 @@ import logoRose from '../assets/brand/logo-rose.jpg';
 import { Loading } from '../common/PageState';
 import type { FieldSpec } from '../forms/SchemaForm';
 import { SchemaForm } from '../forms/SchemaForm';
-import { useAdmin, useAnyLive, useLiveSessions, useSite, useTeachers } from '../hooks/data';
+import { Tip } from '../common/Tip';
+import { useAdmin, useAnyLive, useAsked, useLiveSessions, useSite, useTeachers } from '../hooks/data';
 import { useSiteEdits } from '../hooks/useSiteEdits';
 import { JoinByCode } from '../join/JoinByCode';
 import { LessonImportDialog } from '../lesson/LessonImportDialog';
@@ -112,14 +113,30 @@ function HomeAdminPanels({ site, tree, openId }: { site: SiteContent; tree: Fold
   );
 }
 
-/** The note at the foot of the home page. On a phone it runs across in one line, like a news ticker, so the copy after it closes the loop. */
+/** A dot at the end of the note whose tip says where the hub runs; none where there is no hub to ask. */
+function HubPlaceDot() {
+  const { hubPlace } = useServices();
+  const code = useAsked(() => hubPlace.code(), [hubPlace]);
+  if (!code) return null;
+  return (
+    <Tip text={th.hubPlace(code)}>
+      <span className="data-note__dot" />
+      <span className="visually-hidden">{th.hubPlaceName}</span>
+    </Tip>
+  );
+}
+
+/** The note at the foot of the home page. On a phone it runs across its own lane in one line, like a news ticker, so the copy after it closes the loop. */
 function DataNote() {
   return (
     <footer className="data-note">
-      <p className="data-note__track">
-        <span>{th.dataNote}</span>
-        <span aria-hidden="true">{th.dataNote}</span>
-      </p>
+      <div className="data-note__lane">
+        <p className="data-note__track">
+          <span>{th.dataNote}</span>
+          <span aria-hidden="true">{th.dataNote}</span>
+        </p>
+      </div>
+      <HubPlaceDot />
     </footer>
   );
 }

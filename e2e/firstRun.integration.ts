@@ -136,6 +136,21 @@ describe('a first-time teacher on an empty school', () => {
     await expectNoFailure();
   });
 
+  it('shows at the foot of the home page a dot beside the note, never over it, whose tip says where the hub runs', async () => {
+    await teacher.until('the dot that says where the hub runs', () => teacher.exists('.data-note__dot'));
+    const apart = await teacher.page.evaluate(() => {
+      const lane = document.querySelector('.data-note__lane')?.getBoundingClientRect();
+      const dot = document.querySelector('.data-note__dot')?.getBoundingClientRect();
+      return lane !== undefined && dot !== undefined && dot.right <= lane.left;
+    });
+    expect(apart, 'the dot is not at the end of the note, clear of it').toBe(true);
+    await teacher.page.hover('.data-note .tip');
+    await teacher.until('the tip naming the hub’s place', () =>
+      teacher.page.evaluate((name) => (document.querySelector('[role="tooltip"]')?.textContent ?? '').includes(name), t.home.hubPlaceName),
+    );
+    await expectNoFailure();
+  });
+
   it('makes a folder and a new lesson in it, which has no slides', async () => {
     await teacher.click(t.library.newFolder);
     await teacher.until('the folder name field', () => teacher.exists('.folder-tile--new input'));

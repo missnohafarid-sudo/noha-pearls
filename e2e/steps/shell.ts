@@ -20,9 +20,9 @@ function barFacts(device: Device): Promise<{ top: number; bottom: number; topmos
   });
 }
 
-const NOTE_TRACK = '.data-note .data-note__track';
+const NOTE_TRACK = '.data-note__lane .data-note__track';
 
-/** How the note at the foot of the home page is drawn: moving or not, how many copies show, and whether it keeps to one line. */
+/** How the note at the foot of the home page is drawn in its lane: moving or not, how many copies show, and whether it keeps to one line. */
 const noteFacts = (device: Device) =>
   device.page.$eval(NOTE_TRACK, (track) => {
     const note = track.parentElement as HTMLElement;
@@ -142,6 +142,7 @@ export function shellSteps(world: World): void {
     const visitor = await Device.open(world.browser, 'wide visitor', world.baseUrl, DESKTOP, world.errors);
     await visitor.waitFor(t.home.dataNote);
     expect(await noteFacts(visitor)).toMatchObject({ animation: 'none', copies: 1, align: 'center', fits: true });
+    expect(await visitor.exists('.data-note__dot'), 'this build has no hub to say where it runs').toBe(false);
     await visitor.page.close();
   });
 

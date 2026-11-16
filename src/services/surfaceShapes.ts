@@ -18,6 +18,7 @@ type Shapes = { [S in keyof typeof UI_SURFACE]: { readonly [M in (typeof UI_SURF
  */
 export const SURFACE_SHAPES = {
   allowance: { watchLevel: none },
+  hubPlace: { code: none },
   content: { watchSite: none, updateSite: [isSitePatch] },
   roster: {
     watchClasses: none, watchRoster: id, addClass: [isName], renameClass: [isId, isName], removeClass: id, addGroup: [isId, isName], saveGroup: [isGroup], removeGroup: id,

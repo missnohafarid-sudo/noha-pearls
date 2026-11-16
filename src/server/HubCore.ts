@@ -2,6 +2,7 @@ import { commandAllowed } from '../domain/abuse';
 import type { Id } from '../domain/models';
 import { NO_GUARD, type AbuseGuard } from '../ports/abuse';
 import type { Caller } from '../ports/caller';
+import type { HubPlace } from '../ports/hubPlace';
 import { MAX_COMPUTED_ENTRIES } from '../ports/limits';
 import type { WireError } from '../ports/wire';
 import { UnitOfWork } from '../infrastructure/UnitOfWork';
@@ -43,6 +44,7 @@ export class HubCore {
     private readonly store: SqlDocumentStore,
     private readonly gate: Gatekeeper,
     private readonly allowance: DayBreaker,
+    private readonly hubPlace: HubPlace,
     readonly now: () => number = Date.now,
     private readonly report: (error: unknown) => void = (error) => console.error(error),
   ) {
@@ -136,6 +138,6 @@ export class HubCore {
   }
 
   private runtime(guard: AbuseGuard): ServiceRuntime {
-    return { guard, allowance: this.allowance, standings: this.standings, lessonReads: this.lessonReads };
+    return { guard, allowance: this.allowance, hubPlace: this.hubPlace, standings: this.standings, lessonReads: this.lessonReads };
   }
 }

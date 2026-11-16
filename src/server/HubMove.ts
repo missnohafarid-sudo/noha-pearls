@@ -1,6 +1,7 @@
 import { restoreSnapshot, takeSnapshot, type Snapshot } from '../infrastructure/sql/snapshot';
 import type { SqlDatabase } from '../ports/sql';
 import { HUB_NAME } from './hubName';
+import type { PlatformKv } from './platformKv';
 
 /** What the new hub asks of the former one, over the platform's calls between hubs. */
 export interface FormerHub {
@@ -25,7 +26,7 @@ export class HubMove {
   private gone = false;
 
   constructor(
-    private readonly kv: Pick<SyncKvStorage, 'get' | 'put'>,
+    private readonly kv: PlatformKv,
     private readonly db: SqlDatabase,
   ) {}
 

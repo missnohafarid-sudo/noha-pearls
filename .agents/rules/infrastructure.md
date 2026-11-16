@@ -10,7 +10,7 @@ The only code that touches the browser and the outside world. General rules: AGE
 
 ## Belongs here
 
-- `infrastructure/`: classes that implement a port: `LocalDocumentStore` (DocumentStore), `PrototypeAuthGateway` (AuthGateway), `ArucoCardCodec`, `QrSvgRenderer`, `storage.ts`, `totp.ts`.
+- `infrastructure/`: classes that implement a port. The hub's store: `SqlDocumentStore` with `sql/`, `BatchedStore`, `UnitOfWork`, `MeteredSql`. The page's connection to the hub: `remote/` (`LiveConnection`, `RemoteSession`). In the page: `BrowserCaller`, `StoredLook`, `ArucoCardCodec`, `QrSvgRenderer`, `storage.ts`, `totp.ts`. `LocalDocumentStore` and `PrototypeAuthGateway` are the browser-only build used by the walkthrough, not production.
 - `app/container.ts`: the single file that names concrete adapters and builds the services. It is also where `localStorage` and `sessionStorage` are handed to the adapters.
 - `app/config.ts`: every setting. Sample data for a fresh install: `services/seed.ts`.
 
@@ -19,7 +19,7 @@ The only code that touches the browser and the outside world. General rules: AGE
 - Business rules: call `src/domain`.
 - Arabic interface text.
 - `src/infrastructure/vendor/**`: protected, never edit.
-- Passwords, keys or secrets written into a file. Secrets reach the build only as environment values read in `config.ts`.
+- Passwords, keys or secrets written into a file. No secret is ever in the page or its build: the real ones are Worker secrets (`scripts/worker-secrets.mjs`), and `config.ts` holds only the public development pair.
 - A second place that creates adapters. Adapters are created in `container.ts` only.
 
 ## Patterns to copy

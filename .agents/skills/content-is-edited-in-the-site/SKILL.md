@@ -15,7 +15,7 @@ Say it like this, adapted to what she asked:
 
 | Request | Where in the site |
 |---|---|
-| Home page text (school name, title, tagline, intro, teacher name) | الرئيسية: panel «محتوى الصفحة الرئيسية» |
+| Home page text (school name, title, tagline, intro) | الرئيسية: panel «محتوى الصفحة الرئيسية». The teachers' names are a list in the teachers panel (`TeachersPanel`), not a field of this text |
 | A lesson's title, subject, grade, publish or hide | open the lesson: panel «الدرس»; tick «منشور للزوار» to publish |
 | A slide or a question (text, options, correct answer, points, who answers) | open the lesson, panel «الشرائح»: press a slide in the list; its fields then appear in panel «تعديل الشريحة». Buttons «نقل لأعلى» «نقل لأسفل» «حذف»; under «إضافة شريحة» the «+» buttons add a slide |
 | A new lesson, written by hand | الرئيسية: panel «الدروس»: «درس جديد» |
@@ -29,7 +29,7 @@ Say it like this, adapted to what she asked:
 | The site's colours (its look), a night look | the round pearl button at the far end of the top bar (teacher only): pick one of the seven pearls; everyone sees it within a moment. The black pearl is the night look |
 | A new lesson with an AI assistant | الرئيسية: «استيراد درس»: step 1 «نسخ التعليمات», paste into any AI assistant and attach the lesson's presentation file (or write the lesson material under it), answer its questions by number; step 2 paste its final reply; press «استيراد». It opens unpublished: check it, check any verse against the Mushaf, then tick «منشور للزوار» |
 | Students and groups (add, rename, change card number, change group, delete) | «الطالبات والمجموعات» in the menu: pick a group or student, then edit in the panel |
-| Many students at once (a whole class from Excel or a text file; card number, name, group) | «الطالبات والمجموعات»: panel «استيراد قائمة صف»: paste the three columns or choose a file, press «إضافة إلى القائمة». The number is the student's printed card number. Content, not code |
+| Many students at once (a whole class from Excel or a text file; card number, name, group) | «الطالبات والمجموعات»: panel «استيراد قائمة هذه الشعبة»: paste the three columns or choose a file, press «إضافة إلى القائمة». The number is the student's printed card number. Content, not code |
 | Delete a lesson | the lesson, panel «الدرس»: «حذف الدرس» (asks to confirm) |
 
 4. Tell her the changes save as she types and show on every device within a moment.

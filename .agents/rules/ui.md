@@ -10,7 +10,7 @@ Presentation only. General rules: AGENTS.md section 4.
 
 ## Belongs here
 
-- Pages in `ui/pages/`, one `.tsx` and one `.css` each. Parts of a page in the feature folder (`session/`, `lesson/`, `join/`, `board/`, `scanner/`, `shell/`).
+- Pages in `ui/pages/`, one `.tsx` each, with its look in `ui/pages/` or, for a page built from a feature folder, in that folder. Parts of a page in the feature folder (`session/`, `lesson/`, `join/`, `board/`, `scanner/`, `shell/`).
 - Shared pieces in `ui/common/`. Live data hooks in `ui/hooks/data.ts`. Addresses in `ui/routing/routes.ts`.
 - Editing forms as a field list (`FieldSpec`) rendered by `forms/SchemaForm.tsx`.
 
@@ -28,7 +28,7 @@ Presentation only. General rules: AGENTS.md section 4.
 
 - Admin editing: `SITE_FIELDS` and `HomeAdminPanels` in `ui/pages/HomePage.tsx`.
 - A page reading live data: `useSite`, `useLessons` in `ui/hooks/data.ts`.
-- A service error shown as words: `errorMessage` in `ui/pages/RosterPage.tsx`.
+- A service error shown as words: `useAttempt` in `ui/common/useAttempt.ts`.
 
 ## Checks that fail otherwise
 

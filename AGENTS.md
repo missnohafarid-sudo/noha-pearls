@@ -40,16 +40,17 @@ A teacher. She is not a programmer and cannot judge your code.
 | `src/domain` | Rules and data shapes. Pure: no React, no browser, no I/O | itself only |
 | `src/ports` | Interfaces the app needs from outside (`DocumentStore`, `AuthGateway`, `Caller`, codes) | `domain` |
 | `src/services` | Use cases as classes (`LessonService`, `RosterService`, ...). Every change of stored data goes through one | `domain`, `ports` |
-| `src/infrastructure` | Adapters that implement ports: browser storage, auth, markers, QR | `domain`, `ports` |
+| `src/infrastructure` | Adapters that implement ports: the hub's SQL store (`SqlDocumentStore`, `sql/`), the page's connection to the hub (`remote/`), markers, QR, the device's look and identity; the browser-only store and sign-in (`LocalDocumentStore`, `PrototypeAuthGateway`) used only by the walkthrough build | `domain`, `ports` |
 | `src/server` | The Worker and the hub: the server's composition root and transport. Runs on Cloudflare, never in the page; nothing imports it | `domain`, `ports`, `services`, `infrastructure` |
-| `src/app` | `container.ts` (the only file naming concrete adapters), `config.ts` | everything except `server` |
+| `src/app` | `container.ts` (the only file naming concrete adapters), `config.ts` | `domain`, `ports`, `services`, `infrastructure`, `i18n` (never `ui`, never `server`) |
+| `src/hubTests` | The hub's tests and their harness | `domain`, `ports`, `services`, `infrastructure`, `server` |
 | `src/i18n` | Every word the interface shows, one file per feature, `t` in `index.ts` | `domain` |
 | `src/ui` | React pages and components | `domain`, `i18n`, `services`, `ports` (types only), `app/config` |
 
 | Concern | Its one home |
 |---|---|
 | Data shapes | `domain/models.ts` (lessons, slides and folders: `domain/lessonModels.ts`) |
-| Slide kinds: template, file read/write, repairs | `domain/slideKinds.ts` |
+| Slide kinds: the registry, template, file read/write | `domain/slideKinds.ts`; the file vocabulary (`SlideKindSpec`, `FileFieldName`, `IssueCode`): `domain/slideFile.ts`; field readers and repairs: `domain/slideFields.ts` |
 | Slide kinds: edit fields and drawing | `ui/slides/slideUi.tsx` |
 | The seven pearl shades: the colours of a slide's badges and the site's looks | `domain/pearlShades.ts`; names `t.common.pearlShade` |
 | A slide's coloured badges beside its tag: how many, reading and repair, which are drawn | `domain/badges.ts`; edited in `ui/slides/BadgesField.tsx`, look in `ui/slides/badges.css` |
@@ -57,6 +58,13 @@ A teacher. She is not a programmer and cannot judge your code.
 | Who opens a slide's hidden parts (the teacher, for the whole class) and what a student or a visitor receives of them | `domain/sessions.ts` (`openedParts`, `withPartOpened`), `domain/visibility.ts` (a seat gets the opened parts of its class, a visitor none), each kind's `hiddenPartKeys`/`withOpenedParts` (`domain/slideHiddenParts.ts`, where the end-of-slide part is also decided); command `services/SessionService.ts` (`setHiddenOpen`); the three ways a part is drawn: `ui/slides/hiddenControl.ts`, `ui/hooks/useSharedHiddenParts.ts` |
 | A fraction written `{top/bottom}` | `domain/fractions.ts` (its placeholder character is declared with the direction rules), drawn by `ui/slides/DirectedText.tsx` and `fraction.css` |
 | The symbols offered while writing a slide, and the tools bar over the slide editor (symbols, hide the selection, a starter table, a fraction) | `domain/symbols.ts`, `ui/forms/TextTools.tsx` and `textTools.css`; words `t.slides.tools` |
+| Every limit the transport and the hub hold to (message size, rates, day limit) | `ports/limits.ts`; the counting rules behind them: `domain/abuse.ts` |
+| Sign-in length, how long a device's identity lasts, the shortest password | `domain/adminAccess.ts` |
+| Who may look a class up by its code | `domain/classCode.ts` |
+| How long the page waits before it reconnects | `domain/reconnect.ts` |
+| How often a device may change its answer | `domain/answerChanges.ts` |
+| How far a group's students have come on a question | `domain/answerProgress.ts` |
+| What a results line shows of a question and its answer | `domain/resultRows.ts` |
 | Lesson file format and checks | `domain/lessonFormat.ts` |
 | Lesson edits (add, copy, move, remove slide) | `domain/lessonOps.ts` |
 | The lesson folder tree: nesting, moving, what a folder holds at any depth | `domain/folders.ts` |
@@ -106,21 +114,21 @@ A teacher. She is not a programmer and cannot judge your code.
 | Colours, fonts, radii, and the colours of each look (one block per pearl; `ui/styles/tokens.test.ts` keeps every look's text readable) | `ui/styles/tokens.css` |
 | How the site record is changed: by a patch of the changed fields, merged where it is stored, sent together after a short pause in typing | `services/ContentService.ts` (`updateSite`), `domain/entityChecks.ts` (`isSitePatch`), `ui/hooks/useSiteEdits.ts` (the one queue the home form and the look button share, and its pause) |
 | The site's look: which looks exist, the default, the look to show (the site record's, or the one this device showed last while the record is on its way) | `domain/themes.ts`; remembered on the device by `ports/lookMemory.ts` and `infrastructure/StoredLook.ts`; put on the page by `main.tsx` at the start and `ui/shell/useSiteTheme.ts`; chosen with the pearl button `ui/shell/ThemePicker.tsx` and `themePicker.css` (opening and closing a list under a button, shared with the menu: `ui/shell/useDisclosure.ts`) |
-| Shared controls | `ui/styles/base.css` |
+| Shared controls | `ui/styles/controls.css` (`.btn`, `.input`) and `ui/styles/base.css` |
 | Our own form widgets (drop-down, check box, file picker, number stepper, password field) and floating layers: component and look | `ui/forms/` (`Select`, `Checkbox`, `FilePicker`, `Stepper`, `PasswordField`), `ui/common/useAnchoredLayer.ts`, `ui/styles/widgets.css` (`PasswordField`'s look: `ui/forms/passwordField.css`) |
 | The top bar's tabs: the list, one tab, and the menu that replaces the row of tabs on narrow screens | `ui/shell/NavLink.tsx` (list and tab), `ui/shell/NavMenu.tsx` and `navMenu.css` (menu and the width where it takes over) |
 | Saying who answers a question (each student, or one answer for the group) | `ui/slides/ScopeBadge.tsx`; words `t.common.scope` |
-| Teachers' names (home page, class start) | the `teachers` list, edited in `ui/session/TeachersPanel.tsx`; words in `i18n/home.ts` |
+| Teachers' names (home page, class start) | the `teachers` list, edited in `ui/session/TeachersPanel.tsx`; the panel's words `t.session.teachers` in `i18n/session.ts`; the home page line `teachersLine` in `i18n/home.ts` |
 | AI instructions for lesson files | `i18n/lessonPrompt.ts` (the three stages are the teacher's own method in her words; the description of the file is generated from the slide-kind registry), its example lesson `i18n/lessonPromptExample.json` |
 
 ## 4. Rules you must never break
 
 1. Respect the import column in section 3. Reason: each layer has one job.
 2. All interface text lives in `src/i18n`, in Arabic, feminine address. No Arabic string in any other folder. Reason: one place to read and fix wording.
-3. A rule (scoring, who may answer, pacing, limits, validation) lives only in `src/domain`, with a unit test in `src/domain/domain.test.ts` (or the service test in `src/services/services.test.ts`). Before writing one, grep for the concern and extend its home. Reason: DRY, one home each.
+3. A rule (scoring, who may answer, pacing, limits, validation) lives only in `src/domain`, with a unit test: in `src/domain/domain.test.ts`, in a test file beside the module (such as `visibility.test.ts`), or in the service test `src/services/services.test.ts`. Before writing one, grep for the concern and extend its home. Reason: DRY, one home each.
 4. The UI changes data only by calling a service from `useServices()`. Never write to the store directly. Reason: services check who is the admin.
 5. Browser storage and network calls exist only in `src/infrastructure` (handed in by `src/app/container.ts`) and, on the server, `src/server`. Only `src/server` may import a Cloudflare package or `cloudflare:*`; nothing outside it imports `src/server`. Reason: swapping the backend must touch one place.
-6. Styles use only the tokens (`var(--accent)` and the rest) in `src/ui/styles/tokens.css` (the only file where a colour literal may appear; shared building blocks live in `base.css`), and logical properties (`inline-size`, `margin-inline-start`, never `left`, `right`, `width` for layout direction). No raw colours, no inline `style` except the existing `toneStyle` and bar widths. Reason: the site is right-to-left and must look consistent.
+6. Styles use only the tokens (`var(--accent)` and the rest) in `src/ui/styles/tokens.css` (the only file where a colour literal may appear; shared building blocks live in `base.css` and `controls.css`), and logical properties (`inline-size`, `margin-inline-start`, never `left`, `right`, `width` for layout direction). No raw colours, no inline `style` except the existing `toneStyle` and bar widths. Reason: the site is right-to-left and must look consistent.
 7. Add no dependency. Add no top-level folder. Reason: each is a long-term cost she cannot judge.
 8. Never edit a protected file: `AGENTS.md`, `CLAUDE.md`, `.agents/**`, `docs/**`, `.github/**`, `.githooks/**`, `.guard/**`, `scripts/**`, `src/architecture.test.ts`, `vite.config.ts`, `vitest.e2e.config.ts`, `vitest.server.config.ts`, `tsconfig.json`, `tsconfig.server.json`, `wrangler.jsonc`, `src/server/**`, the `scripts` section of `package.json`, `src/infrastructure/vendor/**`, and the machinery of the browser tests: everything in `e2e/` except `e2e/steps/**`, `e2e/walkthrough.e2e.ts` and `e2e/firstRun.integration.ts`, where you add steps for what you build. A check fails if they change. Never run `npm run guard:accept`: it is for the maintainer.
 9. Never weaken, skip, delete or rewrite a test or a check to make it pass (no `.skip`, no loosened expectation, no removed assertion, no `any` or `@ts-ignore` to silence types). Fix the code. A test may change only when she asked for different behaviour. The steps in `e2e/` are tests too: add steps, and change an existing one only where she asked for the page to behave or read differently.

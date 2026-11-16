@@ -29,4 +29,4 @@ The one home of every rule and data shape. General rules: AGENTS.md section 4.
 
 ## Tests
 
-Every new or changed rule gets a test in `src/domain/domain.test.ts`, in the matching `describe` block, written before the fix. The architecture test fails if this folder imports another layer or touches the browser.
+Every new or changed rule gets a test in `src/domain/domain.test.ts` (in the matching `describe` block) or in a test file beside the module (e.g. `visibility.test.ts`), written before the fix. The architecture test fails if this folder imports another layer or touches the browser.

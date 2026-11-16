@@ -11,7 +11,7 @@ General rules: AGENTS.md section 4.
 ## Belongs here
 
 - `src/ui/styles/tokens.css`: the tokens (colours, fonts, radii: `--accent`, `--bg`, `--surface`, `--ink`, `--muted`, `--line`, `--ok`, `--bad`, `--radius`, `--gap`, `--font`), the only file where a colour literal may appear.
-- `src/ui/styles/base.css`: the shared building blocks (`.btn`, `.card`, `.chip`, `.input`, `.notice`, `.stack`, `.row`, `.grid`).
+- `src/ui/styles/base.css`: the shared building blocks (`.card`, `.chip`, `.notice`, `.stack`, `.row`, `.grid`). `src/ui/styles/controls.css`: the shared controls (`.btn`, `.input`).
 - One stylesheet per page or feature next to its `.tsx` (`ui/pages/home.css`), only for that page's layout.
 
 ## Never here

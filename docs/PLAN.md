@@ -5,8 +5,8 @@ reference site (`althasair.github.io/spectrum`) does and drops how it is built.
 
 - Part 1 is what the reference site is and how it works (reverse-engineered).
 - Part 2 is what we build and how it is structured.
-- Part 3 is the prototype that exists in this repository today.
-- Part 4 is the road from prototype to a deployed product.
+- Part 3 is what the product does today.
+- Part 4 is the road from prototype to a deployed product (a plan with history).
 - Part 5 lists the decisions that are still yours to make.
 
 ---
@@ -147,7 +147,8 @@ src/
   ports/           interfaces the application needs from the outside world.
   services/        use cases as classes. Depend on ports and domain only.
   infrastructure/  adapters that implement ports (storage, auth, markers, QR).
-  app/             composition root, config, seed data.
+  app/             composition root and config (the sample school is in services/seed.ts).
+  server/          the Worker and the hub: the server's composition root and transport. Runs on Cloudflare, never in the page.
   i18n/            every word the interface shows, one file per feature.
   ui/              React. Talks to services and domain; never to infrastructure.
 ```
@@ -172,44 +173,7 @@ reach it, and still has exactly one home (2.4).
 
 ### 2.3 Where each rule lives (one home each)
 
-| Concern | Home |
-|---|---|
-| Data shapes | `domain/models.ts` |
-| Slide kinds: blank template, file reading/writing, repairs | `domain/slideKinds.ts` |
-| Slide kinds: editing fields and rendering | `ui/slides/slideUi.tsx` |
-| Lesson file format and validation; the file's kinds and its markdown wrapping | `domain/lessonFormat.ts` |
-| Lesson edits (add/move/remove/update/copy slide) | `domain/lessonOps.ts` |
-| Lesson folders: the tree, moving, deleting, which folders a visitor sees | `domain/folders.ts` |
-| Who may answer what, and when; the answer that counts for a student (her own, else her group's) | `domain/answering.ts` |
-| Marking and group scores | `domain/scoring.ts` |
-| Pearls a group has earned | `domain/scoring.ts` |
-| Live tallies, monitor table, heart totals | `domain/analytics.ts` |
-| What a group's device shows | `domain/pacing.ts` |
-| Card encoding and debounce | `domain/cards.ts` |
-| Choice limits (max 4: a card has 4 edges) | `domain/choices.ts` |
-| Roster rules (card numbers, colours, group order, public names) | `domain/roster.ts` |
-| Class list format (paste, upload, export; card numbers kept) | `domain/rosterFormat.ts` |
-| Who may give a heart to whom (the teacher's, live or ended; a student's, live only) | `domain/rewards.ts` |
-| Who is let into a class, one device per name, and where a returning device lands | `domain/admission.ts` |
-| Who is here: the roll, and who counts in tallies and scores | `domain/attendance.ts` |
-| A session's minimum of interactions, and who is unresponsive | `domain/engagement.ts` |
-| A class session: live or ended, starting one, which one a page shows | `domain/sessions.ts` |
-| The kept record of an ended class | `domain/records.ts` |
-| Weeks and months on the school's clock | `domain/periods.ts` |
-| Cumulative results of a class list over a period, and what a student or a visitor may see of them | `domain/standings.ts` |
-| What a media link shows and how: its type, its address, its frame | `domain/media.ts` |
-| Moving through a list with the keyboard | `domain/listNavigation.ts` |
-| What class data is cleared and when: a range of dates, the end of the school year | `domain/retention.ts` |
-| Our own form controls and floating layers | `ui/forms/`, `ui/common/useAnchoredLayer.ts`, `ui/styles/widgets.css` |
-| The list of teachers | `domain/teachers.ts` |
-| Session codes: making and reading one | `domain/ids.ts` |
-| "Is this the admin?" | `services/AuthService.ts` |
-| What the interface may ask of the application | `services/Services.ts` |
-| Addresses and links | `ui/routing/routes.ts` |
-| Whether the edit panel shows | `ui/shell/AdminPanel.tsx` |
-| Settings (password hash, authenticator key, namespace) | `app/config.ts` |
-| Colours, fonts, radii | `ui/styles/tokens.css` (the only file with colour literals) |
-| Shared controls and building blocks | `ui/styles/base.css` |
+The one copy of the table of concerns and their homes is `AGENTS.md` section 3; it is kept there only, so it cannot drift from this plan.
 
 Adding a slide kind (say, "sort") is one entry in `domain/slideKinds.ts` and one
 in `ui/slides/slideUi.tsx`. The editor, the importer, the AI prompt, the
@@ -372,10 +336,12 @@ Design points:
   assistant as ordinary files, and one format keeps all three working.
 - **More on a slide** (2026-11-12). A normal slide and a written-answer
   question can show several pictures (public links, at most six; Drive photos
-  go through the media rule, `domain/media.ts`). A normal slide can hold a
-  hidden section that a button opens into a bluish box. It is opened per
-  screen and is not pushed to students' phones: it is for the teacher's talk,
-  and the box keeps it from being mistaken for the slide's text. A slide can be
+  go through the media rule, `domain/media.ts`). A normal slide can hold
+  hidden parts, each between `+++` lines anywhere in its text, that a button
+  opens into a bluish box. The teacher opens a part for the whole class, and
+  it then opens on every let-in student device of that class; a visitor never
+  receives hidden parts (`domain/slideText.ts`, `domain/sessions.ts`,
+  `domain/visibility.ts`). A slide can be
   copied in the lesson maker, right below the original.
 - **Keeping and clearing class data** (the teachers' request, 2026-11-12,
   `domain/retention.ts`). Class data is students' data, so it does not pile up
@@ -461,8 +427,8 @@ Design points:
 
 **Backend: Cloudflare's free plan** (hosting decided 2026-11-11, replacing
 Supabase; the storage design revised 2026-11-12, replacing "D1 plus a hub that
-only relays": one Durable Object now holds the data). Nothing in this section
-is built yet.
+only relays": one Durable Object now holds the data). Everything in this
+section is built and live, except the backup export (2.7) and `npm run ops`.
 
 One Cloudflare Worker, `noha-pearls`, on the free plan is the whole
 deployment: it serves the built site and answers `/api/*`, at one address,
@@ -522,7 +488,7 @@ The pieces:
 | Piece | Job |
 |---|---|
 | Worker `noha-pearls` | Serves the static site; routes `/api/*`; verifies sign-in (2.5); hands every command and live query to the hub |
-| The hub (Durable Object, one instance, SQLite storage) | The system of record: every collection. Holds each device's one open connection (WebSocket, hibernating when idle), runs commands one at a time, pushes live results, runs the yearly clearing from its own alarm, serves the backup export |
+| The hub (Durable Object, one instance, SQLite storage) | The system of record: every collection. Holds each device's one open connection (WebSocket, hibernating when idle), runs commands one at a time, pushes live results, runs the yearly clearing from its own alarm; will serve the backup export (planned, 2.7) |
 | GitHub Actions | Runs the check, deploys the Worker with its secrets, then smoke-tests the live address |
 
 Documents are stored as JSON, so adding a field to a document needs no
@@ -533,7 +499,7 @@ How a request is kept honest:
 - **Commands.** The browser stub sends "service, method, arguments". The
   server works out who is calling (admin session or not; which device) from
   the request itself, never from the arguments, and runs the real service.
-  Only the service methods listed in one table are callable from outside;
+  Only the service methods named in `UI_SURFACE` (with their effects in `SURFACE_EFFECTS` and the shapes of their arguments in `SURFACE_SHAPES`) are callable from outside;
   everything else, including methods meant for the server's own jobs, is
   refused.
 - **Reads are projected on the server.** What a visitor may see is a domain
@@ -578,7 +544,7 @@ How a request is kept honest:
   current form for a new Worker, not the legacy `migrations` list; the two
   cannot be mixed, and a Worker deployed with `exports` cannot go back.
 - **One WebSocket per page.** Commands and live queries travel over it. Only
-  sign-in, sign-out, a "me" call (who am I) and the backup export are plain
+  sign-in, sign-out, a "me" call (who am I) and the backup export (planned, 2.7) are plain
   requests.
 
 The address is free, permanent and served over HTTPS; no domain has to be
@@ -632,8 +598,8 @@ wrong attempt does not say which of the two was wrong.
 A static site cannot keep a secret: whatever is in the page is public. So where
 the check happens decides whether it protects anything.
 
-**Prototype (what runs today).** The page itself checks a hash of the password
-and the code. This hides the admin tools from ordinary visitors and lets the
+**Browser-only build.** This is only the build the walkthrough uses, with no hub: the page itself checks a hash of the password
+and the code. In production the sign-in is checked by the hub (below). This hides the admin tools from ordinary visitors and lets the
 flow be tried with a real authenticator app. It protects nothing: both secrets
 ship inside the page, and all data is local anyway. Use throwaway values.
 
@@ -813,7 +779,7 @@ The format (`spectrum-lesson`, version 1), deliberately small:
   group).
 - `images` is a list of public links (at most six; Drive photos go through the
   media rule). `hidden` is an optional section in the same format as `body`,
-  opened by a button on the slide; it stays empty unless the teacher asks.
+  opened by a button on the slide; it stays empty unless the teacher asks. Hidden parts may also sit between `+++` lines anywhere in `body`; the teacher opens one for the whole class and a visitor never receives them.
 - The importer tolerates chat wrapping (prose and code fences around the JSON).
 - Export is one button and writes a markdown file that holds nothing but the
   lesson in a fenced block (`domain/lessonFormat.ts`). Free text beside the
@@ -829,6 +795,8 @@ backend function with the teacher's uploaded material. It needs a server-side
 API key, so it waits for the backend.
 
 ### 2.7 Backups and restore
+
+Status: not built yet. Nothing in this section exists in the repository today.
 
 Two layers, because the platform's own history is short and may not be there.
 
@@ -957,7 +925,7 @@ one. These do:
    interface touches browser storage, when a stylesheet uses left/right or a
    colour that is not a design token. Each failure says where the code belongs.
 2. **The browser walkthrough is a test.** The run through the whole product
-   (243 steps as of 2026-11-13) lives in the repository and runs on every
+   lives in the repository and runs on every
    check.
 3. **One way to finish.** `npm run check` runs everything; it runs online,
    because the teacher's laptop is too slow for it. `npm run ship` runs a
@@ -998,7 +966,7 @@ repository, started by one command that the agent runs for her:
 | `npm run ops -- backup` | Take a backup now |
 | `npm run ops -- restore` | Restore the latest backup (or a named one), after a safety copy and a typed confirmation |
 
-These exist from phase 1, when the backend does. Documents are JSON, so a new
+These are not built yet; they are planned for phase 1, step 7. Documents are JSON, so a new
 field needs no migration. A change to the layout of the hub's storage goes
 through a migration step that may only add, never drop or delete, and the
 deploy takes an export first. The Worker's configuration, which names the
@@ -1012,13 +980,13 @@ checklist.
 
 ---
 
-## 3. The prototype (in this repository)
+## 3. What the product does today
 
-Runs entirely in the browser with no backend. **Each browser tab acts as a
-separate device**, and tabs of the same browser share data live. That is enough
-to test every flow on one computer; it is not multi-device yet.
+The product runs on the hub (a Cloudflare Worker and one SQLite Durable Object)
+and is multi-device. The browser-only build, where each browser tab acts as a
+separate device, is what the walkthrough uses.
 
-| Area | In the prototype |
+| Area | Today |
 |---|---|
 | Arabic RTL interface, own neutral design | Yes |
 | Admin sign-in button (password plus authenticator code; development values in the README) | Yes |
@@ -1051,17 +1019,16 @@ to test every flow on one computer; it is not multi-device yet.
 | The teacher's hearts after a class has ended | Yes |
 | Present or absent by hand, a minimum of interactions per class, and the «غير متفاعلة» mark | Yes |
 | A kept record of each ended class; cumulative results per class list by week and month | Yes |
-| Clearing class data: ended classes of a class list between two dates, and a yearly clearing the teachers switch on | Yes (started by a signed-in teacher's page; the server's alarm is phase 1) |
+| Clearing class data: ended classes of a class list between two dates, and a yearly clearing the teachers switch on | Yes (the yearly clearing is run by the hub's alarm) |
 | A group's shared device answers for its students | Yes |
 | Presenting: docked bar inside full screen, class code on the stage, pearl panel with tabs, group/individual badge | Yes |
-| One teacher controlling a class from two devices (two tabs here; real devices need the backend) | Yes |
-| Real database, multi-device, real access control | No (phase 1) |
+| One teacher controlling a class from two devices | Yes |
+| Real database, multi-device, real access control | Yes |
 
 Run it: `npm install`, `npm run dev`, open the printed address. See `README.md`
 for a ten-minute walkthrough.
 
-Quality gates: `npm run typecheck`, `npm test`. As of 2026-11-13 there are 492
-unit tests and 243 walkthrough steps.
+Quality gates: `npm run typecheck`, `npm test`. 
 
 ---
 
@@ -1101,7 +1068,7 @@ checked by running whole classes from both sides and by code review.
   with tabs, badges, header and dialogs that stay in view, class cards,
   presence column). The reading rules of 2.8 were settled in the same days.
 
-**Phase 1: real backend and deployment.** *Makes it usable in a classroom.*
+**Phase 1: real backend and deployment.** *Makes it usable in a classroom.* Items 1 to 6 are done; item 7 (backups and the operations repository) is still open.
 Built and proven on this computer first: Cloudflare's local runtime runs the
 same Worker and hub with no account, so nothing is deployed until it passes
 here. The services already receive their caller as an input (done, so that a
@@ -1223,7 +1190,7 @@ hub's 30-day history too, if the free plan has it).
 - Shared-device rotation (reference feature 10).
 - Reconnect handling: queue an answer while offline, show connection state.
 - Scanner tuning on real hardware: distance, lighting, 30 students in frame.
-- Roster export/import (CSV).
+- Roster export/import (CSV). Done.
 
 **Phase 3: more slide kinds and presentation tools.**
 - Sort/classify, level ladder, claim-with-evidence, teacher-paced quiz series.
@@ -1268,8 +1235,7 @@ Settled:
    a private repository, with a restore that can be triggered on demand (2.7).
 4. **Repository:** public, `missnohafarid-sudo/noha-pearls`; GitHub holds the
    code and runs the checks and the deploy, and no longer hosts the site.
-5. **Student results:** unlocked by showing the answer card to the camera
-   (2.8). A light lock, by choice.
+5. **Student results:** seen on her own let-in device; the answer card held up at the board shows the summary (2.8). A light lock, by choice.
 
 6. **Maintenance:** by a non-programmer through an AI agent; the repository
    enforces its own rules (2.9).
@@ -1327,12 +1293,8 @@ Still open:
    the free plan includes them is not stated in Cloudflare's documentation
    (checked 2026-11-12). Check once on the real account. Nothing depends on
    the answer (2.7).
-2. **The Worker's configuration as a protected file:** it names the hub's
-   class, and removing that class deletes the data (2.4). When the file is
-   created, the maintainer must add it to the protected list in `AGENTS.md`
-   and to the guard; the list there does not name it yet.
-3. **The lesson interview's defaults:** it addresses the teacher and students
+2. **The lesson interview's defaults:** it addresses the teacher and students
    in the feminine and offers Qatari contexts, as the Zad method does. Say if
    the platform will also serve boys' classes or schools outside Qatar.
-4. **Existing cards:** if the reference class's printed cards are available,
+3. **Existing cards:** if the reference class's printed cards are available,
    phase 2 tests against them; otherwise we print ours (identical encoding).

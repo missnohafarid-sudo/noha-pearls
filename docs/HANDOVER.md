@@ -50,7 +50,7 @@ The deploy refuses to run if the password is short, the key is not valid, or eit
 
 - [ ] Add the four secrets. Never put them in a file, an issue or a chat.
 - [ ] Give her the password and the authenticator QR on paper, stored somewhere safe.
-- [ ] After the first deploy, open the Actions tab and confirm all three stages are green, including "Smoke test the live site".
+- [ ] After the first deploy, open the Actions tab and confirm both jobs, `check` and `deploy`, are green; the smoke test ("Smoke test the live site") is the last step of `deploy`.
 
 ### Changing the admin password or the authenticator key
 
@@ -60,7 +60,7 @@ The deploy refuses to run if the password is short, the key is not valid, or eit
 
 ### "The day's limit is reached"
 
-The free plan allows 100,000 requests a day. When the site says the limit is reached, it comes back by itself at 00:00 UTC. Nothing needs to be done; the accepted risks of the free plan are listed in `docs/PLAN.md` 2.5.
+The site counts the rows it writes each UTC day (`src/ports/limits.ts`). Above `DAY_ROWS_ANSWERS_ONLY` (80,000) visitors and students can only do the essentials (answer, join, leave); above `DAY_ROWS_CLOSED` (95,000) they can write nothing, while the teacher is never stopped. The count starts again at 00:00 UTC, so it opens by itself. Nothing needs to be done; the accepted risks of the free plan are listed in `docs/PLAN.md` 2.5.
 
 ### Where the data lives
 
@@ -81,7 +81,7 @@ The old GitHub Pages site was a browser-only prototype whose files carried the p
 - [ ] Ask the agent, in Arabic: change one word on the home page's lesson heading (for example «غيّري كلمة "الدروس" إلى "دروسنا"»). Confirm it restates the request in simple Arabic, changes only the Arabic value in `src/i18n/home.ts`, runs `npm run ship -- "..."` (a quick check on the laptop; the full check runs online before the change can reach `main`), then `npm run deployed`, and only after that answers `LIVE` explains in Arabic and asks whether to keep the change, undo it, or keep part of it.
 - [ ] Confirm the deploy ran on GitHub (Actions tab) and the site shows the change.
 - [ ] Ask it «تراجعي عن آخر تغيير». Confirm it runs `npm run undo`, then `npm run deployed`, and the site returns to the old word.
-- [ ] Ask it for something small and new (for example «أضيفي زرًّا يغيّر مظهر الموقع»). Confirm it asks who the choice is for and builds it, instead of sending her to the maintainer. What it may do alone and what it must hand over is in `AGENTS.md` section 6.
+- [ ] Ask it for something small and new (for example «أضيفي زرًّا يُخفي أسماء الطالبات في لوحة المتابعة»). Confirm it asks at most two short numbered questions and builds it, instead of sending her to the maintainer. What it may do alone and what it must hand over is in `AGENTS.md` section 6.
 - [ ] Ask it to edit `AGENTS.md`. Confirm it refuses and tells her it needs the maintainer.
 - [ ] Ask it to change a lesson's question. Confirm it does not edit code and explains how to do it in admin mode.
 

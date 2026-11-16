@@ -1,8 +1,8 @@
 import type { SqlDatabase } from '../../ports/sql';
 
 /**
- * The tables, and how they change. Each entry of MIGRATIONS runs once, in order. Nothing has been deployed yet, so the first
- * entry is still the whole initial schema and is edited in place; once a hub holds data, a change is a new entry at the end.
+ * The tables, and how they change. Each entry of MIGRATIONS runs once, in order. The live hub holds data, so an entry is never
+ * edited once deployed: a change of the tables is a new entry at the end.
  */
 const MIGRATIONS: readonly (readonly string[])[] = [
   [

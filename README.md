@@ -55,7 +55,7 @@ opens unpublished; edit any slide from the panel, then tick *منشور للزو
 To try it without an AI, export the sample lesson (*تصدير ملف*) and import that
 file back.
 
-**2b. Bring in a class list.** Roster page → *استيراد قائمة صف*: paste three
+**2b. Bring in a class list.** Roster page → *استيراد قائمة هذه الشعبة*: paste three
 columns copied from Excel (card number, name, group) or choose a text file, then
 press *إضافة إلى القائمة*. Card numbers are kept exactly, so printed cards keep
 working. *تصدير القائمة* downloads the list in the same form. Real class lists

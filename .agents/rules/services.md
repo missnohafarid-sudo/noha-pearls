@@ -12,7 +12,7 @@ Use cases and the interfaces they need. General rules: AGENTS.md section 4.
 
 - `services/*Service.ts`: one class per use-case area. Each command first calls `requireAdmin(this.caller)` when only the admin may do it, then reads and writes through the `DocumentStore` it was given.
 - `services/Services.ts`: the list of services the UI may use. A new service is added there (and to its three tables: `UI_SURFACE`, `SURFACE_EFFECTS`, `SURFACE_SHAPES`) and built in `services/createDataServices.ts`.
-- `ports/*.ts`: interfaces only (`store.ts`, `auth.ts`, `codes.ts`, `storage.ts`).
+- `ports/*.ts`: the interfaces the app needs from outside (`store.ts`, `auth.ts`, `caller.ts` and the rest of the folder) and the transport constants shared by the page and the hub (`limits.ts`, `wire.ts`). Read the folder, not a list.
 
 ## Never here
 

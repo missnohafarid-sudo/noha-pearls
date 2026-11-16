@@ -99,7 +99,9 @@ export class SchoolHub extends DurableObject<Env> {
     const db = new MeteredSql(this.raw, Date.now);
     const report = (error: unknown): void => console.error(error);
     const gate = new Gatekeeper(Date.now, this.connections);
-    const core = new HubCore(new SqlDocumentStore(db, report), gate, new DayBreaker(db), new TracedPlace(this.ctx.storage.kv), Date.now, report);
+    const place = new TracedPlace(this.ctx.storage.kv);
+    void place.refresh();
+    const core = new HubCore(new SqlDocumentStore(db, report), gate, new DayBreaker(db), place, Date.now, report);
     const secrets = adminSecretsOf(this.env);
     const adminSessions = new AdminSessionTable(db);
     const signIns = new SignInGuard(new SqlLocks(db), new SqlWindowMemory(db), Date.now);

@@ -113,10 +113,10 @@ function HomeAdminPanels({ site, tree, openId }: { site: SiteContent; tree: Fold
   );
 }
 
-/** A dot at the end of the note whose tip says where the hub runs; none where there is no hub to ask. */
+/** A dot at the end of the note whose tip says where the hub runs; none where there is no hub to ask, or while it cannot say. */
 function HubPlaceDot() {
   const { hubPlace } = useServices();
-  const code = useAsked(() => hubPlace.code(), [hubPlace]);
+  const code = useAsked(() => hubPlace.code().catch(() => null), [hubPlace]);
   if (!code) return null;
   return (
     <Tip text={th.hubPlace(code)}>

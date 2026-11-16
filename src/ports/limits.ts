@@ -75,3 +75,6 @@ export const KEEP_ALIVE_MS = SECOND * 30;
 
 /** The longest name a socket's service or method may carry. */
 export const MAX_WIRE_NAME_LENGTH = 64;
+
+/** How long the hub waits for Cloudflare to say where it runs before it keeps the place it knew. */
+export const PLACE_ASK_MS = SECOND * 5;

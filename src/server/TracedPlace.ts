@@ -1,4 +1,5 @@
 import type { HubPlace } from '../ports/hubPlace';
+import { PLACE_ASK_MS } from '../ports/limits';
 import type { PlatformKv } from './platformKv';
 
 /** Cloudflare's own page that says, among other things, which data centre answered: asked from the hub, the one it runs in. */
@@ -9,26 +10,25 @@ const PLACE_KEY = 'hub-place';
 /** The data centre a trace names on its `colo=` line. */
 export const coloOf = (trace: string): string | null => /^colo=([A-Z]{3})$/m.exec(trace)?.[1] ?? null;
 
-/** Asks Cloudflare once where the hub runs, and keeps the answer: a hub never moves. A failed ask is tried again next time. */
-export class TracedPlace implements HubPlace {
-  private asking: Promise<string | null> | null = null;
+const traceText = async (url: string): Promise<string> => (await fetch(url, { signal: AbortSignal.timeout(PLACE_ASK_MS) })).text();
 
+/**
+ * Where the hub runs, as Cloudflare last said. The hub asks again each time it is built (`refresh`), without waiting for the
+ * answer, so no command ever waits on the network; until a first answer arrives there is no place to show.
+ */
+export class TracedPlace implements HubPlace {
   constructor(
     private readonly kv: PlatformKv,
-    private readonly fetchText: (url: string) => Promise<string> = async (url) => (await fetch(url)).text(),
+    private readonly fetchText: (url: string) => Promise<string> = traceText,
   ) {}
 
   code(): Promise<string | null> {
-    const known = this.kv.get<string>(PLACE_KEY);
-    if (known !== undefined) return Promise.resolve(known);
-    this.asking ??= this.ask();
-    return this.asking;
+    return Promise.resolve(this.kv.get<string>(PLACE_KEY) ?? null);
   }
 
-  private async ask(): Promise<string | null> {
+  /** Asks Cloudflare where the hub runs and keeps the answer; an ask that fails or takes too long keeps the place known before. */
+  async refresh(): Promise<void> {
     const code = coloOf(await this.fetchText(TRACE_URL).catch(() => ''));
-    if (code === null) this.asking = null;
-    else this.kv.put(PLACE_KEY, code);
-    return code;
+    if (code !== null) this.kv.put(PLACE_KEY, code);
   }
 }

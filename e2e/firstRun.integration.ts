@@ -137,7 +137,11 @@ describe('a first-time teacher on an empty school', () => {
   });
 
   it('shows at the foot of the home page a dot beside the note, never over it, whose tip says where the hub runs', async () => {
-    await teacher.until('the dot that says where the hub runs', () => teacher.exists('.data-note__dot'));
+    await teacher.until('the dot that says where the hub runs', async () => {
+      if (await teacher.exists('.data-note__dot')) return true;
+      await teacher.page.reload({ waitUntil: 'networkidle0' });
+      return teacher.exists('.data-note__dot');
+    });
     const apart = await teacher.page.evaluate(() => {
       const lane = document.querySelector('.data-note__lane')?.getBoundingClientRect();
       const dot = document.querySelector('.data-note__dot')?.getBoundingClientRect();

@@ -88,6 +88,27 @@
 }
 
 /*
+ * The home page reaches the foot of the screen, so its note sits on the bottom edge: under the last lesson on a long page, at the
+ * bottom of the screen on a short one, never part way up. The page is a column for that, with its usual gap between sections.
+ */
+.shell:has(.data-note) .shell__body {
+  flex: 1;
+}
+
+.shell__main:has(.data-note) {
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+  padding-block-end: 0;
+}
+
+.page:has(> .data-note) {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+
+/*
  * The note at the foot of the home page: quiet, one centred line, and gone while the browser is full screen. The sentence keeps
  * to its own lane; the dot that says where the hub runs has the column at the end edge (bottom left), so the two never meet. A
  * column of the same width at the start edge keeps the sentence centred, and both are there before the dot is, so nothing moves.
@@ -98,7 +119,7 @@
   gap: 12px;
   align-items: center;
   inline-size: 100%;
-  margin-block-start: 24px;
+  margin-block-start: auto;
   padding-block: 12px;
   border-block-start: 1px solid var(--line-soft);
   color: var(--muted);

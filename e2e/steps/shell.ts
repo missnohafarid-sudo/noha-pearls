@@ -6,6 +6,8 @@ import type { World } from '../world';
 const TABLET: Viewport = { width: 600, height: 800 };
 const PHONE_SIZE: Viewport = { width: 390, height: 800 };
 const LONG_PAGE = 3000;
+/** Taller than the home page ever is in the walkthrough, so the page is shorter than the screen. */
+const TALL_SCREEN = 4000;
 const BAR = '.shell__bar';
 const MENU_BUTTON = `${BAR} .shell__menu-button`;
 const MENU_LIST = `${BAR} .shell__menu-list`;
@@ -34,6 +36,13 @@ const noteFacts = (device: Device) =>
       oneLine: copies.every((copy) => getComputedStyle(copy).whiteSpace === 'nowrap'),
       fits: note.scrollWidth <= note.clientWidth,
     };
+  });
+
+/** How far the note's bottom edge is from the bottom of the page, and from the bottom of the screen, in whole pixels. */
+const noteGap = (device: Device) =>
+  device.page.$eval('.data-note', (note) => {
+    const bottom = note.getBoundingClientRect().bottom;
+    return { fromPage: Math.round(document.documentElement.scrollHeight - (bottom + window.scrollY)), fromScreen: Math.round(window.innerHeight - bottom) };
   });
 
 /** How far the running note has moved to the right right now, in pixels. */
@@ -143,6 +152,14 @@ export function shellSteps(world: World): void {
     await visitor.waitFor(t.home.dataNote);
     expect(await noteFacts(visitor)).toMatchObject({ animation: 'none', copies: 1, align: 'center', fits: true });
     expect(await visitor.exists('.data-note__dot'), 'this build has no hub to say where it runs').toBe(false);
+    expect((await noteGap(visitor)).fromPage, 'the note is not on the bottom edge of the page').toBe(0);
+    await visitor.page.close();
+  });
+
+  it('on a screen taller than the home page the note sits on the bottom edge of the screen, not part way up', async () => {
+    const visitor = await Device.open(world.browser, 'tall visitor', world.baseUrl, { width: DESKTOP.width, height: TALL_SCREEN }, world.errors);
+    await visitor.waitFor(t.home.dataNote);
+    expect(await noteGap(visitor)).toEqual({ fromPage: 0, fromScreen: 0 });
     await visitor.page.close();
   });
 

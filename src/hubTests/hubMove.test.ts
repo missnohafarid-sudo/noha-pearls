@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { migrate, readMeta, writeMeta } from '../infrastructure/sql/schema';
 import { takeSnapshot } from '../infrastructure/sql/snapshot';
 import { NodeSqlDatabase } from '../infrastructure/testKit/NodeSqlDatabase';
@@ -62,13 +62,14 @@ describe('the hub moving nearer the school', () => {
     expect(fresh.db.all("SELECT id FROM documents WHERE id = 'after'")).toHaveLength(1);
   });
 
-  it('keeps the data when retiring the former hub fails, and retires it on a later start without copying again', async () => {
+  it('does not start when retiring the former hub fails, keeps the data it took, and retires it on the next start without copying again', async () => {
     const former = hub();
+    former.db.run("INSERT INTO documents (collection, id, body) VALUES ('teachers', 't1', '{}')");
     const fresh = hub();
     const { asked, formerHub } = reachable(former, 1);
-    vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
-    await fresh.move.moveIn(HUB_NAME, formerHub);
+    await expect(fresh.move.moveIn(HUB_NAME, formerHub)).rejects.toThrow();
+    expect(takeSnapshot(fresh.db)).toEqual(takeSnapshot(former.db));
     expect(new HubMove(former.kv, former.db).handedOver()).toBe(false);
 
     await new HubMove(fresh.kv, fresh.db).moveIn(HUB_NAME, formerHub);

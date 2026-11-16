@@ -38,7 +38,8 @@ export class HubMove {
 
   /**
    * On every start, before any part reads this hub's storage: the first start of the hub named `HUB_NAME` takes all the former
-   * hub's data, then retires the former hub (again on a later start, if that failed). Only a hub that has not moved needs its name
+   * hub's data, then retires the former hub. A failed retire stops the start, and the data it stored stays: the next start
+   * retires the former hub without copying again. Only a hub that has not moved needs its name
    * to know which it is; one reached without it does not start rather than open an empty school.
    */
   async moveIn(name: string | undefined, formerHub: () => FormerHub): Promise<void> {
@@ -53,12 +54,8 @@ export class HubMove {
       });
     }
     if (this.kv.get<boolean>(FORMER_RETIRED) === true) return;
-    try {
-      await formerHub().retire();
-      this.kv.put(FORMER_RETIRED, true);
-    } catch (error) {
-      console.error(error);
-    }
+    await formerHub().retire();
+    this.kv.put(FORMER_RETIRED, true);
   }
 
   /** The former hub's first half: it answers nothing until it is built again, and returns all its data. */

@@ -505,9 +505,8 @@ describe('the local server', () => {
       rmSync(probeState, { recursive: true, force: true });
     });
 
-    it('takes all the former hub’s data on its first start: a teacher added there, the teacher’s sign-in and the device; the former hub then answers nothing', async () => {
-      const former = `${probed.origin}${FORMER_HUB_PATH}`;
-      let target = former;
+    it('takes all the former hub’s data on its first start: a teacher added there, the teacher’s sign-in and the device; the former hub then answers nothing, also once built again', async () => {
+      let target = `${probed.origin}${FORMER_HUB_PATH}`;
       const seat = new Device(() => target, '10.6.6.6');
       await seat.hello();
       expect(await seat.signIn(rightPassword(), await rightCode())).toBe(true);
@@ -524,9 +523,11 @@ describe('the local server', () => {
       expect(teachers.map((entry) => entry.name)).toContain('Before the move');
       after.close();
 
-      target = former;
-      expect((await seat.post('/api/hello')).status).toBe(STATUS_HUB_MOVED);
-    }, STARTUP_MS);
+      await probed.stop();
+      probed = await start(probeState, { withSecrets: true, config: PROBE_CONFIG });
+      target = `${probed.origin}${FORMER_HUB_PATH}`;
+      expect((await seat.post('/api/hello')).status, 'the former hub answered again once built again, so its retirement was not kept').toBe(STATUS_HUB_MOVED);
+    }, STARTUP_MS * 2);
   });
 
   describe('a restart on the same storage', () => {

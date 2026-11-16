@@ -112,6 +112,18 @@ function HomeAdminPanels({ site, tree, openId }: { site: SiteContent; tree: Fold
   );
 }
 
+/** The note at the foot of the home page. On a phone it runs across in one line, like a news ticker, so the copy after it closes the loop. */
+function DataNote() {
+  return (
+    <footer className="data-note">
+      <p className="data-note__track">
+        <span>{th.dataNote}</span>
+        <span aria-hidden="true">{th.dataNote}</span>
+      </p>
+    </footer>
+  );
+}
+
 function Library({ view, openId }: { view: LibraryView; openId: Id | null }) {
   const open = (folderId: Id | null) => navigate(homeRoute(folderId));
   return view.admin ? <ManagedLibrary view={view} openId={openId} onOpen={open} /> : <PublicLibrary view={view} openId={openId} onOpen={open} />;
@@ -151,6 +163,7 @@ export function HomePage() {
         {view ? <Library view={view} openId={openId} /> : <Loading />}
       </section>
       <HomeAdminPanels site={site} tree={view?.tree} openId={openId} />
+      <DataNote />
     </div>
   );
 }

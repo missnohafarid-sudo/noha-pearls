@@ -86,3 +86,63 @@
   transform: var(--lift);
   box-shadow: var(--shadow-lift);
 }
+
+/* The note at the foot of the home page: quiet, one centred line, and gone while the browser is full screen. */
+.data-note {
+  inline-size: 100%;
+  margin-block-start: 24px;
+  padding-block: 12px;
+  border-block-start: 1px solid var(--line-soft);
+  overflow: hidden;
+  container-type: inline-size;
+  color: var(--muted);
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.data-note__track > [aria-hidden] {
+  display: none;
+}
+
+@media (display-mode: fullscreen) {
+  .data-note {
+    display: none;
+  }
+}
+
+/*
+ * On a phone the sentence runs as one line, like a news ticker. It moves toward the start edge (to the right, the site is
+ * right to left), so its first word comes in first; the copy after it closes the loop, each copy at least as wide as the note
+ * so no gap opens on a wider phone. A touch holds it still. A reader who
+ * asked for less motion sees it wrapped instead.
+ */
+@media (max-width: 760px) and (prefers-reduced-motion: no-preference) {
+  .data-note {
+    text-align: start;
+  }
+
+  .data-note__track {
+    display: flex;
+    inline-size: max-content;
+    animation: data-note-run 20s linear infinite;
+  }
+
+  .data-note__track > span,
+  .data-note__track > [aria-hidden] {
+    display: block;
+    min-inline-size: 100cqi;
+    padding-inline-end: 48px;
+    white-space: nowrap;
+  }
+
+  .data-note:hover .data-note__track,
+  .data-note:active .data-note__track {
+    animation-play-state: paused;
+  }
+}
+
+@keyframes data-note-run {
+  to {
+    transform: translateX(50%);
+  }
+}

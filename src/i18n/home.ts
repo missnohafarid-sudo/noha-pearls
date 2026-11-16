@@ -13,6 +13,8 @@ export const home = {
     chooseGroup: 'اختاري مجموعتكِ',
   },
   lessonsTitle: 'الدروس',
+  /** The note at the foot of the home page about who sees the students' data. */
+  dataNote: 'بيانات الطالبات لا يتم الوصول لها إلا بعد الدخول والمصادقة وتظهر للمعلمات فقط',
   noLessons: 'لا توجد دروس بعد.',
   unpublished: 'غير منشور',
   questionCount: (n: number) => `${n} سؤال`,

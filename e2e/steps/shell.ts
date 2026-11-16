@@ -20,6 +20,25 @@ function barFacts(device: Device): Promise<{ top: number; bottom: number; topmos
   });
 }
 
+const NOTE_TRACK = '.data-note .data-note__track';
+
+/** How the note at the foot of the home page is drawn: moving or not, how many copies show, and whether it keeps to one line. */
+const noteFacts = (device: Device) =>
+  device.page.$eval(NOTE_TRACK, (track) => {
+    const note = track.parentElement as HTMLElement;
+    const copies = [...track.children].filter((copy) => getComputedStyle(copy).display !== 'none');
+    return {
+      animation: getComputedStyle(track).animationName,
+      copies: copies.length,
+      align: getComputedStyle(note).textAlign,
+      oneLine: copies.every((copy) => getComputedStyle(copy).whiteSpace === 'nowrap'),
+      fits: note.scrollWidth <= note.clientWidth,
+    };
+  });
+
+/** How far the running note has moved to the right right now, in pixels. */
+const noteShift = (device: Device) => device.page.$eval(NOTE_TRACK, (track) => new DOMMatrixReadOnly(getComputedStyle(track).transform).m41);
+
 const menuTabs = (device: Device) => device.page.$$eval(MENU_LINK, (links) => links.map((link) => (link as HTMLElement).innerText.trim()));
 
 /** The top bar stays on screen while the page scrolls, and the teacher's tabs become a menu where they no longer fit in a row. */
@@ -116,6 +135,25 @@ export function shellSteps(world: World): void {
     expect(await visitor.page.$eval('.shell__nav', (nav) => getComputedStyle(nav).display)).not.toBe('none');
     const shown = await visitor.page.$$eval('.shell__nav a', (links) => links.map((link) => (link as HTMLElement).innerText.trim()));
     expect(shown).toEqual([t.shell.nav.home, t.shell.nav.board]);
+    await visitor.page.close();
+  });
+
+  it('the home page ends with the note on the students’ data: on a wide screen one still, centred line', async () => {
+    const visitor = await Device.open(world.browser, 'wide visitor', world.baseUrl, DESKTOP, world.errors);
+    await visitor.waitFor(t.home.dataNote);
+    expect(await noteFacts(visitor)).toMatchObject({ animation: 'none', copies: 1, align: 'center', fits: true });
+    await visitor.page.close();
+  });
+
+  it('on a phone the note runs in one line toward the right, like a news ticker, and holds still in one wrapped line for a reader who asked for less motion', async () => {
+    const visitor = await Device.open(world.browser, 'phone visitor', world.baseUrl, PHONE_SIZE, world.errors);
+    await visitor.waitFor(t.home.dataNote);
+    expect(await noteFacts(visitor)).toMatchObject({ animation: 'data-note-run', copies: 2, oneLine: true });
+    const first = await noteShift(visitor);
+    await visitor.until('the note moved to the right', async () => (await noteShift(visitor)) > first);
+
+    await visitor.page.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'reduce' }]);
+    expect(await noteFacts(visitor)).toMatchObject({ animation: 'none', copies: 1, oneLine: false, fits: true });
     await visitor.page.close();
   });
 

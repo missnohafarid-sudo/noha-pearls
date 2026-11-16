@@ -8,7 +8,7 @@ import { LOCAL_ADMIN_SECRETS } from '../vite.config';
 import { Device, LiveSocket, rightCode, rightPassword, wrongCode } from './hubClient';
 import { build, BUILT_WRANGLER_CONFIG, start, STARTUP_MS, stopEverything, type Server } from './serverProcess';
 import { MAX_POST_BODY_BYTES } from '../src/ports/limits';
-import { FORMER_HUB_PATH, INSTANCE_PATH } from '../src/server/testing/probePaths';
+import { INSTANCE_PATH } from '../src/server/testing/probePaths';
 import { SAMPLE } from './sample';
 
 /** The real local server, driven the way pages drive it: plain requests and one socket per page, each device with its own cookies. */
@@ -489,54 +489,6 @@ describe('the local server', () => {
       await watcher.until(() => (watcher.valuesOf(id).at(-1) as Teacher[]).some((entry) => entry.name === 'After the sleep'));
       [watcher, live].forEach((socket) => socket.close());
     }, STARTUP_MS);
-  });
-
-  describe('the hub moving nearer the school', () => {
-    let probed: Server;
-    const probeState = mkdtempSync(join(tmpdir(), 'noha-pearls-move-'));
-
-    beforeAll(async () => {
-      probed = await start(probeState, { withSecrets: true, config: PROBE_CONFIG });
-    }, STARTUP_MS * 2);
-
-    afterAll(async () => {
-      await probed.stop();
-      rmSync(probeState, { recursive: true, force: true });
-    });
-
-    it('takes all the former hub’s data on its first start: a teacher added there, the teacher’s sign-in and the device; the former hub then keeps none of it', async () => {
-      let target = `${probed.origin}${FORMER_HUB_PATH}`;
-      const seat = new Device(() => target, '10.6.6.6');
-      await seat.hello();
-      expect(await seat.signIn(rightPassword(), await rightCode())).toBe(true);
-      const before = await seat.open();
-      expect(await before.call('teachers', 'add', 'Before the move')).toMatchObject({ ok: true });
-      before.close();
-      const deviceCookie = seat.cookieNamed('noha_device');
-
-      target = probed.origin;
-      expect((await seat.hello()).admin, 'the teacher’s sign-in did not move').toBe(true);
-      expect(seat.cookieNamed('noha_device'), 'the device was given a new identity, so the device key did not move').toBe(deviceCookie);
-      const after = await seat.open();
-      const teachers = await after.firstValue<Teacher[]>('teachers', 'watchTeachers');
-      expect(teachers.map((entry) => entry.name)).toContain('Before the move');
-      after.close();
-
-      await probed.stop();
-      probed = await start(probeState, { withSecrets: true, config: PROBE_CONFIG });
-      target = `${probed.origin}${FORMER_HUB_PATH}`;
-      await seat.hello();
-      const left = await seat.open();
-      const leftNames = (await left.firstValue<Teacher[]>('teachers', 'watchTeachers')).map((entry) => entry.name);
-      expect(leftNames, 'the former hub still keeps the school').not.toContain('Before the move');
-      left.close();
-
-      target = probed.origin;
-      await seat.hello();
-      const kept = await seat.open();
-      expect((await kept.firstValue<Teacher[]>('teachers', 'watchTeachers')).map((entry) => entry.name)).toContain('Before the move');
-      kept.close();
-    }, STARTUP_MS * 2);
   });
 
   describe('a restart on the same storage', () => {

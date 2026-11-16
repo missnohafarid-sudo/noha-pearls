@@ -107,7 +107,7 @@ A teacher. She is not a programmer and cannot judge your code.
 | Whether a method only reads or also writes (the day's limit goes by it) | `services/surfaceEffects.ts` |
 | How the data services are wired together | `services/createDataServices.ts` |
 | Addresses and links | `ui/routing/routes.ts` |
-| Which hub every request goes to, and where it was made | `server/hubName.ts`; the one-time move from the former hub: `server/HubMove.ts` (wired in `server/SchoolHub.ts`), all the school's tables as one value: `infrastructure/sql/snapshot.ts` |
+| Which hub every request goes to, and where it was made | `server/hubName.ts` |
 | Where the hub runs (the data centre), asked once and kept | `ports/hubPlace.ts`, `server/TracedPlace.ts`, read by `services/HubPlaceService.ts`; the places' names in `i18n/home.ts` |
 | The note at the foot of the home page and the dot that says where the hub runs | `ui/pages/HomePage.tsx` (`DataNote`), look in `ui/pages/home.css`; words `t.home.dataNote`, `t.home.hubPlace` |
 | Whether the edit panel shows | `ui/shell/AdminPanel.tsx` |

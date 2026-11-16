@@ -1,4 +1,4 @@
-/** Every request is addressed to the hub by this name; the former hub only gives its data to it once (`HubMove`). */
+/** There is exactly one hub; every request is addressed to it by this name. */
 export const HUB_NAME = 'school-middle-east';
 
 /**
@@ -7,14 +7,9 @@ export const HUB_NAME = 'school-middle-east';
  */
 const HUB_LOCATION = 'me';
 
-/** The hub before it moved nearer the school. The new hub takes all its data from it once; after that it answers nothing. */
-const FORMER_HUB_NAME = 'school';
-
-/** What the platform's namespace of hubs offers: a hub by its name, made where the hint says when it does not exist yet. */
+/** What the platform's namespace of hubs offers: the hub by its name, made where the hint says when it does not exist yet. */
 interface Hubs<Hub> {
   getByName(name: string, options?: { locationHint?: typeof HUB_LOCATION }): Hub;
 }
 
 export const theHub = <Hub>(hubs: Hubs<Hub>): Hub => hubs.getByName(HUB_NAME, { locationHint: HUB_LOCATION });
-
-export const formerHub = <Hub>(hubs: Hubs<Hub>): Hub => hubs.getByName(FORMER_HUB_NAME);

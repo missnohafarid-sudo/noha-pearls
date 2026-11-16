@@ -70,14 +70,9 @@ The D1 database created earlier is unused. It can be deleted in the Cloudflare d
 
 ### Where the hub runs
 
-A Durable Object stays where it was first made, and Cloudflare cannot move it. The first hub, named `school`, was most likely made in the United States: the deploy's smoke test, run from a GitHub runner, was its first visitor, and its answers to Germany took a transatlantic round trip longer than the Worker's own. The data moves to a new hub, `school-middle-east`, made with the location hint `me` (`src/server/hubName.ts`). Cloudflare runs no Durable Objects in the Middle East itself, so it places a `me` hub in the nearest data centre that has them; Qatar cannot be chosen. The dot at the bottom left of the home page note says which data centre the hub runs in.
+A Durable Object stays where it was first made, and Cloudflare cannot move it. The first hub, `school`, was most likely made in the United States: the deploy's smoke test, run from a GitHub runner, was its first visitor. On 2026-11-16 the school's data moved to a new hub, `school-middle-east`, made with the location hint `me` (`src/server/hubName.ts`). Cloudflare runs no Durable Objects in the Middle East itself, so it placed the hub in the nearest data centre that has them: Prague (`PRG`). Qatar cannot be chosen. The dot at the bottom left of the home page note says which data centre the hub runs in (`src/server/TracedPlace.ts`).
 
-The move goes out in three releases, each deployed and checked before the next:
-
-1. A hub marked as handed over refuses every request, closes its sockets and wakes for no alarm. This release only taught the hubs that; nothing marked one yet. Live since 2026-11-16.
-2. The Worker sends everything to the new hub. On its first start, the new hub asks the old one for all its tables (the old one stops answering, in memory only), stores them together with its own "moved in" mark, and then marks the old one as handed over for good. Until that last step succeeds the new hub does not start, so requests fail and are tried again; the copied data stays and is not copied twice. The whole copy goes in one call between hubs, which Cloudflare limits to 32 MiB: check the hub's stored size in the dashboard first. A rollback to release 1 after this gives an outage, never two copies that drift apart. Never roll back past release 1 once release 2 is live.
-3. After the data is confirmed on the live site, the new hub has the old one delete everything it keeps, its alarm too. Only a hub that has handed over for good may do that, so the one copy of the school is never lost; a delete that fails is tried again on the next start without stopping the site.
-4. Then the move code is removed.
+The move went out in four releases: the hubs learned to refuse requests once handed over; the new hub copied every table from the old one and retired it; the old hub deleted all it kept; the move code was removed. The old hub no longer holds any data. The new hub's platform key-value store still has three marks from the move (`moved-in`, `former-retired`, `former-cleared`); nothing reads them any more. To move the hub again, the same steps apply: see the commits of 2026-11-16 for the code.
 
 ### The old Pages site
 

@@ -25,11 +25,6 @@ const MIGRATIONS: readonly (readonly string[])[] = [
   ],
 ];
 
-const META_TABLE = 'meta';
-
-/** Every table the schema makes: all of the school's data, and nothing of the platform's own. */
-export const SCHOOL_TABLES: readonly string[] = [META_TABLE, ...MIGRATIONS.flat().flatMap((statement) => /^\s*CREATE TABLE (\w+)/.exec(statement)?.slice(1) ?? [])];
-
 const SCHEMA_VERSION = 'schema-version';
 
 /** The small table of facts about the database itself: its schema version and the layout of its index. */
@@ -43,7 +38,7 @@ export function writeMeta(db: SqlDatabase, key: string, value: string): void {
 
 /** Creates what is missing and applies the migrations not yet applied; safe to run on every start. */
 export function migrate(db: SqlDatabase): void {
-  db.run(`CREATE TABLE IF NOT EXISTS ${META_TABLE} (key TEXT PRIMARY KEY, value TEXT NOT NULL) WITHOUT ROWID`);
+  db.run('CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL) WITHOUT ROWID');
   const applied = Number(readMeta(db, SCHEMA_VERSION) ?? 0);
   if (applied >= MIGRATIONS.length) return;
   db.transaction(() => {

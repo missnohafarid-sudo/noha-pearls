@@ -49,17 +49,12 @@ export const CLOSE_SESSION_ENDED = 4001;
 export const CLOSE_RATE_LIMITED = 4008;
 /** The socket that sent too fast once too often: its device is now refused for a while. */
 export const CLOSE_DEVICE_LOCKED = 4009;
-/** The hub has handed its data to the hub that replaced it; the page reconnects as after any lost connection, and reaches the new one. */
-export const CLOSE_HUB_MOVED = 1012;
 
 /** What the hub answers a request it will not take from this device or address, or at this load. It says nothing of why. */
 export const STATUS_TOO_MANY = 429;
 
 /** What the hub answers a hello when the network address has been given all the new devices it may have for now. It says only that. */
 export const STATUS_NETWORK_FULL = 423;
-
-/** What a hub that has handed its data to the hub that replaced it answers every request. */
-export const STATUS_HUB_MOVED = 503;
 
 /** What `POST /api/hello` answers, and what `hello` carries. */
 export interface Hello {

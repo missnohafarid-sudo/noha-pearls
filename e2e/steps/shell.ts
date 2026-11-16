@@ -8,6 +8,8 @@ const PHONE_SIZE: Viewport = { width: 390, height: 800 };
 const LONG_PAGE = 3000;
 /** Taller than the home page ever is in the walkthrough, so the page is shorter than the screen. */
 const TALL_SCREEN = 4000;
+/** Shorter than the home page always is in the walkthrough, so it scrolls. */
+const SHORT_SCREEN: Viewport = { width: DESKTOP.width, height: 420 };
 const BAR = '.shell__bar';
 const MENU_BUTTON = `${BAR} .shell__menu-button`;
 const MENU_LIST = `${BAR} .shell__menu-list`;
@@ -38,7 +40,7 @@ const noteFacts = (device: Device) =>
     };
   });
 
-/** How far the note's bottom edge is from the bottom of the page, and from the bottom of the screen, in whole pixels. */
+/** How far the note's bottom edge is from the end of the page, and from the bottom of the screen, in whole pixels. */
 const noteGap = (device: Device) =>
   device.page.$eval('.data-note', (note) => {
     const bottom = note.getBoundingClientRect().bottom;
@@ -152,7 +154,17 @@ export function shellSteps(world: World): void {
     await visitor.waitFor(t.home.dataNote);
     expect(await noteFacts(visitor)).toMatchObject({ animation: 'none', copies: 1, align: 'center', fits: true });
     expect(await visitor.exists('.data-note__dot'), 'this build has no hub to say where it runs').toBe(false);
-    expect((await noteGap(visitor)).fromPage, 'the note is not on the bottom edge of the page').toBe(0);
+    await visitor.page.close();
+  });
+
+  it('on a page longer than the screen the note stays on the bottom edge of the screen while it scrolls, and hides no lesson at the end', async () => {
+    const visitor = await Device.open(world.browser, 'short-screen visitor', world.baseUrl, SHORT_SCREEN, world.errors);
+    await visitor.waitFor(t.home.dataNote);
+    expect((await noteGap(visitor)).fromScreen, 'the note is not on the bottom edge of the screen').toBe(0);
+    await visitor.page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    await visitor.until('the page scrolled to its end', () => visitor.page.evaluate(() => window.scrollY > 0));
+    expect(await noteGap(visitor)).toEqual({ fromPage: 0, fromScreen: 0 });
+    expect(await visitor.page.$eval('.data-note', (note) => (note.previousElementSibling?.getBoundingClientRect().bottom ?? 0) <= note.getBoundingClientRect().top), 'the note covers the end of the page').toBe(true);
     await visitor.page.close();
   });
 

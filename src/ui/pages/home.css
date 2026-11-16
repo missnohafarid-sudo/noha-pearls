@@ -88,8 +88,9 @@
 }
 
 /*
- * The home page reaches the foot of the screen, so its note sits on the bottom edge: under the last lesson on a long page, at the
- * bottom of the screen on a short one, never part way up. The page is a column for that, with its usual gap between sections.
+ * The home page reaches the foot of the screen, and its note stays on the bottom edge of the screen while the page scrolls under
+ * it, like the top bar at the top. At the end of a long page it keeps a place of its own after the last lesson, so it never hides
+ * one. The page is a column for that, with its usual gap between sections.
  */
 .shell:has(.data-note) .shell__body {
   flex: 1;
@@ -118,10 +119,15 @@
   grid-template-columns: 24px minmax(0, 1fr) 24px;
   gap: 12px;
   align-items: center;
+  position: sticky;
+  inset-block-end: 0;
+  z-index: 10;
   inline-size: 100%;
   margin-block-start: auto;
   padding-block: 12px;
   border-block-start: 1px solid var(--line-soft);
+  background: var(--glass-bar);
+  backdrop-filter: blur(10px);
   color: var(--muted);
   font-size: 0.9rem;
 }
